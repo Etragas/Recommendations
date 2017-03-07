@@ -7,7 +7,7 @@ import os
 
 #Load all data
 f = open("../Data/ml-100k/u.data",'r')
-X = np.zeros((100001,100001))
+X = dok_matrix((100001,100001))
 
 for elem in f.readlines():
     user, item, rating, _ = [int(x) for x in elem.split()]

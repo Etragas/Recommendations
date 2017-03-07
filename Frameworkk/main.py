@@ -23,11 +23,11 @@ model = NMF(80,100,100,data=X)
 model.train()
 
 #Do Inference
-invtrans = model.do_inference()
+invtrans = model.inference(model.parameters)
 print "new model"
 
-print model.parameters.get("colLatents").shape
-print model.parameters.get("rowLatents").shape
+print model.parameters[param_colLatents].shape
+print model.parameters[param_rowLatents].shape
 # Report Error
 sse = 0
 for x in range(100):

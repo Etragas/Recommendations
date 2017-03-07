@@ -1,7 +1,7 @@
 
 # A collection of utility methods for loading data
 import numpy as np
-
+from scipy.sparse import *
 class DataLoader:
 
     MOVIELENS = "Movielens"
