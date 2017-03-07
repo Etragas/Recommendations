@@ -1,4 +1,4 @@
-#Main method for running models
+#Main method Rfor running models
 
 #Start by loading the data
 import numpy as np
@@ -12,15 +12,32 @@ from NMF import *
 #Load all data
 X = DataLoader().LoadData(file_path="../Data/ml-100k/u.data",data_type=DataLoader.MOVIELENS)
 
-denseX = X[:100,:100]
-print X.shape
-X = dok_matrix(denseX)
-
+#Reduce the matrix to toy size
+X = X[:100,:100]
+print(X)
 #Construct Model
-model = NMF(80,100,100,data=X)
+model = NMF(80,data=X)
 
-#Train Model
-model.train()
+#Random batch size
+batch_size = X.shape[1]
+
+#Train the model, using batch learning
+
+for counter in range(0,1000,1):
+    #Generate indices for users
+    data_indices = range(X.shape[1])
+    #Shuffle the indices so we can have random batches
+    np.random.shuffle(data_indices)
+    #Chunks represent units of users we'll test against
+    chunks = [data_indices[x:x+batch_size] for x in range(0,len(data_indices),batch_size)]
+
+    for user_indices in chunks:
+        #Create data-matrix for chosen users
+        batch, user_indices, movie_indices = DataLoader().getBatch(X, user_indices, 'u')
+        model.train(latent_indices=[user_indices,movie_indices],data=batch)
+        #Print loss
+        if (counter%100 == 0):
+            print("final loss is ",model.loss(model.parameters,X))
 
 #Do Inference
 invtrans = model.inference(model.parameters)
@@ -28,15 +45,6 @@ print "new model"
 
 print model.parameters[param_colLatents].shape
 print model.parameters[param_rowLatents].shape
-# Report Error
-sse = 0
-for x in range(100):
-    for y in range(100):
-        sse += (denseX[x,y]-invtrans[x,y])**2
 
-
-print sse
-#Then construct the model
-#Run training on the model
-#Run inference on the model
-#Do some visualizations
+print(X)
+print(np.round(invtrans))

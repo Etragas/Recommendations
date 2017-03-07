@@ -8,35 +8,66 @@ param_colLatents = 1
 
 class NMF():
 
-    def __init__(self,n_components=0, row_size = 0, col_size = 0, data = None):
-        #TODO: Extract row, col from data
+    def __init__(self,n_components=0, data = None):
+        row_size,col_size = data.shape
         self.components = n_components
         self.data = data
-        self.parameters = [np.zeros((row_size,n_components)), np.zeros((n_components,row_size))]
+        self.parameters = [np.random.rand(row_size,n_components), np.random.rand(n_components,col_size)]
         self.loss = self.defaultLoss
         self.inference = self.defaultInference
-        self.model = NMFSCIKIT(n_components=n_components, init='random', random_state=0, max_iter = 1000, alpha=.00, l1_ratio=.0)
-
-
 
     def defaultLoss(self,parameters,data):
-        #Squared error term
-        error = np.square(data-self.inference(parameters)).sum()
-        return error
+        """
+        Compute simplified version of squared loss with penalty on vector norms
+        :param parameters: Same as class parameter, here for autograd
+        :param data:
+        :return: A scalar denoting the loss
+        """
+        #Frobenius Norm squared error term
+        loss = np.square(data-self.inference(parameters)).sum()
+        + .1*(np.square(parameters[0].sum()) + np.square(parameters[1].sum()))
+        return loss
 
-    def defaultInference(self, parameters, indices=None):
+    def defaultInference(self, parameters):
+        """
+        Default inference method. In this case, just inner product.
+        :param parameters: Same as class parameter, here for autograd
+        :return: Scalar denoting rating
+        """
         rowLatents = parameters[0]
         colLatents = parameters[1]
+        #If indices aren't zero, we take the appropriate subsets
         pred = np.dot(rowLatents,colLatents)
+        return pred
 
-        if (indices == None):
-            return pred
+    def train(self,alpha = .0005, max_iter = 20,latent_indices = None,data = None):
+        """
+        This method just runs training with some special functions to support batch learning.
+        It uses the latent_indices to only use the parameters necessary for the batch.
+
+        :param alpha: Gradient penalty
+        :param latent_indices: In the case of batch learning, these are the user,movie latents needed
+        """
+        #Old way of training, useful for debugging
+        #self.parameters[param_rowLatents] = self.model.fit_transform(self.data)
+        #self.parameters[param_colLatents] = self.model.components_
+
+        train_data = self.data if data is None else data
+        parameters = [[],[]]
+
+        if latent_indices is None:
+            parameters = self.parameters
         else:
-            return pred[indices]
+            parameters[0] = self.parameters[0][latent_indices[0],:]
+            parameters[1] = self.parameters[1][:,latent_indices[1]]
 
-    def train(self):
-        global param_rowLatents, param_colLatents
-        self.parameters[param_rowLatents] = self.model.fit_transform(self.data)
-        self.parameters[param_colLatents] = self.model.components_
-        print("loss is", self.loss(self.parameters,self.data))
-        print(grad(self.loss,0)(self.parameters,self.data))
+        for iter in range(0,max_iter):
+            #print("loss is", self.loss(parameters ,data))
+            grads = grad(self.loss,0)(parameters ,train_data)
+            #print(grads[1].shape)
+            parameters[0] += -alpha*grads[0]
+            parameters[1] += -alpha*grads[1]
+
+        if latent_indices is not None:
+            self.parameters[0][latent_indices[0] , :] = parameters[0]
+            self.parameters[1][: , latent_indices[1]] = parameters[1]
