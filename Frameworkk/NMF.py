@@ -40,7 +40,12 @@ class NMF():
         pred = np.dot(rowLatents,colLatents)
         return pred
 
-    def train(self,alpha = .0005, max_iter = 20,latent_indices = None,data = None):
+    def rowlessInference(self, parameters):
+        user_latents = np.transpose(np.dot(parameters[1],self.data))/self.components
+        val = np.dot(user_latents,parameters[1])
+        return val
+
+    def train(self,alpha = .0001, max_iter = 20,latent_indices = None,data = None):
         """
         This method just runs training with some special functions to support batch learning.
         It uses the latent_indices to only use the parameters necessary for the batch.

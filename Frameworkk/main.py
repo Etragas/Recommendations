@@ -34,10 +34,11 @@ for counter in range(0,1000,1):
     for user_indices in chunks:
         #Create data-matrix for chosen users
         batch, user_indices, movie_indices = DataLoader().getBatch(X, user_indices, 'u')
+        #model.inference = model.rowlessInference
         model.train(latent_indices=[user_indices,movie_indices],data=batch)
         #Print loss
-        if (counter%100 == 0):
-            print("final loss is ",model.loss(model.parameters,X))
+    if (counter%100 == 0):
+        print("final loss is ",model.loss(model.parameters,X))
 
 #Do Inference
 invtrans = model.inference(model.parameters)
