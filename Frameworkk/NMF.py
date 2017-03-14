@@ -24,11 +24,12 @@ class NMF():
         :return: A scalar denoting the loss
         """
         #Frobenius Norm squared error term
-        loss = np.square(data-self.inference(parameters)).sum()
-        + 1*(np.square(parameters[0]).sum() + np.square(parameters[1]).sum())
+        keeper = data > 0
+        loss = np.square(data-keeper*self.inference(parameters,data)).sum()
+        + .1*(np.square(parameters[0]).sum() + np.square(parameters[1]).sum())
         return loss
 
-    def defaultInference(self, parameters):
+    def defaultInference(self, parameters,data = None):
         """
         Default inference method. In this case, just inner product.
         :param parameters: Same as class parameter, here for autograd
@@ -42,8 +43,11 @@ class NMF():
 
 
     #use n for data , #k for latents, R and C
-    def rowlessInference(self, parameters):
-        user_latents = np.dot(self.data,np.transpose(parameters[1]))
+    def rowlessInference(self, parameters, data = None):
+        if data is None:
+            data = self.data
+
+        user_latents = np.dot(data,np.transpose(parameters[1]))
         val = np.dot(user_latents,parameters[1])
         return val
 

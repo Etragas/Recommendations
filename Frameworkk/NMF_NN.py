@@ -26,10 +26,11 @@ class NMF_NN(NMF):
         """
         #Frobenius Norm squared error term
         regTerms = 0
+        keeper = data > 0
         for i in range (self.NET_DEPTH):
             regTerms = np.square(self.parameters[i][0]).sum() + np.square(self.parameters[i][1]).sum()
         regTerms += np.square(self.parameters[self.NET_DEPTH]).sum()
-        loss = np.square(data-self.inference(parameters)).sum() + .1*regTerms
+        loss = np.square(data-keeper*self.inference(parameters)).sum() + .1*regTerms
         return loss
 
 #Credit to David Duvenaud for sleek init code
