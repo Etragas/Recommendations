@@ -14,24 +14,7 @@ class NMF_NN(NMF):
         self.parameters.append(self.data)
         self.parameters = list(self.parameters)
         self.train = self.train_neural_net
-        self.loss = self.nnLoss
         self.inference = self.neural_net_inference
-
-    def nnLoss(self,parameters,data):
-        """
-        Compute simplified version of squared loss with penalty on vector norms
-        :param parameters: Same as class parameter, here for autograd
-        :param data:
-        :return: A scalar denoting the loss
-        """
-        #Frobenius Norm squared error term
-        regTerms = 0
-        keeper = data > 0
-        for i in range (self.NET_DEPTH):
-            regTerms = np.square(self.parameters[i][0]).sum() + np.square(self.parameters[i][1]).sum()
-        regTerms += np.square(self.parameters[self.NET_DEPTH]).sum()
-        loss = np.square(data-keeper*self.inference(parameters)).sum() + .1*regTerms
-        return loss
 
 #Credit to David Duvenaud for sleek init code
     def init_random_params(self, scale, layer_sizes, rs=np.random.RandomState(0)):

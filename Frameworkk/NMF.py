@@ -25,8 +25,7 @@ class NMF():
         """
         #Frobenius Norm squared error term
         keeper = data > 0
-        loss = np.square(data-keeper*self.inference(parameters,data)).sum()
-        + .1*(np.square(parameters[0]).sum() + np.square(parameters[1]).sum())
+        loss = np.square(data-keeper*self.inference(parameters,data)).sum() + .1 * self.param_loss(parameters)
         return loss
 
     def defaultInference(self, parameters,data = None):
@@ -50,6 +49,7 @@ class NMF():
         user_latents = np.dot(data,np.transpose(parameters[1]))
         val = np.dot(user_latents,parameters[1])
         return val
+
 
     def train(self,alpha = .000001, max_iter = 20,latent_indices = None,data = None):
         """
@@ -82,3 +82,13 @@ class NMF():
         if latent_indices is not None:
             self.parameters[0][latent_indices[0] , :] = parameters[0]
             self.parameters[1][: , latent_indices[1]] = parameters[1]
+
+    def param_loss(self,params,loss=0):
+        if type(params) is np.numpy_extra.ArrayNode or type(params) is np.ndarray:
+            val = np.square(params).sum()
+            return val
+
+        for x in params:
+            return self.param_loss(x,loss)
+
+
