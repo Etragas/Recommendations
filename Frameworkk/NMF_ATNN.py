@@ -58,30 +58,39 @@ class NMF_ATNN(NMF):
             #Updating col_latents
             self.parameters[self.NET_DEPTH] += -alpha*grads[self.NET_DEPTH]
 
-    def neural_net_inference(self,parameters):
+    def neural_net_inference(self,parameters, data = None):
             net_parameters = parameters[:2]
-            conversion_parameters = parameters[2:4]
+            colLatents = parameters[self.NET_DEPTH]
+
             temp_attention = []
             colLatents = parameters[self.NET_DEPTH]
             for i in range(self.col_size):
-              ratings = self.data[i,:].reshape([1,10])
-              ratings_high = ratings > 0
-              reduced_latents = colLatents[:,np.ndarray.flatten(ratings_high)]
-              reduced_ratings = ratings[:,np.ndarray.flatten(ratings_high)]
-              temp_colLatents = np.concatenate((colLatents,ratings), axis=0) * (ratings > 0)
-              temp_reduced_colLatents = np.concatenate((reduced_latents,reduced_ratings), axis=0)
+              ratings = self.data[i,:].reshape([1,10]) #Data preproc
+              ratings_high = ratings > 0 #Data preproc
+              reduced_latents = colLatents[:,np.ndarray.flatten(ratings_high)] #Data prepoc
+              reduced_ratings = ratings[:,np.ndarray.flatten(ratings_high)] #Data prepoc
+              temp_colLatents = np.concatenate((colLatents,ratings), axis=0) * (ratings > 0) #Data prepoc, this has zeros
+              temp_reduced_colLatents = np.concatenate((reduced_latents,reduced_ratings), axis=0) #Data prepoc
 
-              #This is broken and stupid
-              dense_attention = softmax(self.neural_net_predict(net_parameters,np.transpose(temp_reduced_colLatents)))[:,0]
-              sparse_attention = np.array((self.listify(ratings_high[0,:],np.transpose(dense_attention))))
-              #sparse_latents = np.array((self.listify(ratings_high[0,:],np.transpose(reduced_latents))))
-              temp_attention.append(sparse_attention)
-              trans_col_latents = np.transpose(self.neural_net_predict(conversion_parameters,np.transpose(colLatents)))
-              #print(temp_attention[-1])
-            #print(temp_attention[0].shape)
-            #raw_input()
+              #All above, outside grad.
+              #
+              #This is ugly
+              dense_attention = softmax(self.neural_net_predict(net_parameters,np.transpose(temp_reduced_colLatents)))[:,0] #Inference
+              sparse_attention = np.array((self.listify(ratings_high[0,:],np.transpose(dense_attention)))) #Inference
+              #sparse_latents = np.array((self.listify(ratings_high[0,:],np.transpose(reduced_latents)))) #Inference
+              temp_attention.append(sparse_attention) #Inference
+
             attention = np.transpose((np.array(temp_attention)))
-            return np.dot(np.transpose(np.dot(colLatents, attention)),colLatents)
+            return np.dot(np.transpose(np.dot(colLatents, attention)),colLatents) #Actual inference
+
+""" Final ideal
+            net_parameters = parameters[:2]
+            colLatents = parameters[self.NET_DEPTH]
+            dense_attention = softmax(self.neural_net_predict(net_parameters,np.transpose(temp_reduced_colLatents)))[:,0] #Inference
+            sparse_attention = np.array((self.listify(ratings_high[0,:],np.transpose(dense_attention)))) #Inference
+            attention = np.transpose((np.array(sparse_attention)))
+            return np.dot(np.transpose(np.dot(colLatents, attention)),colLatents) #Actual inference
+"""
 
     def listify(self,indicator, data):
         data_ind = 0
