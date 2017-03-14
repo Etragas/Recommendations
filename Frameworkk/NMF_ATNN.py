@@ -4,7 +4,7 @@ from NMF import NMF
 
 class NMF_ATNN(NMF):
 
-    def __init__(self,n_components=0, data = None, scale = .1, layer_sizes = []):
+    def __init__(self,n_components=0, data = None, scale = .2, layer_sizes = []):
         NMF.__init__(self,n_components,data)
         self.NET_DEPTH = len(layer_sizes)-1
         self.row_size, self.col_size = data.shape
@@ -30,23 +30,25 @@ class NMF_ATNN(NMF):
         for i in range (self.NET_DEPTH):
             regTerms = np.square(self.parameters[i][0]).sum() + np.square(self.parameters[i][1]).sum()
         regTerms += np.square(self.parameters[self.NET_DEPTH]).sum()
-        loss = np.square(data-self.inference(parameters)).sum()# + .1*regTerms
+        keep = data > 0
+        loss = np.square(data-keep * self.inference(parameters)).sum() + .1*regTerms
         return loss
 
 #Credit to David Duvenaud for sleek init code
     def init_random_params(self, scale, layer_sizes, rs=np.random.RandomState(0)):
         """Build a list of (weights, biases) tuples,
            one for each layer in the net."""
-        return [(scale * rs.randn(m, n),   # weight matrix
-                 scale * rs.randn(n))      # bias vector
+        return [(1 * rs.randn(m, n),   # weight matrix
+                 1* rs.randn(n))      # bias vector
                 for m, n in zip(layer_sizes[:-1], layer_sizes[1:])]
 
-    def train_neural_net(self,alpha = .0001, max_iter = 20,latent_indices = None,data = None):
+    def train_neural_net(self,alpha = .001, max_iter = 1,latent_indices = None,data = None):
         train_data = self.data if data is None else data
         for iter in range(0,max_iter):
-            #Get gradients
+            print "before"
             grads = grad(self.loss,0)(self.parameters, train_data)
-
+            print "after"
+            #Get gradients
             #Update parameters
             for i in range (self.NET_DEPTH):
                 #Updating net weights
@@ -59,14 +61,14 @@ class NMF_ATNN(NMF):
             temp_attention = []
             colLatents = parameters[self.NET_DEPTH]
             for i in range(self.col_size):
-              temp_colLatents = np.concatenate((parameters[self.NET_DEPTH], self.data[i][:self.col_size].reshape([1,100]) ), axis=0)
-
+              ratings = self.data[i,:].reshape([1,100])
+              temp_colLatents = np.concatenate((parameters[self.NET_DEPTH],ratings * 10), axis=0) * (ratings > 0)
               #This is broken and stupid
-              temp_attention.append(np.transpose(self.neural_net_predict(net_parameters,np.transpose(temp_colLatents))))
-              #print(temp_attention[0].shape)
-            
-            attention = np.transpose(np.array(temp_attention).reshape([100,100]))
-
+              temp_attention.append((self.neural_net_predict(net_parameters,np.transpose(temp_colLatents)))[:,0])
+              #print(temp_attention[-1])
+            #print(temp_attention[0].shape)
+            #raw_input()
+            attention = np.transpose((np.array(temp_attention)))
             return np.dot(np.transpose(np.dot(colLatents, attention)),colLatents)
 
 
@@ -76,6 +78,7 @@ class NMF_ATNN(NMF):
         W2, b2 = net_parameters[1]
         layer2 = relu(np.dot(input_data,W1) + b1)
         layer3 = relu(np.dot(layer2,W2) + b2)
+
         return softmax(layer3)
 
 def softmax(x):

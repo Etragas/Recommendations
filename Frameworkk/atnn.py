@@ -16,13 +16,12 @@ full_data  = DataLoader().LoadData(file_path="../Data/ml-100k/u.data",data_type=
 X = full_data[:100,:100]
 print(X)
 #Construct Model
-latent_size = 80
+latent_size = 40
 
-model = NMF_ATNN(n_components=latent_size,data=X,layer_sizes=[latent_size + 1, 40, 1])
+model = NMF_ATNN(n_components=latent_size,data=X,layer_sizes=[latent_size + 1, 80, 1])
 model.inference = model.neural_net_inference
 
-
-for counter in range(0,1000):
+for counter in range(0,30):
     model.train()
 
     print(counter)
