@@ -37,7 +37,7 @@ class NMF_NN(NMF):
             #Updating col_latents
             self.parameters[self.NET_DEPTH] += -alpha*grads[self.NET_DEPTH]
 
-    def neural_net_inference(self,parameters):
+    def neural_net_inference(self,parameters,data = None):
             net_parameters = parameters[:self.NET_DEPTH]
             colLatents = parameters[self.NET_DEPTH]
 

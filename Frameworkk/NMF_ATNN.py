@@ -4,14 +4,16 @@ from NMF import NMF
 
 class NMF_ATNN(NMF):
 
-    def __init__(self,n_components=0, data = None, scale = .2, layer_sizes = []):
+    def __init__(self,n_components=0, data = None, scale = .1, layer_sizes = []):
         NMF.__init__(self,n_components,data)
-        self.NET_DEPTH = len(layer_sizes)-1
         self.row_size, self.col_size = data.shape
         self.parameters = self.init_random_params(scale,layer_sizes)#parameters is the [[w, b],...] so far
+        self.parameters+=(self.init_random_params(scale,[n_components,80,n_components]))#parameters is the [[w, b],...] so far
+        print(len(self.parameters))
+        self.NET_DEPTH = len(self.parameters)
         print(self.parameters)
         #Append column latents to end.
-        self.parameters.append(scale*np.random.rand(n_components,self.col_size))#parameters is the [[w, b],...]
+        self.parameters.append(scale * np.random.rand(n_components,self.col_size))#parameters is the [[w, b],...]
         self.parameters.append(data)
         self.parameters = list(self.parameters)
         self.train = self.train_neural_net
@@ -28,21 +30,21 @@ class NMF_ATNN(NMF):
         #Frobenius Norm squared error term
         regTerms = 0
         for i in range (self.NET_DEPTH):
-            regTerms = np.square(self.parameters[i][0]).sum() + np.square(self.parameters[i][1]).sum()
+            regTerms += np.square(self.parameters[i][0]).sum() + np.square(self.parameters[i][1]).sum()
         regTerms += np.square(self.parameters[self.NET_DEPTH]).sum()
         keep = data > 0
-        loss = np.square(data-keep * self.inference(parameters)).sum() + .1*regTerms
+        loss = np.square(data- keep*self.inference(parameters)).sum() + .1*regTerms
         return loss
 
 #Credit to David Duvenaud for sleek init code
     def init_random_params(self, scale, layer_sizes, rs=np.random.RandomState(0)):
         """Build a list of (weights, biases) tuples,
            one for each layer in the net."""
-        return [(1 * rs.randn(m, n),   # weight matrix
-                 1* rs.randn(n))      # bias vector
+        return [( scale + scale * rs.randn(m, n),   # weight matrix
+                 scale + scale *  rs.randn(n))      # bias vector
                 for m, n in zip(layer_sizes[:-1], layer_sizes[1:])]
 
-    def train_neural_net(self,alpha = .001, max_iter = 1,latent_indices = None,data = None):
+    def train_neural_net(self,alpha = .003, max_iter = 1,latent_indices = None,data = None):
         train_data = self.data if data is None else data
         for iter in range(0,max_iter):
             print "before"
@@ -57,20 +59,40 @@ class NMF_ATNN(NMF):
             self.parameters[self.NET_DEPTH] += -alpha*grads[self.NET_DEPTH]
 
     def neural_net_inference(self,parameters):
-            net_parameters = parameters[:self.NET_DEPTH]
+            net_parameters = parameters[:2]
+            conversion_parameters = parameters[2:4]
             temp_attention = []
             colLatents = parameters[self.NET_DEPTH]
             for i in range(self.col_size):
-              ratings = self.data[i,:].reshape([1,100])
-              temp_colLatents = np.concatenate((parameters[self.NET_DEPTH],ratings * 10), axis=0) * (ratings > 0)
+              ratings = self.data[i,:].reshape([1,10])
+              ratings_high = ratings > 0
+              reduced_latents = colLatents[:,np.ndarray.flatten(ratings_high)]
+              reduced_ratings = ratings[:,np.ndarray.flatten(ratings_high)]
+              temp_colLatents = np.concatenate((colLatents,ratings), axis=0) * (ratings > 0)
+              temp_reduced_colLatents = np.concatenate((reduced_latents,reduced_ratings), axis=0)
+
               #This is broken and stupid
-              temp_attention.append((self.neural_net_predict(net_parameters,np.transpose(temp_colLatents)))[:,0])
+              dense_attention = softmax(self.neural_net_predict(net_parameters,np.transpose(temp_reduced_colLatents)))[:,0]
+              sparse_attention = np.array((self.listify(ratings_high[0,:],np.transpose(dense_attention))))
+              #sparse_latents = np.array((self.listify(ratings_high[0,:],np.transpose(reduced_latents))))
+              temp_attention.append(sparse_attention)
+              trans_col_latents = np.transpose(self.neural_net_predict(conversion_parameters,np.transpose(colLatents)))
               #print(temp_attention[-1])
             #print(temp_attention[0].shape)
             #raw_input()
             attention = np.transpose((np.array(temp_attention)))
             return np.dot(np.transpose(np.dot(colLatents, attention)),colLatents)
 
+    def listify(self,indicator, data):
+        data_ind = 0
+        final_list = []
+        for bool in indicator:
+            if bool:
+                final_list.append(data[data_ind])
+                data_ind+=1
+            else:
+                final_list.append(0)
+        return final_list
 
     def neural_net_predict(self,net_parameters,input_data):
         #Assume 3 layer net, so net_parameters
@@ -78,8 +100,7 @@ class NMF_ATNN(NMF):
         W2, b2 = net_parameters[1]
         layer2 = relu(np.dot(input_data,W1) + b1)
         layer3 = relu(np.dot(layer2,W2) + b2)
-
-        return softmax(layer3)
+        return layer3
 
 def softmax(x):
     #Compute softmax values for every element in input_data

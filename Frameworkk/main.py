@@ -18,7 +18,7 @@ train,test = full_data[:400,:100], full_data[100:200,:100]
 print(train)
 #Construct Model
 latent_size = 80
-model = NMF_NN(n_components=latent_size,data=train,layer_sizes=[latent_size,200,latent_size])
+#model = NMF_NN(n_components=latent_size,data=train,layer_sizes=[latent_size,200,latent_size])
 model = NMF(n_components=latent_size,data=train)
 model.inference = model.rowlessInference
 

@@ -84,6 +84,7 @@ class NMF():
             self.parameters[1][: , latent_indices[1]] = parameters[1]
 
     def param_loss(self,params,loss=0):
+
         if type(params) is np.numpy_extra.ArrayNode or type(params) is np.ndarray:
             val = np.square(params).sum()
             return val
