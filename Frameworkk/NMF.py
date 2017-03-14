@@ -8,11 +8,11 @@ param_colLatents = 1
 
 class NMF():
 
-    def __init__(self,n_components=0, data = None):
+    def __init__(self,n_components=0, data = None,scale = .1):
         row_size,col_size = data.shape
         self.components = n_components
         self.data = data
-        self.parameters = [np.random.rand(row_size,n_components), np.random.rand(n_components,col_size)]
+        self.parameters = [scale*np.random.rand(row_size,n_components), scale*np.random.rand(n_components,col_size)]
         self.loss = self.defaultLoss
         self.inference = self.defaultInference
 
@@ -25,7 +25,7 @@ class NMF():
         """
         #Frobenius Norm squared error term
         loss = np.square(data-self.inference(parameters)).sum()
-        + .1*(np.square(parameters[0].sum()) + np.square(parameters[1].sum()))
+        + 1*(np.square(parameters[0]).sum() + np.square(parameters[1]).sum())
         return loss
 
     def defaultInference(self, parameters):
@@ -40,12 +40,14 @@ class NMF():
         pred = np.dot(rowLatents,colLatents)
         return pred
 
+
+    #use n for data , #k for latents, R and C
     def rowlessInference(self, parameters):
-        user_latents = np.transpose(np.dot(parameters[1],self.data))/self.components
+        user_latents = np.dot(self.data,np.transpose(parameters[1]))
         val = np.dot(user_latents,parameters[1])
         return val
 
-    def train(self,alpha = .0001, max_iter = 20,latent_indices = None,data = None):
+    def train(self,alpha = .000001, max_iter = 20,latent_indices = None,data = None):
         """
         This method just runs training with some special functions to support batch learning.
         It uses the latent_indices to only use the parameters necessary for the batch.
