@@ -13,7 +13,7 @@ from NMF_ATNN import *
 full_data  = DataLoader().LoadData(file_path="../Data/ml-100k/u.data",data_type=DataLoader.MOVIELENS)
 
 #Reduce the matrix to toy size
-X = full_data[1:11,1:11]
+X = full_data[:100,:100]
 print(X)
 #Construct Model
 latent_size = 40
