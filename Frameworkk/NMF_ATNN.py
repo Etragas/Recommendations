@@ -6,14 +6,6 @@ from autograd.core import primitive
 from autograd.scipy.misc import logsumexp
 
 
-@primitive
-def relu(data):
-    return data * (data > 0)
-
-def relu_vjp(data, ans, vs, gs, x):
-    return np.ones(data.shape) * (x > 0)
-
-relu.defvjp(relu_vjp)
 
 class NMF_ATNN(NMF):
 
@@ -33,7 +25,7 @@ class NMF_ATNN(NMF):
         self.loss = self.nnLoss
         self.inference = self.neural_net_inference
 
-    def nnLoss(self,parameters,data,inf_vals):
+    def nnLoss(self,parameters,data):
         """
         Compute simplified version of squared loss with penalty on vector norms
         :param parameters: Same as class parameter, here for autograd
@@ -43,11 +35,10 @@ class NMF_ATNN(NMF):
         #Frobenius Norm squared error term
         regTerms = 0
         for i in range (self.NET_DEPTH):
-            regTerms += np.square(self.parameters[i][0]).sum() + np.square(self.parameters[i][1]).sum()
-        regTerms += np.square(self.parameters[self.NET_DEPTH]).sum()
+            regTerms = regTerms + np.square(self.parameters[i][0]).sum() + np.square(self.parameters[i][1]).sum()
+        regTerms = regTerms + np.square(self.parameters[self.NET_DEPTH]).sum()
         keep = data > 0
-        inferred = self.inference(parameters,inf_vals=inf_vals)
-        loss = np.square(data- keep*self.inference(parameters,inf_vals=inf_vals)).sum() + .001*regTerms
+        loss = np.square(data*keep-self.inference(parameters)).sum() + .001*regTerms
         return loss
 
 #Credit to David Duvenaud for sleek init code
@@ -58,7 +49,7 @@ class NMF_ATNN(NMF):
                  scale + scale *  rs.randn(n)]     # bias vector
                 for m, n in zip(layer_sizes[:-1], layer_sizes[1:])]
 
-    def train_neural_net(self,alpha = .0003, max_iter = 1,latent_indices = None,data = None):
+    def train_neural_net(self,alpha = .000003, max_iter = 1,latent_indices = None,data = None):
         train_data = self.data if data is None else data
         colLatents = self.parameters[self.NET_DEPTH]
         grads = None
@@ -71,23 +62,9 @@ class NMF_ATNN(NMF):
             op_total = 0
             grad_total = 0
             lgrad = grad(self.loss,0)
-            print relu.vjp
-            for i in range(self.col_size):
-                op_start = time.time()
-                ratings = self.data[i,:].reshape([1,100])
-                ratings_high = ratings > 0
-                reduced_latents = colLatents[:,np.ndarray.flatten(ratings_high)] #Data prepoc
-                reduced_ratings = ratings[:,np.ndarray.flatten(ratings_high)] #Data prepoc
-                temp_reduced_colLatents = np.concatenate((reduced_latents,reduced_ratings), axis=0) #Data prepoc
-                op_total += time.time() - op_start
 
-                grad_start = time.time()
-                if grads is not None:
-                    grads = nested_sum(grads,lgrad(self.parameters, ratings,[colLatents,temp_reduced_colLatents,ratings_high]))
-                else:
-                    grads = lgrad(self.parameters, ratings,[colLatents,temp_reduced_colLatents,ratings_high])
-                loss += self.loss(self.parameters,ratings,[colLatents,temp_reduced_colLatents,ratings_high])
-                grad_total += time.time() - grad_start
+            grad_start = time.time()
+            grads = lgrad(self.parameters, train_data)
             print loss
             print "end", time.time() - start
             print "op total", op_total
@@ -100,16 +77,26 @@ class NMF_ATNN(NMF):
             #Updating col_latents
             self.parameters[self.NET_DEPTH] += -alpha*grads[self.NET_DEPTH]
 
-    def neural_net_inference(self,parameters, data = None, inf_vals = None):
+    def neural_net_inference(self,parameters, data = None):
+        colLatents = self.parameters[self.NET_DEPTH]
+        op_total = 0
+        for i in range(self.row_size):
+            op_start = time.time()
+            ratings = self.data[i,:].reshape([1,100])
+            ratings_high = ratings > 0
+            reduced_latents = colLatents[:,np.ndarray.flatten(ratings_high)] #Data prepoc
+            reduced_ratings = ratings[:,np.ndarray.flatten(ratings_high)] #Data prepoc
+            op_total += time.time() - op_start
+            temp_reduced_colLatents = np.concatenate((reduced_latents,reduced_ratings), axis=0) #Data prepoc
+
             net_parameters = parameters[:2]
             colLatents = parameters[self.NET_DEPTH]
-            temp_reduced_colLatents = inf_vals[1]
-            ratings_high = inf_vals[2]
+            reducedLatents = colLatents[:,ratings_high[0,:]]
             num_dense = ratings_high.sum()
             dense_attention = softmax(self.neural_net_predict(net_parameters,np.transpose(temp_reduced_colLatents))).reshape([num_dense]) #Inference
-            sparse_attention = np.array((self.listify(ratings_high[0,:],np.transpose(dense_attention)))) #Inference
-            attention = np.transpose((np.array(sparse_attention)))
-            return np.dot(np.transpose(np.dot(colLatents, attention)),colLatents) #Actual inference
+            #sparse_attention = np.array((self.listify(ratings_high[0,:],np.transpose(dense_attention)))) #Inference
+            attention = ((np.array(dense_attention)))
+            return np.dot(np.transpose(np.dot(reducedLatents, attention)),colLatents) #Actual inference
 
 # Final ideal
 #             net_parameters = parameters[:2]
@@ -151,3 +138,7 @@ def nested_sum(l1,l2):
         else:
             l1[idx] = nested_sum(l1[idx],l2[idx])
     return l1
+
+
+def relu(data):
+    return data * (data > 0)
