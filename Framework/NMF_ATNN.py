@@ -9,8 +9,6 @@ from autograd.optimizers import adam
 
 
 
-rs=np.random.RandomState(0)
-swap = 0
 class NMF_ATNN(NMF):
 
     def __init__(self,n_components=0, data = None, scale = .1, layer_sizes = []):
