@@ -14,7 +14,7 @@ from NMF_NN import *
 full_data  = DataLoader().LoadData(file_path="../Data/ml-100k/u.data",data_type=DataLoader.MOVIELENS)
 
 #Reduce the matrix to toy size
-train,test = full_data[:400,:100], full_data[100:200,:100]
+train,test = full_data[:400,:100], full_data[400:500,:100]
 print(train)
 #Construct Model
 latent_size = 80
