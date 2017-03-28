@@ -1,27 +1,28 @@
 import autograd.numpy as np
-from autograd.util import flatten
 from autograd import grad
 from NMF import NMF
+from autograd.util import flatten
 import time
+from autograd.core import primitive
+from autograd.scipy.misc import logsumexp
+from autograd.optimizers import adam
+
+
+
 class NMF_ATNN(NMF):
 
     def __init__(self,n_components=0, data = None, scale = .1, layer_sizes = []):
         NMF.__init__(self,n_components,data)
         self.row_size, self.col_size = data.shape
-        self.parameters = self.init_random_params(scale,layer_sizes)#parameters is the [[w, b],...] so far
-        self.parameters+=(self.init_random_params(scale,[n_components,80,n_components]))#parameters is the [[w, b],...] so far
-        print(len(self.parameters))
+        self.parameters = self.init_random_params(scale,layer_sizes)#Neural Net Parameters
         self.NET_DEPTH = len(self.parameters)
-        print(self.parameters)
-        #Append column latents to end.
-        self.parameters.append(scale * np.random.rand(n_components,self.col_size))#parameters is the [[w, b],...]
-        self.parameters.append(data)
+        self.parameters.append(scale * np.random.rand(n_components,self.col_size))#Column Latents
+        self.parameters.append(scale *  np.ones(layer_sizes[-1]))#Attention Latent
         self.parameters = list(self.parameters)
-        self.train = self.train_neural_net
         self.loss = self.nnLoss
         self.inference = self.neural_net_inference
 
-    def nnLoss(self,parameters,data):
+    def nnLoss(self,parameters,iter=0,data=None):
         """
         Compute simplified version of squared loss with penalty on vector norms
         :param parameters: Same as class parameter, here for autograd
@@ -29,118 +30,107 @@ class NMF_ATNN(NMF):
         :return: A scalar denoting the loss
         """
         #Frobenius Norm squared error term
-        regTerms = 0
-        for i in range (self.NET_DEPTH):
-            regTerms += np.square(self.parameters[i][0]).sum() + np.square(self.parameters[i][1]).sum()
-        regTerms += np.square(self.parameters[self.NET_DEPTH]).sum()
+        data = self.data if (data is None) else data
         keep = data > 0
-        loss = np.square(data- keep*self.inference(parameters,data=data)).sum() + regTerms
+
+        # Regularization Terms
+        loss = .001*np.square(flatten(self.parameters)[0]).sum()
+
+        #Generate predictions
+        inferred = self.inference(parameters,data=data)
+
+        #Squared error between
+        for usr_ind in range(data.shape[0]):
+            user_ratings = data[usr_ind,keep[usr_ind,:]]
+            prediction = inferred[usr_ind]
+            loss = loss + np.square(user_ratings - prediction).sum()
         return loss
 
-#Credit to David Duvenaud for sleek init code
+    def getInferredMatrix(self,parameters,data):
+        """
+        Uses the network's predictions to generate a full matrix for comparison.
+        """
+
+        inferred = self.inference(parameters,data=data)
+        newarray = np.zeros((data.shape))
+
+        for i in range(data.shape[0]):
+            ratings_high = data[i,:]>0
+            newarray[i,ratings_high] = inferred[i]
+        return newarray
+
+    #Credit to David Duvenaud for sleek init code
     def init_random_params(self, scale, layer_sizes, rs=np.random.RandomState(0)):
         """Build a list of (weights, biases) tuples,
            one for each layer in the net."""
-        return [( scale + scale * rs.randn(m, n),   # weight matrix
-                 scale + scale *  rs.randn(n))      # bias vector
+        return [(scale * rs.randn(m, n),   # weight matrix
+                  scale * rs.randn(n))      # bias vector
                 for m, n in zip(layer_sizes[:-1], layer_sizes[1:])]
 
-    def train_neural_net(self,alpha = .00001, max_iter = 1,latent_indices = None,data = None):
-        train_data = self.data if data is None else data
-        prev_grads = []
-        cur_grad = []
-        prev_grad_roll = None
-        alt = 0
-        for iter in range(0,10):
-            predicted_data = self.inference(self.parameters,train_data)
-            print("MSE is ",(abs(train_data-(train_data>0)*predicted_data).sum())/((train_data>0).sum()))
-            print(self.loss(self.parameters,self.data))
 
-            start = time.time()
-            print "before", start
-            grads = grad(self.loss,0)(self.parameters, train_data)
-            print "after", time.time() - start
-            #Get gradients
-            #Update parameters
-            if not prev_grads:
-                prev_grads, grad_roll = flatten(grads)
-                prev_grads = grad_roll(prev_grads)
-            else:
-                a = flatten(grads)[0]
-                prev_grads = grad_roll(flatten(prev_grads)[0] * .95 + a)
-            cur_grad = prev_grads
+    def print_perf(self,params, iter=0, gradient=0, data = None):
+        """
+        Prints the performance of the model
+        """
+        data = self.data if (data is None) else data
 
-            if alt == 0:
-                for i in range (self.NET_DEPTH):
-                    #Updating net weights
-                    self.parameters[i] = [self.parameters[i][l] -alpha*cur_grad[i][l] for l in range(len(self.parameters[i]))]
-                print "net_pass"
-                alt = 1
-            else:
-            #Updating col_latents
-                print "col_pass"
-                self.parameters[self.NET_DEPTH] += -alpha*cur_grad[self.NET_DEPTH]
-                alt = 0
+        predicted_data = self.getInferredMatrix(params,data)
+        print("iter is ", iter)
+        print("MSE is ",(abs(data-predicted_data).sum())/((data>0).sum()))
+        print(self.loss(parameters=params,data=data))
 
 
-    def neural_net_inference(self,parameters, data = None):
-            users, movies = data.shape
-            net_parameters = parameters[:3]
-            colLatents = parameters[self.NET_DEPTH]
-            temp_attention = []
-            colLatents = parameters[self.NET_DEPTH]
-            for i in range(users):
-              ratings = self.data[i,:].reshape([1,self.col_size]) #Data preproc
-              ratings_high = ratings > 0 #Data preproc
-              reduced_latents = colLatents[:,np.ndarray.flatten(ratings_high)] #Data prepoc
-              reduced_ratings = ratings[:,np.ndarray.flatten(ratings_high)] #Data prepoc
-              temp_colLatents = np.concatenate((colLatents,ratings), axis=0) * (ratings > 0) #Data prepoc, this has zeros
-              temp_reduced_colLatents = np.concatenate((reduced_latents,reduced_ratings), axis=0) #Data prepoc
+    def neural_net_inference(self,parameters,iter = 0, data = None):
+        """
+        Generates predictions for each user.
+        :param parameters: Parameters of model
+        :param iter: Placeholder for training
+        :param data: data to work on
+        :return: A list of numpy arrays, each of which corresponds to a dense prediction of user ratings.
+        """
+        data = self.data if (data is None or data is 0) else data
+        net_parameters = parameters[:self.NET_DEPTH]
+        colLatents = parameters[self.NET_DEPTH]
+        attention_weight = parameters[self.NET_DEPTH+1]
+        rating_predictions = [0]*data.shape[0]
 
-              #All above, outside grad.
-              #
-              #This is ugly
-              dense_attention = softmax(self.neural_net_predict(net_parameters,np.transpose(temp_reduced_colLatents)))[:,0] #Inference
-              sparse_attention = np.array((self.listify(ratings_high[0,:],np.transpose(dense_attention)))) #Inference
-              #sparse_latents = np.array((self.listify(ratings_high[0,:],np.transpose(reduced_latents)))) #Inference
-              temp_attention.append(sparse_attention) #Inference
+        num_rows, num_columns = data.shape
+        for i in range(num_rows):
+            current_row = data[i,:]
+            rating_indices = flatten(current_row > 0)[0] #Only keep indices where the ratings are non-zero
+            
+            if rating_indices.sum() == 0:
+                rating_predictions[i] = np.array(0)
+                continue
 
-            attention = np.transpose((np.array(temp_attention)))
-            return np.dot(np.transpose(np.dot(colLatents, attention)),colLatents) #Actual inference
+            dense_latents = colLatents[:,rating_indices] #Grab latents for movied rated
+            dense_ratings = current_row[rating_indices].reshape((1,rating_indices.sum())) #Grab corresponding ratings
+            
+            latents_with_ratings = np.concatenate((dense_latents,dense_ratings),axis = 0 ) #Append ratings to latents
+            prediction = self.neural_net_predict(net_parameters,np.transpose(latents_with_ratings)) #Feed through NN
+            latent_weights = softmax(np.dot(prediction,attention_weight))#Multiply NN outputs by shared weight a_w
 
-# Final ideal
-#             net_parameters = parameters[:2]
-#             colLatents = parameters[self.NET_DEPTH]
-#             dense_attention = softmax(self.neural_net_predict(net_parameters,np.transpose(temp_reduced_colLatents)))[:,0] #Inference
-#             sparse_attention = np.array((self.listify(ratings_high[0,:],np.transpose(dense_attention)))) #Inference
-#             attention = np.transpose((np.array(sparse_attention)))
-#             return np.dot(np.transpose(np.dot(colLatents, attention)),colLatents) #Actual inference
+            row_latent = np.transpose(np.dot(dense_latents, latent_weights))
+            row_predictions = np.dot(row_latent,dense_latents)
+            
+            rating_predictions[i] = row_predictions
 
+        return rating_predictions #Actual inference
 
-    def listify(self,indicator, data):
-        data_ind = 0
-        final_list = []
-        for bool in indicator:
-            if bool:
-                final_list.append(data[data_ind])
-                data_ind+=1
-            else:
-                final_list.append(0)
-        return final_list
-
-    def neural_net_predict(self,net_parameters,input_data):
-        #Assume 3 layer net, so net_parameters
-        W1 , b1 = net_parameters[0]
-        W2, b2 = net_parameters[1]
-        W3, b3 = net_parameters[2]
-        layer2 = relu(np.dot(input_data,W1) + b1)
-        layer3 = relu(np.dot(layer2,W2) + b2)
-        return relu(np.dot(layer3,W3) + b3)
-
+    def neural_net_predict(self,params, inputs):
+        """Implements a deep neural network for classification.
+           params is a list of (weights, bias) tuples.
+           inputs is an (N x D) matrix.
+           returns normalized class log-probabilities."""
+        for W, b in params:
+            outputs = np.dot(inputs, W) + b
+            inputs = relu(outputs)
+        return outputs
 
 def softmax(x):
-    #Compute softmax values for every element in input_data
-    return np.exp(x) / np.sum(np.exp(x), axis=0)
-def relu(data):
-    return np.maximum(data,0)
+    e_x = np.exp(x - np.max(x))
+    out = e_x / e_x.sum()
+    return out
 
+def relu(data):
+    return data * (data > 0)
