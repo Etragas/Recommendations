@@ -11,17 +11,17 @@ import NMF_ATNN
 full_data  = DataLoader().LoadData(file_path="../Data/ml-100k/u.data",data_type=DataLoader.MOVIELENS)
 
 #Reduce the matrix to toy size
-train, test = full_data[:100,:100], full_data[400:500,:100]
+train, test = full_data[:100,:100], full_data[400:420,:100]
 row_size, col_size = train.shape
 #Model Parameters
 
 #Training Parameters
-num_epochs = 100
+num_epochs = 10
 num_iters = 5
 step_size = 0.01
 
 #model = NMF_ATNN(n_components=80,data=train)
-parameters, NMF_ATNN.NET_DEPTH  = build_params(col_size)
+parameters, NMF_ATNN.l1_size, NMF_ATNN.l2_size = build_params(col_size)
 
 grads = lossGrad(train)
 for iter in range(1):
