@@ -3,6 +3,7 @@ from autograd import grad
 from NMF import NMF
 from autograd.util import flatten
 import time
+from utils import *
 from autograd.core import primitive
 from autograd.scipy.misc import logsumexp
 from autograd.optimizers import adam
@@ -65,8 +66,9 @@ def print_perf(params, iter=0, gradient=[], data = None):
     print "It took: {} s".format(time.time()- curtime)
     print("iter is ", iter)
     print("MSE is ",(abs(data-predicted_data).sum())/((data>0).sum()))
-
-    for x in gradient:
+    for key in gradient.keys():
+        x = gradient[key]
+        print key
         print np.square(flatten(x)[0]).sum()/(len(flatten(x)[0])+10)
     print(loss(parameters=params,data=data))
     curtime = time.time()
@@ -104,7 +106,7 @@ def neural_net_inference(parameters,iter = 0, data = None):
 
 def recurrent_inference(parameters,iter=0,data = None,user_index = 0,movie_index =0):
     #Predict full matrix
-    rating_net_parameters = parameters[l1_size:l2_size]
+    rating_net_parameters = parameters[keys_rating_net]
 
     userLatent = getUserLatent(parameters,data,user_index)
     movieLatent = getMovieLatent(parameters,data,movie_index)
@@ -115,9 +117,9 @@ def recurrent_inference(parameters,iter=0,data = None,user_index = 0,movie_index
 
 def getUserLatent(parameters,data,user_index,recursion_depth = MAX_RECURSION, caller_id = -1):
     #print "user", (MAX_RECURSION-recursion_depth)
-    movie_to_user_net_parameters = parameters[:l1_size/2]
+    movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
     row_size,col_size = data.shape
-    rowLatents = parameters[l2_size+1]
+    rowLatents = parameters[keys_row_latents]
     #Check if we should stop
     if any(USERLATENTCACHE[user_index]):
         return USERLATENTCACHE[user_index]
@@ -162,9 +164,9 @@ def getUserLatent(parameters,data,user_index,recursion_depth = MAX_RECURSION, ca
 def getMovieLatent(parameters,data,movie_index,recursion_depth = MAX_RECURSION,caller_id = -1):
     #print "movie", (MAX_RECURSION-recursion_depth)
 
-    user_to_movie_net_parameters = parameters[l1_size/2:l1_size]
+    user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
     row_size, col_size = data.shape
-    colLatents = parameters[l2_size]
+    colLatents = parameters[keys_col_latents]
 
     if movie_index<colLatents.shape[1]:
         return colLatents[:,movie_index]

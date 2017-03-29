@@ -23,7 +23,7 @@ num_iters = 5
 step_size = 0.01
 
 #model = NMF_ATNN(n_components=80,data=train)
-parameters, NMF_ATNN.l1_size, NMF_ATNN.l2_size = build_params(train.shape)
+parameters = build_params(train.shape)
 
 grads = lossGrad(train)
 for iter in range(1):
