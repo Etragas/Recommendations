@@ -113,7 +113,7 @@ def recurrent_inference(parameters,iter=0,data = None,user_index = 0,movie_index
             np.concatenate((userLatent
                             ,movieLatent)))
 
-def getUserLatent(parameters,data,user_index,recursion_depth = MAX_RECURSION, caller_id = [-1]):
+def getUserLatent(parameters,data,user_index,recursion_depth = MAX_RECURSION, caller_id = []):
     #print "user", (MAX_RECURSION-recursion_depth)
     movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
     rowLatents = parameters[keys_row_latents]
@@ -157,7 +157,7 @@ def getUserLatent(parameters,data,user_index,recursion_depth = MAX_RECURSION, ca
     USERLATENTCACHE[user_index] = row_latent
     return row_latent
 
-def getMovieLatent(parameters,data,movie_index,recursion_depth = MAX_RECURSION,caller_id = [-1]):
+def getMovieLatent(parameters,data,movie_index,recursion_depth = MAX_RECURSION,caller_id = []):
     #print "movie", (MAX_RECURSION-recursion_depth)
 
     user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
