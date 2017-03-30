@@ -27,7 +27,6 @@ def nnLoss(parameters,iter=0,data=None):
     :return: A scalar denoting the loss
     """
     #Frobenius Norm squared error term
-    print l1_size
     keep = data > 0
 
     # Regularization Terms
@@ -69,7 +68,7 @@ def print_perf(params, iter=0, gradient=[], data = None):
     for key in gradient.keys():
         x = gradient[key]
         print key
-        print np.square(flatten(x)[0]).sum()/(len(flatten(x)[0])+10)
+        print np.square(flatten(x)[0]).sum()/(len(flatten(x)[0])+1)
     print(loss(parameters=params,data=data))
     curtime = time.time()
 
@@ -96,8 +95,7 @@ def neural_net_inference(parameters,iter = 0, data = None):
         predictions = []
         for rating_index in np.flatnonzero(current_row):
             #For each index where a rating exists, generate it.
-            if rating_indices[rating_index] > 0:
-                predictions.append(recurrent_inference(parameters,iter,data,user_index,rating_index))
+            predictions.append(recurrent_inference(parameters,iter,data,user_index,rating_index))
 
         rating_predictions[user_index] = np.array(predictions).reshape((rating_indices.sum()))
 
@@ -115,11 +113,11 @@ def recurrent_inference(parameters,iter=0,data = None,user_index = 0,movie_index
             np.concatenate((userLatent
                             ,movieLatent)))
 
-def getUserLatent(parameters,data,user_index,recursion_depth = MAX_RECURSION, caller_id = -1):
+def getUserLatent(parameters,data,user_index,recursion_depth = MAX_RECURSION, caller_id = [-1]):
     #print "user", (MAX_RECURSION-recursion_depth)
     movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
-    row_size,col_size = data.shape
     rowLatents = parameters[keys_row_latents]
+
     #Check if we should stop
     if any(USERLATENTCACHE[user_index]):
         return USERLATENTCACHE[user_index]
@@ -133,16 +131,14 @@ def getUserLatent(parameters,data,user_index,recursion_depth = MAX_RECURSION, ca
 
     #Must generate latent
     current_row = data[user_index,:]
-    rating_indices = flatten(current_row > 0)[0] #Only keep indices where the ratings are non-zero
 
-    #dense_ratings = current_row[rating_indices].reshape((1,rating_indices.sum())) #Grab corresponding ratings
     dense_ratings = []
     dense_latents = []
     #print np.flatnonzero(current_row)
     for movie_index in np.flatnonzero(current_row):
-        if movie_index != caller_id:
+        if movie_index not in caller_id:
         #Go through all elements of the matrix
-            movie_latent = getMovieLatent(parameters,data,movie_index,recursion_depth-1,user_index)
+            movie_latent = getMovieLatent(parameters,data,movie_index,recursion_depth-1,caller_id+[user_index])
             if movie_latent is not None:
                 dense_latents.append(movie_latent) #We got another movie latent
                 dense_ratings.append(current_row[movie_index]) #Add its corresponding rating
@@ -161,7 +157,7 @@ def getUserLatent(parameters,data,user_index,recursion_depth = MAX_RECURSION, ca
     USERLATENTCACHE[user_index] = row_latent
     return row_latent
 
-def getMovieLatent(parameters,data,movie_index,recursion_depth = MAX_RECURSION,caller_id = -1):
+def getMovieLatent(parameters,data,movie_index,recursion_depth = MAX_RECURSION,caller_id = [-1]):
     #print "movie", (MAX_RECURSION-recursion_depth)
 
     user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
@@ -176,16 +172,15 @@ def getMovieLatent(parameters,data,movie_index,recursion_depth = MAX_RECURSION,c
 
     if recursion_depth < 0:
         return None
+
     #Must Generate Latent
     current_column = data[:,movie_index]
-    rating_indices = flatten(current_column> 0)[0]
 
-    #dense_ratings = current_column[rating_indices].reshape((1,rating_indices.sum()))
     dense_ratings = []
     dense_latents = []
     for user_index in np.flatnonzero(current_column):
-        if user_index != caller_id:
-            user_latent = getUserLatent(parameters,data,user_index,recursion_depth-1,movie_index)
+        if user_index not in caller_id:
+            user_latent = getUserLatent(parameters,data,user_index,recursion_depth-1,caller_id+[movie_index])
             if user_latent is not None:
                 dense_latents.append(user_latent)
                 dense_ratings.append(current_column[user_index])
@@ -196,7 +191,7 @@ def getMovieLatent(parameters,data,movie_index,recursion_depth = MAX_RECURSION,c
     if (dense_ratings.sum() > 0):
         latents_with_ratings = np.concatenate((dense_latents,dense_ratings),axis = 0 ) #Append ratings to latents
         prediction = neural_net_predict(user_to_movie_net_parameters,np.transpose(latents_with_ratings)) #Feed through NN
-        column_latent = np.transpose(np.mean(prediction, axis = 0))
+        column_latent = np.mean(prediction, axis = 0)
     else:
         return None
 
@@ -231,8 +226,6 @@ def wipe_caches():
 
 inference = neural_net_inference
 loss = nnLoss
-l1_size = 0
-l2_size = 0
 reg_alpha = .1
 USERLATENTCACHE = [np.array((0,0))]*1000
 MOVIELATENTCACHE = [np.array((0,0))]*1000
