@@ -45,7 +45,6 @@ def fill_in_gaps(canonical_indices,new_indices,full_data):
     #Fill in gaps along diagonal
     training_block[:can_sizes[0],:can_sizes[1]]= full_data[np.ix_(*canonical_indices)]
     training_block[can_sizes[0]:,can_sizes[1]:] = full_data[np.ix_(*new_indices)]
-    print training_block
     #Fill in gaps in between.
     training_block[:can_sizes[0],can_sizes[1]:] = full_data[np.ix_(canonical_indices[0],new_indices[1])]
     training_block[can_sizes[0]:,:can_sizes[1]] = full_data[np.ix_(new_indices[0],canonical_indices[1])]
