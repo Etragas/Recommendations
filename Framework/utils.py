@@ -55,7 +55,6 @@ def get_top_n(data,n):
     print indices
     return indices
 
-
 keys_movie_to_user_net = "MovieToUser"
 keys_user_to_movie_net = "UserToMovie"
 keys_row_latents = "RowLatents"
