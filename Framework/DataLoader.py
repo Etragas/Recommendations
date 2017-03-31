@@ -25,11 +25,12 @@ class DataLoader:
 
         f = open(file_path,'r')
         #Determine length later
-        X = np.zeros((100001,100001))                                   #TODO: FIX THIS MAGIC
-        for elem in f.readlines():
-            user, item, rating, _ = [int(x) for x in elem.split()]
-            X[user-1,item-1] = rating
-
+        X = np.zeros((10000,10000))                                   #TODO: FIX THIS MAGIC
+        
+	for elem in f.readlines():
+	    user, item, rating, _ = [int(x) for x in elem.split()]
+            if (user < 10000) and (item < 10000):
+                X[user-1,item-1] = rating
         return X
 
 
