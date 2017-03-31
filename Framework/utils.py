@@ -5,7 +5,7 @@ num_user_latents = 20
 user_latent_size = 40
 hyp_user_network_sizes = [movie_latent_size+1, 100, user_latent_size]
 hyp_movie_network_sizes = [user_latent_size+1,100,movie_latent_size]
-rating_network_sizes = [movie_latent_size+user_latent_size,40,1]
+rating_network_sizes = [movie_latent_size+user_latent_size,50,1]
 scale = .1
 
 def build_params((row_size,col_size)):
@@ -28,20 +28,16 @@ def init_random_params(scale, layer_sizes, rs=np.random.RandomState(0)):
             for m, n in zip(layer_sizes[:-1], layer_sizes[1:])]
 
 def get_canonical_indices(data,latent_sizes):
-    user_rating_counts = data.sum(axis = 1)
-    for x in range(data.shape[1]):
-        print x, user_rating_counts[x]
-    print user_rating_counts
-
-    movie_rating_counts = data.sum(axis = 0)
+    indicators = data > 0
+    user_rating_counts = indicators.sum(axis = 1) #Bug one found
+    movie_rating_counts = indicators.sum(axis = 0) #Bug one found
     user_indices = get_top_n(user_rating_counts,latent_sizes[0])
     movie_indices = get_top_n(movie_rating_counts,latent_sizes[1])
     return user_indices, movie_indices
 
 def fill_in_gaps(canonical_indices,new_indices,full_data):
     can_sizes = map(lambda x: x.size,canonical_indices)
-    new_sizes = map(lambda x: x.size,new_indices)
-
+    #Sort the indices before.
     new_axis_sizes = tuple([canonical_indices[x].size+new_indices[x].size for x in range(len(canonical_indices))])
     print new_axis_sizes
     training_block = np.zeros(new_axis_sizes)

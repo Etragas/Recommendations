@@ -25,21 +25,15 @@ train = fill_in_gaps([user_idx, movie_idx], train_indx, full_data)
 test = fill_in_gaps([user_idx, movie_idx], test_idndx, full_data)
 print "user idx ", user_idx
 print "movie idx", movie_idx
-np.savetxt('train_special.out', train.astype(int), fmt = '%i',delimiter=',')
+
 #Training Parameters
-num_epochs = 300
+num_epochs = 20
 num_iters = 5
 step_size = 0.01
-print train[50:,:50]
+train = full_data[np.ix_(user_idx,movie_idx)]
 
-#model = NMF_ATNN(n_components=80,data=train)
 parameters = build_params(train.shape)
-#X = train[:utils.num_user_latents,:utils.num_movie_latents]
-#model = NMF(n_components=40,init='random',random_state = 0)
-#parameters[keys_row_latents]= model.fit_transform(X)
-#parameters[keys_col_latents] = model.components_
-#Reduce the matrix to toy size
-np.savetxt('train_normal', train.astype(int),fmt = '%i', delimiter=',')
+
 grads = lossGrad(train)
 for iter in range(1):
     parameters = adam(grads,parameters, step_size=step_size,
@@ -47,6 +41,10 @@ for iter in range(1):
     print "Test performance:"
     print_perf(parameters,data=test)
 
+train = fill_in_gaps([user_idx, movie_idx], train_indx, full_data)
+grads = lossGrad(train)
+parameters = adam(grads,parameters, step_size=step_size,
+                            num_iters=num_epochs, callback=dataCallback(train))
 #Print performance on each model
 invtrans = getInferredMatrix(parameters,train)
 print "\n".join([str(x) for x in ["Train", print_perf(parameters,data=train), train, np.round(invtrans)]])
