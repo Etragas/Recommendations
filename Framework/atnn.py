@@ -41,10 +41,12 @@ parameters = adam(grads,parameters, step_size=step_size,
 print "Test performance:"
 raw_input()
 #print_perf(parameters,data=test)
-
+print "zero pls"
 train = fill_in_gaps([can_usr_idx, can_mov_idx], [can_usr_idx, can_mov_idx], full_data)
-train[:can_usr_idx,:can_mov_idx] = 0
-train[can_usr_idx:,can_mov_idx:] = 0
+#zeros = np.zeros((can_usr_idx,can_mov_idx))
+train[:num_user_latents,:num_movie_latents] = np.array(0)
+train[num_user_latents:,num_movie_latents:] = np.array(0)
+print "thank you for the zeros"
 grads = lossGrad(train)
 
 parameters = adam(grads,parameters, step_size=step_size,
