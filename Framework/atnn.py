@@ -30,12 +30,3 @@ num_iters = 20
 parameters = build_params([train_user_size + num_user_latents, train_movie_size + num_movie_latents])
 
 parameters = train(full_data, [train_user_size, train_movie_size], parameters, p1=True, p2=True, trainArgs = [step_size, num_iters])
-
-#Print performance on each model - MOVED INTO TRAIN.PY
-'''
-invtrans = getInferredMatrix(parameters,train)
-print "\n".join([str(x) for x in ["Train", print_perf(parameters,data=train), train, np.round(invtrans)]])
-
-invtrans = getInferredMatrix(parameters,test)
-print "\n".join([str(x) for x in ["Test", print_perf(parameters,data=test), test, np.round(invtrans)]])
-'''
