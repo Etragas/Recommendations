@@ -30,7 +30,7 @@ print "movie idx", can_mov_idx
 #Training Parameters
 num_epochs = 20
 num_iters = 5
-step_size = 0.01
+step_size = 0.005
 train = full_data[np.ix_(can_usr_idx, can_mov_idx)]
 
 parameters = build_params(train.shape)
