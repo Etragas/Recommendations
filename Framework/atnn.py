@@ -17,31 +17,32 @@ pre_train, pre_test = full_data[:200,:100], full_data[:400,:100]
 print pre_train
 #[Model Parameters
 train_indx = [(np.array(range(200))),(np.array(range(100)))]
-test_idndx = [np.array(range(1000,1040)),np.array(range(1000,1040))]
+test_idndx = [np.array(range(200,240)),np.array(range(100,140))]
 
-user_idx, movie_idx = get_canonical_indices(full_data,[utils.num_user_latents,utils.num_movie_latents])
+can_usr_idx, can_mov_idx = get_canonical_indices(full_data, [utils.num_user_latents, utils.num_movie_latents])
 
-train = fill_in_gaps([user_idx, movie_idx], train_indx, full_data)
-test = fill_in_gaps([user_idx, movie_idx], test_idndx, full_data)
-print "user idx ", user_idx
-print "movie idx", movie_idx
+train = fill_in_gaps([can_usr_idx, can_mov_idx], train_indx, full_data)
+test = fill_in_gaps([can_usr_idx, can_mov_idx], test_idndx, full_data)
+
+print "user idx ", can_usr_idx
+print "movie idx", can_mov_idx
 
 #Training Parameters
 num_epochs = 20
 num_iters = 5
 step_size = 0.01
-train = full_data[np.ix_(user_idx,movie_idx)]
+train = full_data[np.ix_(can_usr_idx, can_mov_idx)]
 
 parameters = build_params(train.shape)
 
 grads = lossGrad(train)
-for iter in range(1):
-    parameters = adam(grads,parameters, step_size=step_size,
-                            num_iters=num_epochs, callback=dataCallback(train))
-    print "Test performance:"
-    print_perf(parameters,data=test)
 
-train = fill_in_gaps([user_idx, movie_idx], train_indx, full_data)
+parameters = adam(grads,parameters, step_size=step_size,
+                        num_iters=num_epochs, callback=dataCallback(train))
+print "Test performance:"
+print_perf(parameters,data=test)
+
+train = fill_in_gaps([can_usr_idx, can_mov_idx], train_indx, full_data)
 grads = lossGrad(train)
 parameters = adam(grads,parameters, step_size=step_size,
                             num_iters=num_epochs, callback=dataCallback(train))
