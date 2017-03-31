@@ -11,16 +11,16 @@ from utils import *
 import NMF_ATNN
 from sklearn.decomposition import NMF
 full_data  = DataLoader().LoadData(file_path="../Data/ml-100k/u.data",data_type=DataLoader.MOVIELENS)
-
+full_data = full_data[:1000,:1700]
 #Reduce the matrix to toy size
 pre_train, pre_test = full_data[:200,:100], full_data[:400,:100]
 print pre_train
+
 #[Model Parameters
 train_indx = [(np.array(range(200))),(np.array(range(100)))]
-test_idndx = [np.array(range(200,240)),np.array(range(100,140))]
+test_idndx = [np.random.choice(range(1000),40),np.random.choice(range(1700),20)]
 
 can_usr_idx, can_mov_idx = get_canonical_indices(full_data, [utils.num_user_latents, utils.num_movie_latents])
-
 train = fill_in_gaps([can_usr_idx, can_mov_idx], train_indx, full_data)
 test = fill_in_gaps([can_usr_idx, can_mov_idx], test_idndx, full_data)
 
@@ -31,19 +31,26 @@ print "movie idx", can_mov_idx
 num_epochs = 20
 num_iters = 5
 step_size = 0.005
-train = full_data[np.ix_(can_usr_idx, can_mov_idx)]
 
 parameters = build_params(train.shape)
+#Pretrain rating net and latents
+train = full_data[np.ix_(can_usr_idx, can_mov_idx)]
+grads = lossGrad(train)
+parameters = adam(grads,parameters, step_size=step_size,
+                        num_iters=num_epochs, callback=dataCallback(train))
+print "Test performance:"
+raw_input()
+#print_perf(parameters,data=test)
 
+train = fill_in_gaps([can_usr_idx, can_mov_idx], [can_usr_idx, can_mov_idx], full_data)
+train[:can_usr_idx,:can_mov_idx] = 0
+train[can_usr_idx:,can_mov_idx:] = 0
 grads = lossGrad(train)
 
 parameters = adam(grads,parameters, step_size=step_size,
                         num_iters=num_epochs, callback=dataCallback(train))
-print "Test performance:"
-print_perf(parameters,data=test)
-
-train = fill_in_gaps([can_usr_idx, can_mov_idx], train_indx, full_data)
-grads = lossGrad(train)
+raw_input()
+train = fill_in_gaps([can_usr_idx, can_mov_idx], train_indx,full_data)
 parameters = adam(grads,parameters, step_size=step_size,
                             num_iters=num_epochs, callback=dataCallback(train))
 #Print performance on each model

@@ -18,7 +18,7 @@ import Queue
 import multiprocessing as mp
 
 curtime = 0
-MAX_RECURSION = 4
+MAX_RECURSION = 64
 
 movie_cache_lock = threading.Lock()
 user_cache_lock = threading.Lock()
@@ -135,7 +135,7 @@ def recurrent_inference(parameters,iter=0,data = None,user_index = 0,movie_index
 def getUserLatent(parameters,data,user_index,recursion_depth = MAX_RECURSION, caller_id = [[],[]]):
     movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
     rowLatents = parameters[keys_row_latents]
-    
+
     #Check if latent is cached
     if any(USERLATENTCACHE[user_index]):
         global hitcount
