@@ -34,25 +34,28 @@ step_size = 0.005
 
 parameters = build_params(train.shape)
 #Pretrain rating net and latents
-train = full_data[np.ix_(can_usr_idx, can_mov_idx)]
-grads = lossGrad(train)
-parameters = adam(grads,parameters, step_size=step_size,
-                        num_iters=num_epochs, callback=dataCallback(train))
-print "Test performance:"
-raw_input()
-#print_perf(parameters,data=test)
-print "zero pls"
-train = fill_in_gaps([can_usr_idx, can_mov_idx], [can_usr_idx, can_mov_idx], full_data)
-#zeros = np.zeros((can_usr_idx,can_mov_idx))
-train[:num_user_latents,:num_movie_latents] = np.array(0)
-train[num_user_latents:,num_movie_latents:] = np.array(0)
-print "thank you for the zeros"
-grads = lossGrad(train)
+# train = full_data[np.ix_(can_usr_idx, can_mov_idx)]
+# grads = lossGrad(train)
+# parameters = adam(grads,parameters, step_size=step_size,
+#                         num_iters=num_epochs, callback=dataCallback(train))
+# print "Test performance:"
+# raw_input()
 
-parameters = adam(grads,parameters, step_size=step_size,
-                        num_iters=num_epochs, callback=dataCallback(train))
-raw_input()
+# pre training combined
+# train = fill_in_gaps([can_usr_idx, can_mov_idx], [can_usr_idx, can_mov_idx], full_data)
+# zeros = np.zeros((num_user_latents,num_movie_latents))
+# train[:num_user_latents,:num_movie_latents] = np.array(0)
+# train[num_user_latents:,num_movie_latents:] = np.array(0)
+# raw_input()
+# grads = lossGrad(train)
+# print train
+# raw_input()
+# free_params = adam(grads,parameters, step_size=step_size,
+#                         num_iters=num_epochs, callback=dataCallback(train))
+# raw_input()
+
 train = fill_in_gaps([can_usr_idx, can_mov_idx], train_indx,full_data)
+grads = lossGrad(train)
 parameters = adam(grads,parameters, step_size=step_size,
                             num_iters=num_epochs, callback=dataCallback(train))
 #Print performance on each model

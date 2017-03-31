@@ -25,11 +25,21 @@ user_cache_lock = threading.Lock()
 rowLatents = 0
 colLatents = 0
 hitcount = 0
+
 def lossGrad(data):
     return grad(lambda params,_: nnLoss(params,data=data))
 
+
 def dataCallback(data):
     return lambda x,iter,grad: print_perf(x,iter,grad,data=data)
+
+# def lossGradWithFixed(fixed_params,data):
+#     return grad(lambda params,_: nnLoss_with_injection(params,fixed_params,data=data))
+
+# def nnLoss_with_injection(params,fixed_params,data):
+#     fixed_params.update(params)
+#     print total_params.keys()
+#     return nnLoss(parameters=total_params,data=data)
 
 def nnLoss(parameters,iter=0,data=None):
     """
@@ -249,6 +259,12 @@ def wipe_caches():
     global MOVIELATENTCACHE
     USERLATENTCACHE = [np.array((0,0))]*2000
     MOVIELATENTCACHE = [np.array((0,0))]*2000
+
+def merge_two_dicts(x, y):
+    """Given two dicts, merge them into a new dict as a shallow copy."""
+    z = x.copy()
+    z.update(y)
+    return z
 
 inference = neural_net_inference
 loss = nnLoss
