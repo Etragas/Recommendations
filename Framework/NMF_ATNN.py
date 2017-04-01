@@ -112,7 +112,6 @@ def black_adam(grad_funs, init_params, callback=None, num_iters=100,
         v = (1 - b2) * (g**2) + b2 * v  # Second moment estimate.
         mhat = m / (1 - b1**(i + 1))    # Bias correction.
         vhat = v / (1 - b2**(i + 1))
-        multi_grad = [multi_grad[2]]*4
         x = x - step_size*mhat/(np.sqrt(vhat) + eps)
     return unflatten(x)
 
