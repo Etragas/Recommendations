@@ -36,7 +36,9 @@ def lossGrad(data):
     return grad(lambda params,_: nnLoss(params,data=data))
 
 def tricky_wrapper(grad_fun,params,iter,queue):
+    print "we're in ", iter
     queue.put(grad_fun(params,iter))
+    print "we're out ", iter
 
 def lossGradMultiCore(data,user_range, num_proc = 1):
     return grad(lambda params,_:nnLoss(params,data=data,indices=user_range, num_proc = num_proc))
@@ -51,7 +53,7 @@ def gen_grads(data,num_proc):
         prev_pos += ranges[x]
         gradfuns.append(lossGradMultiCore(data,user_range,num_proc))
 
-    return gradfuns
+    return tuple(gradfuns)
 
 def dataCallback(data):
     return lambda params,iter,grad: print_perf(params,iter,grad,data=data)
@@ -64,6 +66,7 @@ def nnLoss(parameters,iter=0,data=None,indices = None, num_proc = 1):
     :return: A scalar denoting the loss
     """
     #Frobenius Norm squared error term
+    print"ab"
     keep = data > 0
     if not indices:
         indices = range(data.shape[0])
@@ -88,22 +91,23 @@ def black_adam(grad_funs, init_params, callback=None, num_iters=100,
         flattened_grad, _, _ = flatten_func(grad_funs[proc_num], init_params)
         multi_grad.append(flattened_grad)
     x, unflatten = flatten(init_params)
-
+    multi_grad = tuple(multi_grad)
     manage = mp.Manager()
     m = np.zeros(len(x))
     v = np.zeros(len(x))
+    result_queue = manage.Queue()
+    pool = mp.Pool(num_proc)
     print num_iters
     for i in range(num_iters):
-        result_queue = manage.Queue()
-        pool = mp.Pool(num_proc)
         print "here we are"
         for proc in range(0,num_proc) :
             pool.apply_async(tricky_wrapper, args=(multi_grad[proc],x,proc,result_queue))
-        pool.close()
-        pool.join()
-        pool.terminate()
+        print "pool please"
         print "and here"
-        results = [result_queue.get() for val in range(num_proc)]
+        results = []
+        for answer in range(num_proc):
+            print "t"
+            results.append(result_queue.get())
         g = np.array(reduce(lambda a,b : a+b,results,np.array(0)))
 
         if callback: callback(unflatten(x), i, unflatten(g))
@@ -112,6 +116,8 @@ def black_adam(grad_funs, init_params, callback=None, num_iters=100,
         v = (1 - b2) * (g**2) + b2 * v  # Second moment estimate.
         mhat = m / (1 - b1**(i + 1))    # Bias correction.
         vhat = v / (1 - b2**(i + 1))
+        print multi_grad
+        #multi_grad = [multi_grad[2]]*4
         x = x - step_size*mhat/(np.sqrt(vhat) + eps)
     return unflatten(x)
 
@@ -158,7 +164,10 @@ def neural_net_inference(parameters,iter = 0, data = None, indices = None):
     :param data: data to work on
     :return: A list of numpy arrays, each of which corresponds to a dense prediction of user ratings.
     """
+    global hitcount
+    hitcount = 0
     rating_predictions = [0]*data.shape[0]
+    print"bc"
     num_rows, num_columns = data.shape
     if not indices:
         indices = np.array(range(num_rows))
@@ -176,6 +185,7 @@ def disseminate_values(num_items,num_bins):
     return ranges
 
 def get_pred_for_users(parameters,data,user_indices, queue = None):
+    print"cd"
     rating_predictions = []
 
     for user_index in user_indices:
