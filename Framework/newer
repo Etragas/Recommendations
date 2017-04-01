@@ -26,37 +26,19 @@ MAX_RECURSION = 100
 
 movie_cache_lock = Lock()
 user_cache_lock = Lock()
+ret_list_lock = Lock()
 rowLatents = 0
 colLatents = 0
 hitcount = 0
-import os
 
 ret_list = [[]]
 def lossGrad(data):
     return grad(lambda params,_: nnLoss(params,data=data))
 
-def tricky_wrapper(grad_fun,params,iter,queue):
-    queue.put(grad_fun(params,iter))
-
-def lossGradMultiCore(data,user_range, num_proc = 1):
-    return grad(lambda params,_:nnLoss(params,data=data,indices=user_range, num_proc = num_proc))
-
-def gen_grads(data,num_proc):
-    num_rows, num_col = data.shape
-    gradfuns = []
-    ranges = disseminate_values(num_rows,num_proc)
-    prev_pos = 0
-    for x in range(num_proc) :
-        user_range = range(prev_pos,prev_pos+ranges[x])
-        prev_pos += ranges[x]
-        gradfuns.append(lossGradMultiCore(data,user_range,num_proc))
-
-    return gradfuns
-
 def dataCallback(data):
     return lambda params,iter,grad: print_perf(params,iter,grad,data=data)
 
-def nnLoss(parameters,iter=0,data=None,indices = None, num_proc = 1):
+def nnLoss(parameters,iter=0,data=None):
     """
     Compute simplified version of squared loss with penalty on vector norms
     :param parameters: Same as class parameter, here for autograd
@@ -65,17 +47,17 @@ def nnLoss(parameters,iter=0,data=None,indices = None, num_proc = 1):
     """
     #Frobenius Norm squared error term
     keep = data > 0
-    if not indices:
-        indices = range(data.shape[0])
+
     # Regularization Terms
-    loss = reg_alpha*np.square(flatten(parameters)[0]).sum()/float(num_proc)
+    loss = reg_alpha*np.square(flatten(parameters)[0]).sum()
+
     #Generate predictions
-    inferred = inference(parameters,data=data, indices = indices)
+    inferred = inference(parameters,data=data)
+
     #Squared error between
-    for i in range(len(indices)):
-        usr_ind = indices[i]
+    for usr_ind in range(data.shape[0]):
         user_ratings = data[usr_ind,keep[usr_ind,:]]
-        prediction = inferred[i]
+        prediction = inferred[usr_ind]
         loss = loss + np.square(user_ratings - prediction).sum()
     return loss
 
@@ -83,36 +65,26 @@ def black_adam(grad_funs, init_params, callback=None, num_iters=100,
                step_size=0.001, b1=0.9, b2=0.999, eps=10**-8, num_proc = 1):
     """Adam as described in http://arxiv.org/pdf/1412.6980.pdf.
     It's basically RMSprop with momentum and some correction terms."""
-    multi_grad = []
+    multi_grad, multi_flat, multi_x = [], [], []
     for proc_num in range(num_proc):
-        flattened_grad, _, _ = flatten_func(grad_funs[proc_num], init_params)
+        flattened_grad, unflatten, x = flatten_func(grad_funs[proc_num], init_params)
         multi_grad.append(flattened_grad)
-    x, unflatten = flatten(init_params)
+        multi_flat.append(unflatten)
+        multi_x.append(x)
 
-    manage = mp.Manager()
-    m = np.zeros(len(x))
-    v = np.zeros(len(x))
-    print num_iters
+    m = np.zeros(len(multi_x[0]))
+    v = np.zeros(len(multi_x[0]))
+
+    pool = mp.Pool()
+
     for i in range(num_iters):
-        result_queue = manage.Queue()
-        pool = mp.Pool(num_proc)
-        print "here we are"
-        for proc in range(0,num_proc) :
-            pool.apply_async(tricky_wrapper, args=(multi_grad[proc],x,proc,result_queue))
-        pool.close()
-        pool.join()
-        pool.terminate()
-        print "and here"
-        results = [result_queue.get() for val in range(num_proc)]
-        g = np.array(reduce(lambda a,b : a+b,results,np.array(0)))
-
+        g = flattened_grad(x, i)
         if callback: callback(unflatten(x), i, unflatten(g))
 
         m = (1 - b1) * g      + b1 * m  # First  moment estimate.
         v = (1 - b2) * (g**2) + b2 * v  # Second moment estimate.
         mhat = m / (1 - b1**(i + 1))    # Bias correction.
         vhat = v / (1 - b2**(i + 1))
-        multi_grad = [multi_grad[2]]*4
         x = x - step_size*mhat/(np.sqrt(vhat) + eps)
     return unflatten(x)
 
@@ -151,7 +123,7 @@ def print_perf(params, iter=0, gradient={}, data = None):
     print(loss(parameters=params,data=data))
     curtime = time.time()
 
-def neural_net_inference(parameters,iter = 0, data = None, indices = None):
+def neural_net_inference(parameters,iter = 0, data = None):
     """
     Generates predictions for each user.
     :param parameters: Parameters of model
@@ -161,9 +133,8 @@ def neural_net_inference(parameters,iter = 0, data = None, indices = None):
     """
     rating_predictions = [0]*data.shape[0]
     num_rows, num_columns = data.shape
-    if not indices:
-        indices = np.array(range(num_rows))
-    half1 = get_pred_for_users(parameters,data,indices)
+    print num_rows
+    half1 = get_pred_for_users(parameters,data,np.array(range(num_rows)))
     wipe_caches()
     return half1
 
@@ -193,6 +164,11 @@ def get_pred_for_users(parameters,data,user_indices, queue = None):
 
         rating_predictions.append(np.array(predictions).reshape((rating_indices.sum())))
 
+    if queue:
+        queue.put((user_indices[0],rating_predictions))
+        return
+    with ret_list_lock:
+        ret_list.append((user_indices[0],rating_predictions))
     return rating_predictions
 
 def recurrent_inference(parameters,iter=0,data = None,user_index = 0,movie_index =0):

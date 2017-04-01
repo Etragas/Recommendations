@@ -10,6 +10,8 @@ import utils
 from utils import *
 import NMF_ATNN
 from sklearn.decomposition import NMF
+import multiprocessing as mp
+
 full_data  = DataLoader().LoadData(file_path="../Data/ml-100k/u.data",data_type=DataLoader.MOVIELENS)
 full_data = full_data[:1000,:1700]
 #Reduce the matrix to toy size
@@ -34,8 +36,13 @@ step_size = 0.005
 parameters = build_params(train.shape)
 #Pretrain rating net and latents
 grads = lossGrad(train)
-parameters = adam(grads,parameters, step_size=step_size,
-                        num_iters=num_epochs, callback=dataCallback(train))
+num_proc = mp.cpu_count()
+grad_funs = gen_grads(train,num_proc)
+print grad_funs
+parameters = black_adam(grad_funs,parameters,step_size=step_size,
+                        num_iters=num_epochs, callback=dataCallback(train),num_proc=num_proc)
+# parameters = adam(grads,parameters, step_size=step_size,
+#                         num_iters=num_epochs, callback=dataCallback(train))
 #Print performance on each model
 invtrans = getInferredMatrix(parameters,train)
 print "\n".join([str(x) for x in ["Train", print_perf(parameters,data=train), train, np.round(invtrans)]])

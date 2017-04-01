@@ -14,49 +14,27 @@ import Queue
 from copy import deepcopy
 import sys
 import dill
-import threading
-from autograd.util import flatten,flatten_func
+
 import inspect
-import multiprocess as mp
-#import pathos.helpers as mp_vanilla
-from threading import Lock
+import pathos.multiprocessing as mp
+import multiprocessing as mp_vanilla
 from multiprocessing.queues import Queue
 curtime = 0
 MAX_RECURSION = 100
 
-movie_cache_lock = Lock()
-user_cache_lock = Lock()
+movie_cache_lock = mp_vanilla.Lock()
+user_cache_lock = mp_vanilla.Lock()
 rowLatents = 0
 colLatents = 0
 hitcount = 0
-import os
 
-ret_list = [[]]
 def lossGrad(data):
     return grad(lambda params,_: nnLoss(params,data=data))
-
-def tricky_wrapper(grad_fun,params,iter,queue):
-    queue.put(grad_fun(params,iter))
-
-def lossGradMultiCore(data,user_range, num_proc = 1):
-    return grad(lambda params,_:nnLoss(params,data=data,indices=user_range, num_proc = num_proc))
-
-def gen_grads(data,num_proc):
-    num_rows, num_col = data.shape
-    gradfuns = []
-    ranges = disseminate_values(num_rows,num_proc)
-    prev_pos = 0
-    for x in range(num_proc) :
-        user_range = range(prev_pos,prev_pos+ranges[x])
-        prev_pos += ranges[x]
-        gradfuns.append(lossGradMultiCore(data,user_range,num_proc))
-
-    return gradfuns
 
 def dataCallback(data):
     return lambda params,iter,grad: print_perf(params,iter,grad,data=data)
 
-def nnLoss(parameters,iter=0,data=None,indices = None, num_proc = 1):
+def nnLoss(parameters,iter=0,data=None):
     """
     Compute simplified version of squared loss with penalty on vector norms
     :param parameters: Same as class parameter, here for autograd
@@ -65,57 +43,19 @@ def nnLoss(parameters,iter=0,data=None,indices = None, num_proc = 1):
     """
     #Frobenius Norm squared error term
     keep = data > 0
-    if not indices:
-        indices = range(data.shape[0])
+
     # Regularization Terms
-    loss = reg_alpha*np.square(flatten(parameters)[0]).sum()/float(num_proc)
+    loss = reg_alpha*np.square(flatten(parameters)[0]).sum()
+
     #Generate predictions
-    inferred = inference(parameters,data=data, indices = indices)
+    inferred = inference(parameters,data=data)
+
     #Squared error between
-    for i in range(len(indices)):
-        usr_ind = indices[i]
+    for usr_ind in range(data.shape[0]):
         user_ratings = data[usr_ind,keep[usr_ind,:]]
-        prediction = inferred[i]
+        prediction = inferred[usr_ind]
         loss = loss + np.square(user_ratings - prediction).sum()
     return loss
-
-def black_adam(grad_funs, init_params, callback=None, num_iters=100,
-               step_size=0.001, b1=0.9, b2=0.999, eps=10**-8, num_proc = 1):
-    """Adam as described in http://arxiv.org/pdf/1412.6980.pdf.
-    It's basically RMSprop with momentum and some correction terms."""
-    multi_grad = []
-    for proc_num in range(num_proc):
-        flattened_grad, _, _ = flatten_func(grad_funs[proc_num], init_params)
-        multi_grad.append(flattened_grad)
-    x, unflatten = flatten(init_params)
-
-    manage = mp.Manager()
-    m = np.zeros(len(x))
-    v = np.zeros(len(x))
-    print num_iters
-    for i in range(num_iters):
-        result_queue = manage.Queue()
-        pool = mp.Pool(num_proc)
-        print "here we are"
-        for proc in range(0,num_proc) :
-            pool.apply_async(tricky_wrapper, args=(multi_grad[proc],x,proc,result_queue))
-        pool.close()
-        pool.join()
-        pool.terminate()
-        print "and here"
-        results = [result_queue.get() for val in range(num_proc)]
-        g = np.array(reduce(lambda a,b : a+b,results,np.array(0)))
-
-        if callback: callback(unflatten(x), i, unflatten(g))
-
-        m = (1 - b1) * g      + b1 * m  # First  moment estimate.
-        v = (1 - b2) * (g**2) + b2 * v  # Second moment estimate.
-        mhat = m / (1 - b1**(i + 1))    # Bias correction.
-        vhat = v / (1 - b2**(i + 1))
-        multi_grad = [multi_grad[2]]*4
-        x = x - step_size*mhat/(np.sqrt(vhat) + eps)
-    return unflatten(x)
-
 
 def getInferredMatrix(parameters,data):
     """
@@ -151,7 +91,7 @@ def print_perf(params, iter=0, gradient={}, data = None):
     print(loss(parameters=params,data=data))
     curtime = time.time()
 
-def neural_net_inference(parameters,iter = 0, data = None, indices = None):
+def neural_net_inference(parameters,iter = 0, data = None):
     """
     Generates predictions for each user.
     :param parameters: Parameters of model
@@ -160,12 +100,33 @@ def neural_net_inference(parameters,iter = 0, data = None, indices = None):
     :return: A list of numpy arrays, each of which corresponds to a dense prediction of user ratings.
     """
     rating_predictions = [0]*data.shape[0]
+    global hitcount
+    hitcount = 0
     num_rows, num_columns = data.shape
-    if not indices:
-        indices = np.array(range(num_rows))
-    half1 = get_pred_for_users(parameters,data,indices)
+    pool = mp.Pool()
+    num_cpu = mp.cpu_count()
+    #Will use ques for implicit ordering
+    #m = mp.Manager()
+    manage = mp_vanilla.Manager()
+    result_queue = manage.Queue()
+    ranges = disseminate_values(num_rows,num_cpu)
+    prev_pos = 0
+    for x in range(num_cpu) :
+        data_range = range(prev_pos,prev_pos+ranges[x])
+        prev_pos += ranges[x]
+        pool.apply_async(get_pred_for_users, args=(parameters,data,data_range,result_queue))
+    pool.close()
+    pool.join()
+    results = [result_queue.get() for x in range(num_cpu)]
+
+    sorts = sorted(results,key = lambda tup: tup[0])
+
+    # half1 = get_pred_for_users(parameters,data,np.array(range(num_rows/2)))
+    # half2 = get_pred_for_users(parameters,data,np.array(range(num_rows/2,num_rows)))
+    ratings = reduce(lambda init , new: init + new[1],sorts,[])
+
     wipe_caches()
-    return half1
+    return ratings
 
 def disseminate_values(num_items,num_bins):
     chunk_size = num_items/num_bins
@@ -178,7 +139,7 @@ def disseminate_values(num_items,num_bins):
 
 def get_pred_for_users(parameters,data,user_indices, queue = None):
     rating_predictions = []
-
+    print user_indices
     for user_index in user_indices:
         current_row = data[user_index,:]
         rating_indices = flatten(current_row > 0)[0] #Only keep indices where the ratings are non-zero
@@ -192,6 +153,10 @@ def get_pred_for_users(parameters,data,user_indices, queue = None):
             predictions.append(recurrent_inference(parameters,iter,data,user_index,rating_index))
 
         rating_predictions.append(np.array(predictions).reshape((rating_indices.sum())))
+
+    if queue:
+        queue.put((user_indices[0],rating_predictions))
+        return
 
     return rating_predictions
 
@@ -214,7 +179,6 @@ def getUserLatent(parameters,data,user_index,recursion_depth = MAX_RECURSION, ca
     #Check if latent is cached
     if any(USERLATENTCACHE[user_index]):
         global hitcount
-
         hitcount += 1
 
         return USERLATENTCACHE[user_index]
