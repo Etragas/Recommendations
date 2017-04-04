@@ -2,6 +2,9 @@
 # A collection of utility methods for loading data
 import numpy as np
 from scipy.sparse import *
+from os import listdir
+from os.path import isfile, join
+
 class DataLoader:
 
     MOVIELENS = "Movielens"
@@ -20,19 +23,92 @@ class DataLoader:
         return {self.MOVIELENS : self.LoadMovieLens(file_path), self.NETFLIX : 2}.get(data_type,None)
 
 
-
-    def LoadMovieLens(self,file_path):
-
+    def fixMovelens100m(self,file_path):
+        encountered = {}
+        idx = 1
         f = open(file_path,'r')
+        fixed = open(file_path + "better",'w+')
         #Determine length later
-        X = np.zeros((10000,10000))                                   #TODO: FIX THIS MAGIC
+        X = [list() for x in range (72000)]
 
         for elem in f.readlines():
-            user, item, rating, _ = [int(x) for x in elem.split()]
-            if (user < 10000) and (item < 10000):
-                X[user-1,item-1] = rating
+            user, item, rating, _ = [x for x in elem.split('::')]
+            if item not in encountered:
+                encountered[item] = idx
+                idx+=1
+            print user
+            X[int(user)].append((encountered[item], float(rating)))
+        for user_id in range(72000):
+            out = ""
+            print user_id
+            for rating_info in X[user_id]:
+                movie_id, rating = rating_info
+                out += "{} {} {} \n".format(user_id,movie_id,rating)
+            fixed.write(out)
         return X
 
+    def LoadMovieLens(self,file_path):
+        encountered = {}
+        idx = 1
+        f = open(file_path,'r')
+        #Determine length later
+        X = np.zeros((72000,11000))                                   #TODO: FIX THIS MAGIC
+
+        for elem in f.readlines():
+            user, item, rating = [x for x in elem.split()][:3]
+            if item not in encountered:
+                encountered[item] = idx
+                idx+=1
+            user, item, rating = [int(user), int(item), float(rating)]
+            X[user-1,item-1] = rating
+        return X
+
+    def parseNetflixMovieData(self,file_path, user_arr, movie_arr, seen_id, counter):
+        f = open(file_path,'r')
+        movie_id = int(f.readline().split(':')[0])
+        for elem in f.readlines():
+            user_id, rating = [int(x) for x in elem.split(',')[:2]]
+
+            if str(user_id) not in seen_id:
+                seen_id[str(user_id)] = counter
+                counter += 1
+            #user_arr[seen_id[str(user_id)]].append((movie_id,rating))
+            movie_arr[movie_id].append((seen_id.get(str(user_id)),rating))
+
+    def genNetflixRatingCounts(self,
+                               out_path = '/Users/EliasApple/Data/',
+                               folder_path='/Users/EliasApple/PycharmProjects/Recommendations/Data/download/training_set/' ):
+        #print onlyfiles
+        seen_id = {}
+        user_arr = [list() for x in range(600000)]
+        movie_arr = [list() for x in range (18000)]
+        fil = 0
+        for file in listdir(folder_path):
+            print file
+            self.parseNetflixMovieData(join(folder_path,file),user_arr,movie_arr, seen_id,len(seen_id.keys())+1)
+            fil += 1
+        print len(seen_id.keys())
+        #user_first = open(join(out_path,'user_first.txt'),"w+")
+        movie_first = open(join(out_path,'movie_first.txt'),"w+")
+        #Print format: user_id, movie_id, rating, original_id
+        # for user_id in range(len(user_arr)):
+        #     print user_id
+        #     out = ""
+        #     for rating_info in user_arr[user_id]:
+        #         movie_id, rating = rating_info
+        #         out += "{},{},{} \n".format(user_id,movie_id,rating)
+        #     user_first.write(out)
+        #     user_arr[user_id] = 0
+        # user_first.close()
+
+        for movie_id in range(len(movie_arr)):
+            out = ""
+            for rating_info in movie_arr[movie_id]:
+                user_id, rating = rating_info
+                out += ("{},{},{} \n".format(movie_id,user_id,rating))
+            movie_first.write(out)
+            movie_arr[movie_id] = 0
+        movie_first.close()
 
     def getBatch(self, data, indices, type):
         """

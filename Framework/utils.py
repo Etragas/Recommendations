@@ -57,6 +57,14 @@ def get_top_n(data,n):
     return indices
 
 
+def splitData(data):
+    row, col = data.shape
+    row_indices, col_indices = [np.random.choice(range(row),row),np.random.choice(range(col),col)]
+    print row_indices
+    print row,col
+    row_split, col_split = int(.8*row), int(.8*col)
+    return [row_indices[:row_split],col_indices[:col_split]],[row_indices[row_split:],col_indices[col_split:]]
+
 keys_movie_to_user_net = "MovieToUser"
 keys_user_to_movie_net = "UserToMovie"
 keys_row_latents = "RowLatents"

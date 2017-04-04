@@ -22,7 +22,7 @@ import multiprocess as mp
 from threading import Lock
 from multiprocessing.queues import Queue
 curtime = 0
-MAX_RECURSION = 100
+MAX_RECURSION = 4
 
 movie_cache_lock = Lock()
 user_cache_lock = Lock()
@@ -185,10 +185,11 @@ def disseminate_values(num_items,num_bins):
     return ranges
 
 def get_pred_for_users(parameters,data,user_indices, queue = None):
-    print"cd"
+    print "cd"
     rating_predictions = []
 
     for user_index in user_indices:
+        #print user_index
         current_row = data[user_index,:]
         rating_indices = flatten(current_row > 0)[0] #Only keep indices where the ratings are non-zero
         if rating_indices.sum() == 0:
@@ -219,7 +220,6 @@ def recurrent_inference(parameters,iter=0,data = None,user_index = 0,movie_index
 def getUserLatent(parameters,data,user_index,recursion_depth = MAX_RECURSION, caller_id = [[],[]]):
     movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
     rowLatents = parameters[keys_row_latents]
-
     #Check if latent is cached
     if any(USERLATENTCACHE[user_index]):
         global hitcount
@@ -331,15 +331,17 @@ def softmax(x):
 def relu(data):
     return data * (data > 0)
 
+NUM_USERS = 70000
+NUM_MOVIES = 11000
 def wipe_caches():
     global USERLATENTCACHE
     global MOVIELATENTCACHE
-    USERLATENTCACHE = [np.array((0,0))]*2000
-    MOVIELATENTCACHE = [np.array((0,0))]*2000
+    USERLATENTCACHE = [np.array((0,0))]*NUM_USERS
+    MOVIELATENTCACHE = [np.array((0,0))]*NUM_MOVIES
 
 inference = neural_net_inference
 loss = nnLoss
 
 reg_alpha = .1
-USERLATENTCACHE = [np.array((0,0))]*2000
-MOVIELATENTCACHE = [np.array((0,0))]*2000
+USERLATENTCACHE = [np.array((0,0))]*NUM_USERS
+MOVIELATENTCACHE = [np.array((0,0))]*NUM_MOVIES
