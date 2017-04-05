@@ -7,7 +7,6 @@ from utils import *
 from autograd.core import primitive
 from autograd.scipy.misc import logsumexp
 from autograd.optimizers import adam
-from joblib import Parallel, delayed
 from multiprocessing.pool import ThreadPool
 import threading
 import time
@@ -31,7 +30,7 @@ def lossGrad(data):
 
 
 def dataCallback(data):
-    return lambda x,iter,grad: print_perf(x,iter,grad,data=data)
+    return lambda params,iter,grad: print_perf(params,iter,grad,data=data)
 
 # def lossGradWithFixed(fixed_params,data):
 #     return grad(lambda params,_: nnLoss_with_injection(params,fixed_params,data=data))
