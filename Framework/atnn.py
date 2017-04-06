@@ -13,6 +13,8 @@ from sklearn.decomposition import NMF
 import multiprocessing as mp
 
 full_data  = DataLoader().LoadData(file_path="../Data/ml-10M100K/ratingsbetter.dat",data_type=DataLoader.MOVIELENS)
+print "meow"
+raw_input()
 #full_data = full_data[:1000,:1700]
 #Reduce the matrix to toy size
 full_shape = full_data.shape

@@ -67,7 +67,6 @@ def nnLoss(parameters,iter=0,data=None,indices = None, num_proc = 1):
     """
     #Frobenius Norm squared error term
     print"ab"
-    keep = data > 0
     if not indices:
         indices = range(data.shape[0])
     # Regularization Terms
@@ -77,9 +76,11 @@ def nnLoss(parameters,iter=0,data=None,indices = None, num_proc = 1):
     #Squared error between
     for i in range(len(indices)):
         usr_ind = indices[i]
-        user_ratings = data[usr_ind,keep[usr_ind,:]]
+        keep = data[i,:] > 0
+        user_ratings = data[usr_ind,keep]
         prediction = inferred[i]
         loss = loss + np.square(user_ratings - prediction).sum()
+        loss = loss / data.size
     return loss
 
 def black_adam(grad_funs, init_params, callback=None, num_iters=100,

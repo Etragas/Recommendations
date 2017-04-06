@@ -52,7 +52,7 @@ class DataLoader:
         idx = 1
         f = open(file_path,'r')
         #Determine length later
-        X = np.zeros((72000,11000))                                   #TODO: FIX THIS MAGIC
+        X =dok_matrix((72000,11000))  #np.zeros((72000,11000))                                  ##TODO: FIX THIS MAGIC
 
         for elem in f.readlines():
             user, item, rating = [x for x in elem.split()][:3]
@@ -61,6 +61,7 @@ class DataLoader:
                 idx+=1
             user, item, rating = [int(user), int(item), float(rating)]
             X[user-1,item-1] = rating
+        f.close()
         return X
 
     def parseNetflixMovieData(self,file_path, user_arr, movie_arr, seen_id, counter):
