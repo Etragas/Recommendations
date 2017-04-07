@@ -7,14 +7,16 @@ from DataLoader import *
 from NMF_ATNN import *
 from autograd.optimizers import sgd
 import utils
-from utils import *
+import utils
 import NMF_ATNN
 from sklearn.decomposition import NMF
 import multiprocessing as mp
+import os
 
-full_data  = DataLoader().LoadData(file_path="../Data/ml-100K/u.data",data_type=DataLoader.MOVIELENS)
+print os.getcwd()
+full_data  = DataLoader().LoadData(file_path="Data/ml-100k/u.data",data_type=DataLoader.MOVIELENS)
 print full_data.shape
-full_data = full_data[:100,:170]
+full_data = full_data[:100,:100]
 #Reduce the matrix to toy size
 full_shape = full_data.shape
 utils.num_user_latents = int(.1*full_shape[0])
@@ -39,8 +41,7 @@ parameters = build_params(train.shape)
 #Pretrain rating net and latents
 grads = lossGrad(train)
 num_proc =  2#mp.cpu_count()
-grad_funs = gen_grads(train,num_proc)
-print grad_funs
+NMF_ATNN.wipe_caches()
 #parameters = black_adam(grad_funs,parameters,step_size=step_size,
 #                        num_iters=num_epochs, callback=dataCallback(train),num_proc=num_proc)
 parameters = adam(grads,parameters, step_size=step_size,

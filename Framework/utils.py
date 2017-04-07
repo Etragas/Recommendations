@@ -15,7 +15,6 @@ def build_params((row_size,col_size)):
     parameters[keys_rating_net]=(init_random_params(scale, rating_network_sizes))#Neural Net Parameters
     parameters[keys_col_latents]=(scale * np.random.rand(movie_latent_size,num_movie_latents))#Column Latents
     parameters[keys_row_latents]=(scale * np.random.rand(num_user_latents,user_latent_size))#user_latent_size,row_size))#Row Latents
-
     return parameters
 
 
