@@ -144,7 +144,7 @@ def print_perf(params, iter=0, gradient={}, data = None):
     """
     Prints the performance of the model
     """
-    global curtime, hitcount
+    global curtime, hitcount, U_HITS,M_HITS
     predicted_data = getInferredMatrix(params,data)
     print "It took: {} s".format(time.time()- curtime)
     print("iter is ", iter)
@@ -155,6 +155,9 @@ def print_perf(params, iter=0, gradient={}, data = None):
         print key
         print np.square(flatten(x)[0]).sum()/flatten(x)[0].size
     print(loss(parameters=params,data=data))
+    print U_HITS
+    print M_HITS
+    wipe_caches()
     curtime = time.time()
 
 def neural_net_inference(parameters,iter = 0, data = None, indices = None):
@@ -173,7 +176,6 @@ def neural_net_inference(parameters,iter = 0, data = None, indices = None):
     if not indices:
         indices = np.array(range(num_rows))
     half1 = get_pred_for_users(parameters,data,indices)
-    wipe_caches()
     return half1
 
 def disseminate_values(num_items,num_bins):
@@ -186,6 +188,9 @@ def disseminate_values(num_items,num_bins):
     return ranges
 
 def get_pred_for_users(parameters,data,user_indices, queue = None):
+    global NUM_USERS, NUM_MOVIES
+    NUM_USERS, NUM_MOVIES = data.shape
+    wipe_caches()
     print "cd"
     rating_predictions = []
 
@@ -219,6 +224,8 @@ def recurrent_inference(parameters,iter=0,data = None,user_index = 0,movie_index
                             ,movieLatent)))
 
 def getUserLatent(parameters,data,user_index,recursion_depth = MAX_RECURSION, caller_id = [[],[]]):
+    global U_HITS
+    U_HITS[user_index] += 1
     movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
     rowLatents = parameters[keys_row_latents]
     #Check if latent is cached
@@ -267,6 +274,8 @@ def getUserLatent(parameters,data,user_index,recursion_depth = MAX_RECURSION, ca
     return row_latent
 
 def getMovieLatent(parameters,data,movie_index,recursion_depth = MAX_RECURSION, caller_id = [[],[]]):
+    global M_HITS
+    M_HITS[movie_index] += 1
     #print "movie", (MAX_RECURSION-recursion_depth)
 
     user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
@@ -332,13 +341,17 @@ def softmax(x):
 def relu(data):
     return data * (data > 0)
 
-NUM_USERS = 70000
-NUM_MOVIES = 11000
+NUM_USERS = 1000
+NUM_MOVIES = 1800
 def wipe_caches():
     global USERLATENTCACHE
     global MOVIELATENTCACHE
+    global U_HITS
+    global M_HITS
     USERLATENTCACHE = [np.array((0,0))]*NUM_USERS
     MOVIELATENTCACHE = [np.array((0,0))]*NUM_MOVIES
+    U_HITS = [np.array((0,0))]*NUM_USERS
+    M_HITS = [np.array((0,0))]*NUM_MOVIES
 
 inference = neural_net_inference
 loss = nnLoss
@@ -346,3 +359,5 @@ loss = nnLoss
 reg_alpha = .1
 USERLATENTCACHE = [np.array((0,0))]*NUM_USERS
 MOVIELATENTCACHE = [np.array((0,0))]*NUM_MOVIES
+U_HITS = [0]*NUM_USERS
+M_HITS = [0]*NUM_MOVIES

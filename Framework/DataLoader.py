@@ -52,7 +52,7 @@ class DataLoader:
         idx = 1
         f = open(file_path,'r')
         #Determine length later
-        X =dok_matrix((72000,11000))  #np.zeros((72000,11000))                                  ##TODO: FIX THIS MAGIC
+        X =np.zeros((1000,1700), dtype=int)  #np.zeros((72000,11000))                                  ##TODO: FIX THIS MAGIC
 
         for elem in f.readlines():
             user, item, rating = [x for x in elem.split()][:3]

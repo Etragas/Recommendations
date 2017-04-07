@@ -52,16 +52,15 @@ def fill_in_gaps(canonical_indices,new_indices,full_data):
     return training_block
 
 def get_top_n(data,n):
-    indices = np.argpartition(-data, n)[:n]
-    print indices
+    indices = np.ravel((data.astype(int)).flatten().argsort())[-n:]
     return indices
 
 
 def splitData(data):
     row, col = data.shape
     row_indices, col_indices = [np.random.choice(range(row),row),np.random.choice(range(col),col)]
-    print row_indices
-    print row,col
+    #print row_indices
+    #print row,col
     row_split, col_split = int(.8*row), int(.8*col)
     return [row_indices[:row_split],col_indices[:col_split]],[row_indices[row_split:],col_indices[col_split:]]
 
