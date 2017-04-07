@@ -4,6 +4,7 @@ import utils
 
 # Load the data using DataLoader
 full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS)
+full_data = full_data[:100,:100]
 # Our dataset only has 1000 users and 1700 movies
 
 # Reduce the matrix to toy size
@@ -19,7 +20,7 @@ train_user_size, train_movie_size = map(lambda x: x.size, train_idx)
 
 # Training Parameters
 step_size = 0.005
-num_iters = 200
+num_iters = 20
 hyper = [step_size, num_iters]
 
 # Build the dictionary of parameters for the nets, etc.
