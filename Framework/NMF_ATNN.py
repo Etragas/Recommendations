@@ -74,51 +74,49 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
     rowLatents = parameters[keys_row_latents]
 
-    with USERCACHELOCK[user_index]:
+    if recursion_depth > 0:
+        U_HITS[user_index] += 1
 
-        if recursion_depth > 0:
-            U_HITS[user_index] += 1
+    # Check if latent is canonical
+    if user_index < rowLatents.shape[0]:
+        return rowLatents[user_index, :]
 
-        # Check if latent is canonical
-        if user_index < rowLatents.shape[0]:
-            return rowLatents[user_index, :]
+    # Check if latent is cached
+    if any(USERLATENTCACHE[user_index]):
+        hitcount += 1
+        return USERLATENTCACHE[user_index]
 
-        # Check if latent is cached
-        if any(USERLATENTCACHE[user_index]):
-            hitcount += 1
-            return USERLATENTCACHE[user_index]
+    # Exit
+    if recursion_depth < 1:
+        return None
 
-        # Exit
-        if recursion_depth < 1:
-            return None
+    # Must generate latent
+    current_row = data[user_index, :]
+    dense_ratings, dense_latents = [], []
+    internal_caller = [caller_id[0] + [user_index], caller_id[1]]
 
-        # Must generate latent
-        current_row = data[user_index, :]
-        dense_ratings, dense_latents = [], []
-        internal_caller = [caller_id[0] + [user_index], caller_id[1]]
+    for movie_index in np.flatnonzero(data[user_index, :]):
+        if movie_index not in internal_caller[1]:
+            movie_latent = getMovieLatent(parameters, data, movie_index, recursion_depth - 1, internal_caller)
 
-        for movie_index in np.flatnonzero(data[user_index, :]):
-            if movie_index not in internal_caller[1]:
-                movie_latent = getMovieLatent(parameters, data, movie_index, recursion_depth - 1, internal_caller)
+            if movie_latent is not None:
+                dense_latents.append(movie_latent)  # We got another movie latent
+                dense_ratings.append(current_row[movie_index])  # Add its corresponding rating
 
-                if movie_latent is not None:
-                    dense_latents.append(movie_latent)  # We got another movie latent
-                    dense_ratings.append(current_row[movie_index])  # Add its corresponding rating
+    # Now have all latents
+    # Prepare for concatenations
+    dense_latents = (np.array(dense_latents))
+    dense_ratings = np.transpose(np.array(dense_ratings).reshape((1, len(dense_ratings))))
 
-        # Now have all latents
-        # Prepare for concatenations
-        dense_latents = (np.array(dense_latents))
-        dense_ratings = np.transpose(np.array(dense_ratings).reshape((1, len(dense_ratings))))
+    if not any(dense_ratings):
+        return None
 
-        if not any(dense_ratings):
-            return None
+    latents_with_ratings = np.concatenate((dense_latents, dense_ratings), axis=1)  # Append ratings to latents
+    prediction = neural_net_predict(movie_to_user_net_parameters, (latents_with_ratings))  # Feed through NN
+    row_latent = np.mean(prediction, axis=0)
+    USERLATENTCACHE[user_index] = row_latent
 
-        latents_with_ratings = np.concatenate((dense_latents, dense_ratings), axis=1)  # Append ratings to latents
-        prediction = neural_net_predict(movie_to_user_net_parameters, (latents_with_ratings))  # Feed through NN
-        row_latent = np.mean(prediction, axis=0)
-        USERLATENTCACHE[user_index] = row_latent
-
-        return row_latent
+    return row_latent
 
 
 def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION, caller_id=[[], []]):
@@ -126,45 +124,43 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
     colLatents = parameters[keys_col_latents]
 
-    with MOVIECACHELOCK[movie_index]:
+    if recursion_depth > -1:
+        M_HITS[movie_index] += 1
 
-        if recursion_depth > -1:
-            M_HITS[movie_index] += 1
+    if movie_index < colLatents.shape[1]:
+        return colLatents[:, movie_index]
 
-        if movie_index < colLatents.shape[1]:
-            return colLatents[:, movie_index]
+    if any(MOVIELATENTCACHE[movie_index]):
+        hitcount += 1
+        return MOVIELATENTCACHE[movie_index]
 
-        if any(MOVIELATENTCACHE[movie_index]):
-            hitcount += 1
-            return MOVIELATENTCACHE[movie_index]
+    if recursion_depth < 1:
+        return None
 
-        if recursion_depth < 1:
-            return None
+    dense_ratings, dense_latents = [], []
 
-        dense_ratings, dense_latents = [], []
+    # Must Generate Latent
+    current_column = data[:, movie_index]
+    internal_caller = [caller_id[0], caller_id[1] + [movie_index]]  # [[],[]]#
+    for user_index in np.flatnonzero(current_column):
+        if user_index not in internal_caller[0]:
+            user_latent = getUserLatent(parameters, data, user_index, recursion_depth - 1, internal_caller)
+            if user_latent is not None:
+                dense_latents.append(user_latent)
+                dense_ratings.append(current_column[user_index])
+    dense_latents = np.array(dense_latents)
+    dense_ratings = np.transpose(np.array(dense_ratings).reshape((1, len(dense_ratings))))
+    # print "movie, {} had {} ratings and {} failed ratings".format(movie_index,dense_ratings.size,len(np.flatnonzero(current_column)) - dense_ratings.size)
 
-        # Must Generate Latent
-        current_column = data[:, movie_index]
-        internal_caller = [caller_id[0], caller_id[1] + [movie_index]]  # [[],[]]#
-        for user_index in np.flatnonzero(current_column):
-            if user_index not in internal_caller[0]:
-                user_latent = getUserLatent(parameters, data, user_index, recursion_depth - 1, internal_caller)
-                if user_latent is not None:
-                    dense_latents.append(user_latent)
-                    dense_ratings.append(current_column[user_index])
-        dense_latents = np.array(dense_latents)
-        dense_ratings = np.transpose(np.array(dense_ratings).reshape((1, len(dense_ratings))))
-        # print "movie, {} had {} ratings and {} failed ratings".format(movie_index,dense_ratings.size,len(np.flatnonzero(current_column)) - dense_ratings.size)
+    if not any(dense_ratings):
+        return None
 
-        if not any(dense_ratings):
-            return None
+    latents_with_ratings = np.concatenate((dense_latents, dense_ratings), axis=1)  # Append ratings to latents
+    prediction = neural_net_predict(user_to_movie_net_parameters, latents_with_ratings)  # Feed through NN
+    column_latent = np.mean(prediction, axis=0)
+    MOVIELATENTCACHE[movie_index] = column_latent
 
-        latents_with_ratings = np.concatenate((dense_latents, dense_ratings), axis=1)  # Append ratings to latents
-        prediction = neural_net_predict(user_to_movie_net_parameters, latents_with_ratings)  # Feed through NN
-        column_latent = np.mean(prediction, axis=0)
-        MOVIELATENTCACHE[movie_index] = column_latent
-
-        return column_latent
+    return column_latent
 
 
 def neural_net_predict(parameters=None, inputs=None):
