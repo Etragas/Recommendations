@@ -28,4 +28,4 @@ parameters = build_params([train_user_size + num_user_latents, train_movie_size 
 
 # Train the parameters.  Pretraining the nets and canon latents are optional.
 parameters = train(full_data, can_idx, train_idx, test_idx, parameters,
-                   p1=True, p1Args=hyper, p2=True, p2Args=hyper, trainArgs=hyper)
+                   p1=False, p1Args=hyper, p2=False, p2Args=hyper, trainArgs=hyper)

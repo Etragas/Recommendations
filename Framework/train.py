@@ -57,7 +57,7 @@ def pretrain_combiners(full_data, can_idx, parameters, step_size, num_iters):
     return parameters
 
 
-def train(full_data, can__idx=None, train_idx=None, test_idx=None, parameters=None, p1=False, p1Args=[.005, 2],
+def train(full_data, can_idx=None, train_idx=None, test_idx=None, parameters=None, p1=False, p1Args=[.005, 2],
           p2=False, p2Args=[.005, 2], trainArgs=[.005, 2]):
     '''
     Trains ALL THE THINGS.  Also optionally performs pretraining on the canonicals, rating net weights, rowless net weights, and
@@ -76,21 +76,22 @@ def train(full_data, can__idx=None, train_idx=None, test_idx=None, parameters=No
 
     if p1:
         # Perform pretraining on the canonicals and rating net
-        parameters = pretrain_canon_and_rating(full_data, can__idx, parameters, *p1Args)
+        parameters = pretrain_canon_and_rating(full_data, can_idx, parameters, *p1Args)
 
     if p2:
         # Perform pretraining on the columnless and rowless nets
-        parameters = pretrain_combiners(full_data, can__idx, parameters, *p2Args)
+        parameters = pretrain_combiners(full_data, can_idx, parameters, *p2Args)
 
     # Create our training matrix with canonicals using fill_in_gaps
-    train = fill_in_gaps(can__idx, train_idx, full_data)
+    train = fill_in_gaps(can_idx, train_idx, full_data)
     # Create our test matrix with canonicals using fill_in_gaps
-    test = fill_in_gaps(can__idx, test_idx, full_data)
+    test = fill_in_gaps(can_idx, test_idx, full_data)
 
+    ltrain = listify(train)
     # Define the loss for our train
-    grads = lossGrad(train)
+    grads = lossGrad(ltrain)
     # Optimize our parameters using adam
-    parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1], callback=dataCallback(train))
+    parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1], callback=dataCallback(train,ltrain))
 
     # TODO: Make an inference function that calls the below
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison

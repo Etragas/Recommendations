@@ -26,30 +26,30 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1):
     """
     # Frobenius Norm squared error term
     if not indices:
-        indices = range(data.shape[0])
+        indices = range(len(data[keys_row_first]))
     # Regularization Terms
     loss = reg_alpha * np.square(flatten(parameters)[0]).sum() / float(num_proc)
 
     # Generate predictions
     predictions = inference(parameters, data=data, indices=indices)
-    keep = (data > 0)
     # Squared error between
+    row_first = data[keys_row_first]
     for i in range(len(indices)):
-        loss = loss + np.square(data[i, keep[i, :]] - predictions[i]).sum()
-    loss = loss / data.size
+        loss = loss + np.square(row_first[i][get_ratings] - predictions[i]).sum()
+    #loss = loss / data.size
     return loss
 
 
 def get_pred_for_users(parameters, data, indices=None, queue=None):
     global NUM_USERS, NUM_MOVIES
-    NUM_USERS, NUM_MOVIES = data.shape
+    row_first = data[keys_row_first]
+    NUM_USERS, NUM_MOVIES = len(data[keys_row_first]), len(data[keys_col_first])
     full_predictions = []
     wipe_caches()
 
     for user_index in indices:
         user_predictions = []
-
-        for rating_index in np.flatnonzero(data[user_index, :]):
+        for rating_index in row_first[user_index][get_indices]:
             # For each index where a rating exists, generate it.
             user_predictions.append(recurrent_inference(parameters, iter, data, user_index, rating_index))
 
@@ -60,7 +60,6 @@ def get_pred_for_users(parameters, data, indices=None, queue=None):
 
 def recurrent_inference(parameters, iter=0, data=None, user_index=0, movie_index=0):
     # Predict full matrix
-
     movieLatent = getMovieLatent(parameters, data, movie_index)
     userLatent = getUserLatent(parameters, data, user_index)
 
@@ -91,18 +90,19 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
         return None
 
     # Must generate latent
-    current_row = data[user_index, :]
+    current_row = data[keys_row_first][user_index]
     dense_ratings, dense_latents = [], []
     internal_caller = [caller_id[0] + [user_index], caller_id[1]]
 
-    for movie_index in np.flatnonzero(data[user_index, :]):
+    raw_idx = 0
+    for movie_index in current_row[get_indices]:
         if movie_index not in internal_caller[1]:
             movie_latent = getMovieLatent(parameters, data, movie_index, recursion_depth - 1, internal_caller)
 
             if movie_latent is not None:
                 dense_latents.append(movie_latent)  # We got another movie latent
-                dense_ratings.append(current_row[movie_index])  # Add its corresponding rating
-
+                dense_ratings.append(current_row[get_ratings][raw_idx])  # Add its corresponding rating
+    raw_idx += 1
     # Now have all latents
     # Prepare for concatenations
     dense_latents = (np.array(dense_latents))
@@ -140,14 +140,16 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     dense_ratings, dense_latents = [], []
 
     # Must Generate Latent
-    current_column = data[:, movie_index]
+    raw_idx = 0
+    current_column = data[keys_col_first][movie_index]
     internal_caller = [caller_id[0], caller_id[1] + [movie_index]]  # [[],[]]#
-    for user_index in np.flatnonzero(current_column):
+    for user_index in current_column[get_indices]:
         if user_index not in internal_caller[0]:
             user_latent = getUserLatent(parameters, data, user_index, recursion_depth - 1, internal_caller)
             if user_latent is not None:
                 dense_latents.append(user_latent)
-                dense_ratings.append(current_column[user_index])
+                dense_ratings.append(current_column[get_ratings][raw_idx])
+        raw_idx+=1
     dense_latents = np.array(dense_latents)
     dense_ratings = np.transpose(np.array(dense_ratings).reshape((1, len(dense_ratings))))
     # print "movie, {} had {} ratings and {} failed ratings".format(movie_index,dense_ratings.size,len(np.flatnonzero(current_column)) - dense_ratings.size)
@@ -188,16 +190,16 @@ def lossGrad(data):
     return grad(lambda params, _: standard_loss(params, data=data))
 
 
-def dataCallback(data):
-    return lambda params, iter, grad: print_perf(params, iter, grad, data=data)
+def dataCallback(data,ltrain):
+    return lambda params, iter, grad: print_perf(params, iter, grad, data=data,ldata=ltrain)
 
 
-def print_perf(params, iter=0, gradient={}, data=None):
+def print_perf(params, iter=0, gradient={}, data=None, ldata = None):
     """
     Prints the performance of the model
     """
     global curtime, hitcount, U_HITS, M_HITS
-    predicted_data = getInferredMatrix(params, data)
+    predicted_data = getInferredMatrix(params, ldata)
     print "It took: {} s".format(time.time() - curtime)
     print("iter is ", iter)
     print("MSE is ", (abs(data - predicted_data).sum()) / ((data > 0).sum()))
@@ -206,7 +208,7 @@ def print_perf(params, iter=0, gradient={}, data=None):
         x = gradient[key]
         print key
         print np.square(flatten(x)[0]).sum() / flatten(x)[0].size
-    print(loss(parameters=params, data=data))
+    print(loss(parameters=params, data=ldata))
     print U_HITS
     print M_HITS
     curtime = time.time()
@@ -235,12 +237,12 @@ def getInferredMatrix(parameters, data):
     """
     Uses the network's predictions to generate a full matrix for comparison.
     """
+    row_len, col_len = len(data[keys_row_first]), len(data[keys_col_first])
+    inferred = inference(parameters, data=data, indices=range(row_len))
+    newarray = np.zeros((len(data[keys_row_first]),len(data[keys_col_first])))
 
-    inferred = inference(parameters, data=data, indices=range(data.shape[0]))
-    newarray = np.zeros((data.shape))
-
-    for i in range(data.shape[0]):
-        ratings_high = data[i, :] > 0
+    for i in range(row_len):
+        ratings_high = data[keys_row_first][i][get_indices]
         newarray[i, ratings_high] = inferred[i]
     return newarray
 
