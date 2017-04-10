@@ -25,23 +25,23 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1):
     :return: A scalar denoting the loss
     """
     # Frobenius Norm squared error term
-    if not indices:
-        indices = range(len(data[keys_row_first]))
     # Regularization Terms
-    loss = reg_alpha * np.square(flatten(parameters)[0]).sum() / float(num_proc)
+    reg_loss = reg_alpha * np.square(flatten(parameters)[0]).sum() / float(num_proc)
 
     # Generate predictions
     predictions = inference(parameters, data=data, indices=indices)
     # Squared error between
-    row_first = data[keys_row_first]
-    for i in range(len(indices)):
-        loss = loss + np.square(row_first[i][get_ratings] - predictions[i]).sum()
-    #loss = loss / data.size
-    return loss
+
+    total_loss = reg_loss + np.square(rmse(data,predictions))
+    return total_loss
+
 
 
 def get_pred_for_users(parameters, data, indices=None, queue=None):
     global NUM_USERS, NUM_MOVIES
+    if not indices:
+        indices = range(len(data[keys_row_first]))
+
     row_first = data[keys_row_first]
     NUM_USERS, NUM_MOVIES = len(data[keys_row_first]), len(data[keys_col_first])
     full_predictions = []
@@ -62,14 +62,14 @@ def recurrent_inference(parameters, iter=0, data=None, user_index=0, movie_index
     # Predict full matrix
     movieLatent = getMovieLatent(parameters, data, movie_index)
     userLatent = getUserLatent(parameters, data, user_index)
-
+#   return np.dot(userLatent,np.transpose(movieLatent))
     return neural_net_predict(
-        parameters=parameters[keys_rating_net],
-        inputs=np.concatenate((userLatent, movieLatent)))
+      parameters=parameters[keys_rating_net],
+      inputs=np.concatenate((userLatent, movieLatent)))
 
 
 def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, caller_id=[[], []]):
-    global USERLATENTCACHE, USERCACHELOCK, U_HITS, hitcount
+    global USERLATENTCACHE, USERCACHELOCK, U_HITS, hitcount, UPERMACACHE
     movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
     rowLatents = parameters[keys_row_latents]
 
@@ -120,7 +120,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
 
 
 def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION, caller_id=[[], []]):
-    global MOVIELATENTCACHE, MOVIECACHELOCK, M_HITS, hitcount
+    global MOVIELATENTCACHE, MOVIECACHELOCK, M_HITS, hitcount, MPERMACACHE
     user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
     colLatents = parameters[keys_col_latents]
 
@@ -152,7 +152,6 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
         raw_idx+=1
     dense_latents = np.array(dense_latents)
     dense_ratings = np.transpose(np.array(dense_ratings).reshape((1, len(dense_ratings))))
-    # print "movie, {} had {} ratings and {} failed ratings".format(movie_index,dense_ratings.size,len(np.flatnonzero(current_column)) - dense_ratings.size)
 
     if not any(dense_ratings):
         return None
@@ -190,25 +189,21 @@ def lossGrad(data):
     return grad(lambda params, _: standard_loss(params, data=data))
 
 
-def dataCallback(data,ltrain):
-    return lambda params, iter, grad: print_perf(params, iter, grad, data=data,ldata=ltrain)
+def dataCallback(data):
+    return lambda params, iter, grad: print_perf(params, iter, grad, data=data, )
 
 
-def print_perf(params, iter=0, gradient={}, data=None, ldata = None):
+def print_perf(params, iter=0, gradient={}, data = None):
     """
     Prints the performance of the model
     """
     global curtime, hitcount, U_HITS, M_HITS
-    predicted_data = getInferredMatrix(params, ldata)
     print "It took: {} s".format(time.time() - curtime)
     print("iter is ", iter)
-    print("MSE is ", (abs(data - predicted_data).sum()) / ((data > 0).sum()))
+    print("MSE is", mae(gt=data,pred=inference(params, data)))
+    print("RMSE is ", rmse(gt=data, pred=inference(params, data)))
+    print("Loss is ", loss(parameters=params, data=data))
     print "Hitcount is: ", hitcount
-    for key in gradient.keys():
-        x = gradient[key]
-        print key
-        print np.square(flatten(x)[0]).sum() / flatten(x)[0].size
-    print(loss(parameters=params, data=ldata))
     print U_HITS
     print M_HITS
     curtime = time.time()
@@ -219,8 +214,8 @@ NUM_MOVIES = 1800
 
 
 def wipe_caches():
-    global USERLATENTCACHE, USERCACHELOCK
-    global MOVIELATENTCACHE, MOVIECACHELOCK
+    global USERLATENTCACHE, USERCACHELOCK, UPERMACACHE
+    global MOVIELATENTCACHE, MOVIECACHELOCK, MPERMACACHE
     global U_HITS
     global M_HITS
     global hitcount
@@ -232,6 +227,21 @@ def wipe_caches():
     USERCACHELOCK = [Lock() for x in range(NUM_USERS)]
     MOVIECACHELOCK = [Lock() for x in range(NUM_MOVIES)]
 
+def rmse(gt,pred):
+    val = 0
+    row_first = gt[keys_row_first]
+    for i in range(len(pred)):
+        val = val + np.square(row_first[i][get_ratings] - pred[i]).sum()
+    val = np.sqrt(val / sum([len(row[get_ratings]) for row in row_first]))
+    return val
+
+def mae(gt,pred):
+    val = 0
+    row_first = gt[keys_row_first]
+    for i in range(len(pred)):
+        val = val + abs(row_first[i][get_ratings] - pred[i]).sum()
+    val = np.sqrt(val / sum([len(row[get_ratings]) for row in row_first]))
+    return val
 
 def getInferredMatrix(parameters, data):
     """

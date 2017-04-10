@@ -19,6 +19,7 @@ def pretrain_canon_and_rating(full_data, can_idx, parameters, step_size, num_ite
 
     # Create our canonical from given indices and the full data
     train = full_data[np.ix_(*can_idx)]
+    train = listify(train)
     # Define the loss for our train
     grads = NMF_ATNN.lossGrad(train)
     # Optimize our parameters using adam
@@ -47,7 +48,7 @@ def pretrain_combiners(full_data, can_idx, parameters, step_size, num_iters):
     # Set the first and third quadrants of the quadrupled canonical graph to zero.  Set up for clever trickery.
     train[:num_user_latents, :num_movie_latents] = np.array(0)
     train[num_user_latents:, num_movie_latents:] = np.array(0)
-
+    train = listify(train)
     # Define the loss for our train
     grads = NMF_ATNN.lossGrad(train)
     # Optimize our parameters using adam
@@ -57,8 +58,8 @@ def pretrain_combiners(full_data, can_idx, parameters, step_size, num_iters):
     return parameters
 
 
-def train(full_data, can_idx=None, train_idx=None, test_idx=None, parameters=None, p1=False, p1Args=[.005, 2],
-          p2=False, p2Args=[.005, 2], trainArgs=[.005, 2]):
+def train(full_data, can_idx=None, train_idx=None, test_idx=None, parameters=None, p1=False, p1Args=[.001, 2],
+          p2=False, p2Args=[.001, 2], trainArgs=[.001, 2]):
     '''
     Trains ALL THE THINGS.  Also optionally performs pretraining on the canonicals, rating net weights, rowless net weights, and
     columnless weights.  Prints out the train and test results upon terminination.
@@ -86,12 +87,13 @@ def train(full_data, can_idx=None, train_idx=None, test_idx=None, parameters=Non
     train = fill_in_gaps(can_idx, train_idx, full_data)
     # Create our test matrix with canonicals using fill_in_gaps
     test = fill_in_gaps(can_idx, test_idx, full_data)
-
-    ltrain = listify(train)
+    NMF_ATNN.sneak = train.copy()
+    print "kek"
+    train = listify(train)
     # Define the loss for our train
-    grads = lossGrad(ltrain)
+    grads = lossGrad(train)
     # Optimize our parameters using adam
-    parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1], callback=dataCallback(train,ltrain))
+    parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1], callback=dataCallback(train))
 
     # TODO: Make an inference function that calls the below
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison

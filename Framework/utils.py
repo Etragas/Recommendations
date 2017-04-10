@@ -79,13 +79,13 @@ def listify(data):
     row_first = []
     col_first = []
     for usr_idx in range(row_size):
-        movie_indices = np.ravel(np.nonzero(data[usr_idx,:]))
-        ratings = data[usr_idx,movie_indices]
+        movie_indices = tuple(np.ravel(np.nonzero(data[usr_idx,:])))
+        ratings = tuple(data[usr_idx,movie_indices])
         row_first.append((movie_indices,ratings))
 
     for movie_idx in range(col_size):
-        user_indices = np.ravel(np.nonzero(data[:,movie_idx]))
-        ratings = data[user_indices,movie_idx]
+        user_indices = tuple(np.ravel(np.nonzero(data[:,movie_idx])))
+        ratings = tuple(data[user_indices,movie_idx])
         col_first.append((user_indices,ratings))
     print "done"
     return {keys_row_first:row_first, keys_col_first: col_first}
