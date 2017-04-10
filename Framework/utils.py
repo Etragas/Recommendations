@@ -89,7 +89,8 @@ def listify(data):
         col_first.append((user_indices,ratings))
     print "done"
     return {keys_row_first:row_first, keys_col_first: col_first}
-get_indices = 0
+
+get_items = 0
 get_ratings = 1
 keys_row_first = "row"
 keys_col_first = "column"

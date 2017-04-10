@@ -87,21 +87,25 @@ def train(full_data, can_idx=None, train_idx=None, test_idx=None, parameters=Non
     train = fill_in_gaps(can_idx, train_idx, full_data)
     # Create our test matrix with canonicals using fill_in_gaps
     test = fill_in_gaps(can_idx, test_idx, full_data)
-    NMF_ATNN.sneak = train.copy()
-    print "kek"
     train = listify(train)
+    k = test > 0
+    print k[:10,:10].sum()
+    print k[10:,:].sum() + k[:,10:].sum() - k[10:,10:].sum()
+    raw_input()
+    test = listify(test)
     # Define the loss for our train
     grads = lossGrad(train)
     # Optimize our parameters using adam
-    parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1], callback=dataCallback(train))
+
+    parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1], callback=dataCallback(train,test))
 
     # TODO: Make an inference function that calls the below
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, train)
-    print "\n".join([str(x) for x in ["Train", print_perf(parameters, data=train), train, np.round(invtrans)]])
+    print "\n".join([str(x) for x in ["Train", print_perf(parameters, train=train), train, np.round(invtrans)]])
 
     # Generate our rating predictions on the test set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, test)
-    print "\n".join([str(x) for x in ["Test", print_perf(parameters, data=test), test, np.round(invtrans)]])
+    print "\n".join([str(x) for x in ["Test", print_perf(parameters, train=test), test, np.round(invtrans)]])
 
     return parameters

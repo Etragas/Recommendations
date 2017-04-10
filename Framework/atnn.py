@@ -21,7 +21,7 @@ train_user_size, train_movie_size = map(lambda x: x.size, train_idx)
 
 # Training Parameters
 step_size = 0.005
-num_iters = 60
+num_iters = 20
 hyper = [step_size, num_iters]
 
 # Build the dictionary of parameters for the nets, etc.
