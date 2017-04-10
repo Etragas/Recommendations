@@ -36,7 +36,7 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1):
     # Squared error between
     for i in range(len(indices)):
         loss = loss + np.square(data[i, keep[i, :]] - predictions[i]).sum()
-    loss = loss / data.size
+    loss = loss / (data > 0).sum()
     return loss
 
 
@@ -200,13 +200,13 @@ def print_perf(params, iter=0, gradient={}, data=None):
     predicted_data = getInferredMatrix(params, data)
     print "It took: {} s".format(time.time() - curtime)
     print("iter is ", iter)
-    print("MSE is ", (abs(data - predicted_data).sum()) / ((data > 0).sum()))
+    print("MAE is ", (abs(data - predicted_data).sum()) / ((data > 0).sum()))
+    print("Loss is, ", loss(parameters=params, data=data))
     print "Hitcount is: ", hitcount
     for key in gradient.keys():
         x = gradient[key]
         print key
         print np.square(flatten(x)[0]).sum() / flatten(x)[0].size
-    print(loss(parameters=params, data=data))
     print U_HITS
     print M_HITS
     curtime = time.time()
