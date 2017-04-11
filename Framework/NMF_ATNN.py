@@ -16,7 +16,7 @@ hitcount = [0]*(MAX_RECURSION+1)
 
 caches_done = False
 ret_list = [[]]
-
+TRAININGMODE = False
 
 def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1):
     """
@@ -71,7 +71,7 @@ def recurrent_inference(parameters, iter=0, data=None, user_index=0, movie_index
 
 
 def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, caller_id=[[], []]):
-    global USERLATENTCACHE, hitcount, USERCACHELOCK
+    global USERLATENTCACHE, hitcount, USERCACHELOCK, TRAININGMODE
     movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
     rowLatents = parameters[keys_row_latents]
     # Check if latent is canonical
@@ -95,7 +95,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     evidence_count = 0
     raw_idx = 0
     for movie_index in items:
-        if evidence_count > 10:
+        if TRAININGMODE and evidence_count > 10:
              break
         if movie_index not in internal_caller[1]:
             movie_latent = getMovieLatent(parameters, data, movie_index, recursion_depth - 1, internal_caller)
@@ -122,7 +122,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
 
 
 def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION, caller_id=[[], []]):
-    global MOVIELATENTCACHE, hitcount, MOVIECACHELOCK
+    global MOVIELATENTCACHE, hitcount, MOVIECACHELOCK, TRAININGMODE
     user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
     colLatents = parameters[keys_col_latents]
     if movie_index < colLatents.shape[1]:
@@ -144,7 +144,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
     internal_caller = [caller_id[0], caller_id[1] + [movie_index]]  # [[],[]]#
     for user_index in items:
-        if evidence_count > 10:
+        if TRAININGMODE and evidence_count > 10:
              break
         if user_index not in internal_caller[0]:
             user_latent = getUserLatent(parameters, data, user_index, recursion_depth - 1, internal_caller)
@@ -189,7 +189,13 @@ def relu(data):
 
 
 def lossGrad(data):
-    return grad(lambda params, _: standard_loss(params, data=data))
+    def training(params,data=None):
+        global TRAININGMODE
+        TRAININGMODE = True
+        loss = standard_loss(params,data=data)
+        TRAININGMODE = False
+        return loss
+    return grad(lambda params, _: training(params, data=data))
 
 
 def dataCallback(data,test=None):
