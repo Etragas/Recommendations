@@ -87,13 +87,17 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     train_data = fill_in_gaps(can_idx, train_idx, train_data)
     # Create our test matrix with canonicals using fill_in_gaps
     test_data = fill_in_gaps(can_idx, test_idx, test_data)
+    print (train_data > 0).sum()
+    print (test_data> 0).sum()
+
     train_data = listify(train_data)
+
     k = test_data > 0
     print k[:10,:10].sum()
     print k[10:,:].sum() + k[:,10:].sum() - k[10:,10:].sum()
     test_data = listify(test_data)
     # Define the loss for our train
-    grads = lossGrad(train_data)
+    grads = lossGrad(train_data,num_batches=100)
     # Optimize our parameters using adam
 
     parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1], callback=dataCallback(train_data, test_data))

@@ -6,7 +6,7 @@ from autograd.util import flatten
 
 from utils import *
 from sklearn.utils import shuffle
-
+from MultiCore import disseminate_values
 curtime = 0
 MAX_RECURSION = 4
 
@@ -18,7 +18,7 @@ caches_done = False
 ret_list = [[]]
 TRAININGMODE = False
 
-def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1):
+def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_batches = 1):
     """
     Compute simplified version of squared loss with penalty on vector norms
     :param parameters: Same as class parameter, here for autograd
@@ -27,11 +27,11 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1):
     """
     # Frobenius Norm squared error term
     # Regularization Terms
-
+    print num_batches
     predictions = inference(parameters, data=data, indices=indices)
 
-    data_loss = np.square((rmse(data,predictions)))
-    reg_loss = reg_alpha * np.square(flatten(parameters)[0]).sum() / float(num_proc)
+    data_loss = np.square((rmse(data,predictions,indices)))
+    reg_loss = reg_alpha * np.square(flatten(parameters)[0]).sum() / float(num_proc) / float(num_batches)
 
     return reg_loss+data_loss
 
@@ -41,6 +41,7 @@ def get_pred_for_users(parameters, data, indices=None, queue=None):
     setup_caches(data)
     if not indices:
         indices = range(len(data[keys_row_first]))
+
     row_first = data[keys_row_first]
     full_predictions = []
 
@@ -71,6 +72,7 @@ def recurrent_inference(parameters, iter=0, data=None, user_index=0, movie_index
 
 
 def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, caller_id=[[], []]):
+
     global USERLATENTCACHE, hitcount, USERCACHELOCK, TRAININGMODE
     movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
     rowLatents = parameters[keys_row_latents]
@@ -188,14 +190,15 @@ def relu(data):
     return data * (data > 0)
 
 
-def lossGrad(data):
-    def training(params,data=None):
+def lossGrad(data,num_batches = 1):
+    batch_indices = disseminate_values(len(data[keys_row_first]),num_batches)
+    def training(params,iter,data=None, indices = None):
         global TRAININGMODE
         TRAININGMODE = True
-        loss = standard_loss(params,data=data)
+        loss = standard_loss(params,iter,data=data,indices=batch_indices[iter%num_batches],num_batches=num_batches)
         TRAININGMODE = False
         return loss
-    return grad(lambda params, _: training(params, data=data))
+    return grad(lambda params, iter: training(params, iter,data=data,indices = range(len(data[keys_row_first]))))
 
 
 def dataCallback(data,test=None):
@@ -247,12 +250,18 @@ def wipe_caches():
     USERCACHELOCK = [Lock() for x in range(NUM_USERS)]
     MOVIECACHELOCK = [Lock() for x in range(NUM_MOVIES)]
 
-def rmse(gt,pred):
+def rmse(gt,pred, indices = None):
+    if not indices:
+        indices = range(len(pred))
     val = 0
+    raw_idx = 0
+    numel = 0
     row_first = gt[keys_row_first]
-    for i in range(len(pred)):
-        val = val + (np.square(row_first[i][get_ratings] - pred[i])).sum()
-    val = np.sqrt(val / sum([len(row[get_ratings]) for row in row_first]))
+    for i in indices:
+        val = val + (np.square(row_first[i][get_ratings] - pred[raw_idx])).sum()
+        numel += len(row_first[i][get_ratings])
+        raw_idx+=1
+    val = np.sqrt(val / numel)
     return val
 
 def mae(gt,pred):
@@ -280,7 +289,7 @@ def getInferredMatrix(parameters, data):
 inference = get_pred_for_users
 loss = standard_loss
 
-reg_alpha = .01
+reg_alpha = .001
 USERLATENTCACHE = [None] * NUM_USERS
 MOVIELATENTCACHE = [None] * NUM_MOVIES
 U_HITS = [0] * NUM_USERS

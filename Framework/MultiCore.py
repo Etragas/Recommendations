@@ -72,4 +72,10 @@ def disseminate_values(num_items, num_bins):
     # Remainder < num_bins
     for x in range(remainder):
         ranges[x] += 1
+
+    offset = 0
+    for idx in range(len(ranges)):
+        tmp = ranges[idx]
+        ranges[idx] = range(offset,offset+ranges[idx])
+        offset += tmp
     return ranges

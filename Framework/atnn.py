@@ -4,7 +4,7 @@ import utils
 
 # Load the data using DataLoader
 full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS)
-full_data = full_data[:300,:300]
+#full_data = full_data[:200,:200]
 #full_data = np.random.randint(0,5,full_data.shape,dtype = 'int')
 print full_data
 print full_data.shape
@@ -26,7 +26,7 @@ train_user_size, train_movie_size = map(lambda x: x.size, train_idx)
 
 # Training Parameters
 step_size = 0.005
-num_iters = 20
+num_iters = 2000
 hyper = [step_size, num_iters]
 
 # Build the dictionary of parameters for the nets, etc.
@@ -34,4 +34,4 @@ parameters = build_params([train_user_size + num_user_latents, train_movie_size 
 
 # Train the parameters.  Pretraining the nets and canon latents are optional.
 parameters = train(train_data, test_data, can_idx, train_idx, test_idx, parameters,
-                   p1=True, p1Args=hyper, p2=True, p2Args=hyper, trainArgs=hyper)
+                   p1=False, p1Args=hyper, p2=False, p2Args=hyper, trainArgs=hyper)
