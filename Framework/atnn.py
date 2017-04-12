@@ -4,13 +4,13 @@ import utils
 
 # Load the data using DataLoader
 full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS)
-full_data = full_data[:300,:300]
+full_data = full_data[:100,:100]
 #full_data = np.random.randint(0,5,full_data.shape,dtype = 'int')
 print full_data
 print full_data.shape
-print np.mean(np.sum(full_data > 0,axis = 1))
+print np.median(np.sum(full_data > 0,axis = 1))
 # Our dataset only has 1000 users and 1700 movies
-
+raw_input()
 # Reduce the matrix to toy size
 nrows, ncols = full_data.shape
 utils.num_user_latents = int(.1 * nrows)

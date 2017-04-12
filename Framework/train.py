@@ -88,14 +88,18 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     # Create our test matrix with canonicals using fill_in_gaps
     test_data = fill_in_gaps(can_idx, test_idx, test_data)
     train_data = listify(train_data)
-    k = test_data > 0
-    print k[:10,:10].sum()
-    print k[10:,:].sum() + k[:,10:].sum() - k[10:,10:].sum()
+    # k = test_data > 0
+    # print k[:10,:10].sum()
+    # print k[10:,:].sum() + k[:,10:].sum() - k[10:,10:].sum()
     test_data = listify(test_data)
     # Define the loss for our train
-    grads = lossGrad(train_data)
-    # Optimize our parameters using adam
 
+    num_proc =  2#mp.cpu_count()
+    grad_funs = gen_grads(train_data,num_proc)
+    parameters = black_adam(grad_funs,parameters,step_size=trainArgs[0], num_iters=trainArgs[1], callback=dataCallback(train_data,test_data),num_proc=num_proc)
+
+    # Optimize our parameters using adam
+    grads = lossGradMultiCore(train_data)
     parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1], callback=dataCallback(train_data, test_data))
 
     # TODO: Make an inference function that calls the below

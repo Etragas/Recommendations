@@ -3,10 +3,33 @@ from threading import Lock
 
 from autograd import grad
 from autograd.util import flatten
-
+from autograd.util import flatten_func
+import multiprocess as mp
 from utils import *
 from sklearn.utils import shuffle
-
+import autograd.numpy as np
+from autograd import grad
+from NMF import NMF
+from autograd.util import flatten
+import time
+from utils import *
+from autograd.core import primitive
+from autograd.scipy.misc import logsumexp
+from autograd.optimizers import adam
+from multiprocessing.pool import ThreadPool
+import threading
+import time
+import Queue
+from copy import deepcopy
+import sys
+import dill
+import threading
+from autograd.util import flatten,flatten_func
+import inspect
+import multiprocess as mp
+#import pathos.helpers as mp_vanilla
+from threading import Lock
+from multiprocessing.queues import Queue
 curtime = 0
 MAX_RECURSION = 4
 
@@ -29,16 +52,15 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1):
     # Regularization Terms
 
     predictions = inference(parameters, data=data, indices=indices)
-
-    data_loss = np.square((rmse(data,predictions)))
+    data_loss = np.square((rmse(data,predictions,indices)))
     reg_loss = reg_alpha * np.square(flatten(parameters)[0]).sum() / float(num_proc)
-
     return reg_loss+data_loss
 
 
 
 def get_pred_for_users(parameters, data, indices=None, queue=None):
     setup_caches(data)
+
     if not indices:
         indices = range(len(data[keys_row_first]))
     row_first = data[keys_row_first]
@@ -53,7 +75,6 @@ def get_pred_for_users(parameters, data, indices=None, queue=None):
             user_predictions.append(recurrent_inference(parameters, iter, data, user_index, movie_index))
 
         full_predictions.append(np.array(user_predictions).reshape((len(user_predictions))))
-
     return full_predictions
 
 
@@ -61,7 +82,6 @@ def recurrent_inference(parameters, iter=0, data=None, user_index=0, movie_index
     # Predict full matrix
     movieLatent = getMovieLatent(parameters, data, movie_index)
     userLatent = getUserLatent(parameters, data, user_index)
-
     if movieLatent is None or userLatent is None:
         return 2.5
 
@@ -188,14 +208,6 @@ def relu(data):
     return data * (data > 0)
 
 
-def lossGrad(data):
-    def training(params,data=None):
-        global TRAININGMODE
-        TRAININGMODE = True
-        loss = standard_loss(params,data=data)
-        TRAININGMODE = False
-        return loss
-    return grad(lambda params, _: training(params, data=data))
 
 
 def dataCallback(data,test=None):
@@ -247,11 +259,15 @@ def wipe_caches():
     USERCACHELOCK = [Lock() for x in range(NUM_USERS)]
     MOVIECACHELOCK = [Lock() for x in range(NUM_MOVIES)]
 
-def rmse(gt,pred):
+def rmse(gt,pred, indices = None):
+    if not indices:
+        indices = range(len(pred))
     val = 0
+    raw_idx = 0
     row_first = gt[keys_row_first]
-    for i in range(len(pred)):
-        val = val + (np.square(row_first[i][get_ratings] - pred[i])).sum()
+    for i in indices:
+        val = val + (np.square(row_first[i][get_ratings] - pred[raw_idx])).sum()
+        raw_idx+=1
     val = np.sqrt(val / sum([len(row[get_ratings]) for row in row_first]))
     return val
 
@@ -276,6 +292,91 @@ def getInferredMatrix(parameters, data):
         newarray[i, ratings_high] = inferred[i]
     return newarray
 
+
+def black_adam(grad_funs, init_params, callback=None, num_iters=100,
+               step_size=0.001, b1=0.9, b2=0.999, eps=10 ** -8, num_proc=1):
+    """Adam as described in http://arxiv.org/pdf/1412.6980.pdf.
+    It's basically RMSprop with momentum and some correction terms."""
+    multi_grad = []
+    for proc_num in range(num_proc):
+        flattened_grad, _, _ = flatten_func(grad_funs[proc_num], init_params)
+        multi_grad.append(flattened_grad)
+    x, unflatten = flatten(init_params)
+    multi_grad = tuple(multi_grad)
+    manage = mp.Manager()
+    m = np.zeros(len(x))
+    v = np.zeros(len(x))
+    result_queue = manage.Queue()
+    pool = mp.Pool(num_proc)
+    print num_iters
+    for i in range(num_iters):
+        for proc in range(0, num_proc):
+            pool.apply_async(tricky_wrapper, args=(multi_grad[proc], x, proc, result_queue))
+        results = []
+        for answer in range(num_proc):
+            results.append(result_queue.get())
+        g = np.array(reduce(lambda a, b: a + b, results, np.array(0)))
+
+        if callback: callback(unflatten(x), i, unflatten(g))
+
+        m = (1 - b1) * g + b1 * m  # First  moment estimate.
+        v = (1 - b2) * (g ** 2) + b2 * v  # Second moment estimate.
+        mhat = m / (1 - b1 ** (i + 1))  # Bias correction.
+        vhat = v / (1 - b2 ** (i + 1))
+        #print multi_grad
+        # multi_grad = [multi_grad[2]]*4
+        x = x - step_size * mhat / (np.sqrt(vhat) + eps)
+    return unflatten(x)
+
+
+def gen_grads(data, num_proc):
+    num_rows = len(data[keys_row_first])
+
+    gradfuns = []
+    ranges = disseminate_values(num_rows, num_proc)
+    prev_pos = 0
+    for x in range(num_proc):
+        user_range = range(prev_pos, prev_pos + ranges[x])
+        prev_pos += ranges[x]
+        gradfuns.append(lossGradMultiCore(data, range(num_rows), num_proc))
+
+    return tuple(gradfuns)
+
+
+def tricky_wrapper(grad_fun, params, iter, queue):
+    print "we're in ", iter
+    queue.put(grad_fun(params, iter))
+    print "we're out ", iter
+
+
+def lossGradMultiCore(data, user_range, num_proc=1):
+
+    def training(params):
+        global TRAININGMODE
+        TRAININGMODE = True
+        loss = standard_loss(params, data=data, indices=user_range, num_proc=num_proc)
+        TRAININGMODE = False
+
+        return loss
+    return grad(lambda params, _: training(params) )
+
+def lossGrad(data):
+    def training(params):
+        global TRAININGMODE
+        TRAININGMODE = True
+        loss = standard_loss(params,data=data,)
+        TRAININGMODE = False
+        return loss
+    return grad(lambda params, _: training(params))
+
+def disseminate_values(num_items, num_bins):
+    chunk_size = num_items / num_bins
+    ranges = [chunk_size] * num_bins
+    remainder = num_items - num_bins * chunk_size
+    # Remainder < num_bins
+    for x in range(remainder):
+        ranges[x] += 1
+    return ranges
 
 inference = get_pred_for_users
 loss = standard_loss
