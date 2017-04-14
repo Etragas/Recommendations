@@ -18,9 +18,7 @@ def pretrain_canon_and_rating(full_data, can_idx, parameters, step_size, num_epo
     '''
 
     # Create our canonical from given indices and the full data
-    train = full_data[np.ix_(*can_idx)]
-    train = listify(train)
-    # Define the loss for our train
+    train = listify(full_data[np.ix_(*can_idx)])
     grads = NMF_ATNN.lossGrad(train)
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=batches_per_epoch*num_epochs,
@@ -49,7 +47,6 @@ def pretrain_combiners(full_data, can_idx, parameters, step_size, num_epochs, ba
     train[:num_user_latents, :num_movie_latents] = np.array(0)
     train[num_user_latents:, num_movie_latents:] = np.array(0)
     train = listify(train)
-    # Define the loss for our train
     grads = NMF_ATNN.lossGrad(train)
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=num_epochs*batches_per_epoch,
@@ -84,18 +81,16 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
         parameters = pretrain_combiners(train_data, can_idx, parameters, *p2Args)
 
     # Create our training matrix with canonicals using fill_in_gaps
-    train_data = fill_in_gaps(can_idx, train_idx, train_data)
-    train_data = listify(train_data)
+    train_data = listify(fill_in_gaps(can_idx, train_idx, train_data))
     # Create our test matrix with canonicals using fill_in_gaps
-    test_data = fill_in_gaps(can_idx, test_idx, test_data)
-    test_data = listify(test_data)
+    test_data = listify(fill_in_gaps(can_idx, test_idx, test_data))
     # Define the loss for our train
     grads = lossGrad(train_data,num_batches=trainArgs[2])
 
     # Optimize our parameters using adam
-    parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1], callback=dataCallback(train_data, test_data), b1=.8)
+    parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1],
+                      callback=dataCallback(train_data, test_data), b1=.8)
 
-    # TODO: Make an inference function that calls the below
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, train_data)
     print "\n".join([str(x) for x in ["Train", print_perf(parameters, train=train_data), train_data, np.round(invtrans)]])

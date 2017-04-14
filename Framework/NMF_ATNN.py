@@ -7,15 +7,9 @@ from autograd.util import flatten
 from utils import *
 from sklearn.utils import shuffle
 from MultiCore import disseminate_values
+
 curtime = 0
 MAX_RECURSION = 4
-
-rowLatents = 0
-colLatents = 0
-hitcount = [0]*(MAX_RECURSION+1)
-
-caches_done = False
-ret_list = [[]]
 TRAININGMODE = False
 
 def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_batches = 1):
@@ -27,28 +21,26 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     """
     # Frobenius Norm squared error term
     # Regularization Terms
-    print num_batches
-    predictions = inference(parameters, data=data, indices=indices)
-    print data[keys_row_first][0][get_ratings]
-    data_loss = np.square((rmse(data,predictions,indices)))
-    reg_loss = reg_alpha * np.square(flatten(parameters)[0]).sum() / float(num_proc) / float(num_batches)
 
+    predictions = inference(parameters, data=data, indices=indices)
+    data_loss = np.square(rmse(data,predictions,indices))
+    reg_loss = reg_alpha * np.square(flatten(parameters)[0]).sum() / float(num_proc) / float(num_batches)
     return reg_loss+data_loss
 
 
 
-def get_pred_for_users(parameters, data, indices=None, queue=None):
+def get_pred_for_users(parameters, data, indices=None):
     setup_caches(data)
     row_first = data[keys_row_first]
+    full_predictions = []
+
     if not indices:
         indices = get_indices_from_range(range(len(row_first)),data[keys_row_first])
 
-    full_predictions = []
 
     #Generate predictions over each row
     for user_index,movie_indices in indices:
         user_predictions = []
-        #Generate prediction for some user and some movie
         for movie_index in movie_indices:
             # For each index where a rating exists, generate it.
             user_predictions.append(recurrent_inference(parameters, iter, data, user_index, movie_index))
@@ -173,6 +165,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     return column_latent
 
 EVIDENCELIMIT = 10
+
 def neural_net_predict(parameters=None, inputs=None):
     """Implements a deep neural network for classification.
        params is a list of (weights, bias) tuples.
@@ -194,10 +187,10 @@ def relu(data):
     return data * (data > 0)
 
 
-def lossGrad(data,num_batches = 1):
+def lossGrad(data, num_batches=1):
     batch_indices = disseminate_values(len(data[keys_row_first]),num_batches)
 
-    def training(params,iter,data=None, indices = None):
+    def training(params,iter, data=None, indices = None):
         global TRAININGMODE
         TRAININGMODE = True
         indices = get_indices_from_range(batch_indices[iter%num_batches],data[keys_row_first])
@@ -211,14 +204,16 @@ def lossGrad(data,num_batches = 1):
 def dataCallback(data,test=None):
     return lambda params, iter, grad: print_perf(params, iter, grad, train=data, test=test)
 
+
 def get_indices_from_range(range,row_first):
     return map(lambda x: (x,row_first[x][get_items]),range)
+
 
 def print_perf(params, iter=0, gradient={}, train = None, test = None):
     """
     Prints the performance of the model
     """
-    global curtime, hitcount, U_HITS, M_HITS
+    global curtime, hitcount
     print "It took: {} s".format(time.time() - curtime)
     print("iter is ", iter)
     print("MAE is", mae(gt=train, pred=inference(params, train)))
@@ -246,39 +241,30 @@ def setup_caches(data):
 
 
 def wipe_caches():
-    global USERLATENTCACHE, USERCACHELOCK, UPERMACACHE
-    global MOVIELATENTCACHE, MOVIECACHELOCK, MPERMACACHE
-    global U_HITS
-    global M_HITS
+    global USERLATENTCACHE, MOVIELATENTCACHE
     global hitcount
     hitcount = [0]*(MAX_RECURSION+1)
     USERLATENTCACHE = [None] * NUM_USERS
     MOVIELATENTCACHE = [None] * NUM_MOVIES
-    U_HITS = [0] * NUM_USERS
-    M_HITS = [0] * NUM_MOVIES
-    USERCACHELOCK = [Lock() for x in range(NUM_USERS)]
-    MOVIECACHELOCK = [Lock() for x in range(NUM_MOVIES)]
 
 def rmse(gt,pred, indices = None):
-    global TRAININGMODE
-
     row_first = gt[keys_row_first]
+
+    numel = reduce(lambda x,y:x+len(row_first[y][get_items]),range(len(row_first)),0)
+    if numel == 0:
+        return 0
+
     if not indices:
         indices = get_indices_from_range(range(len(pred)),row_first)
     val = raw_idx = 0
 
-    numel = 0
     for user_index, movie_indices in indices:
-        threshold = 0
         valid_gt_ratings = row_first[user_index][get_ratings]
         valid_pred_ratings = pred[raw_idx]
         val = val + (np.square(valid_gt_ratings-valid_pred_ratings)).sum()
-        numel += len(valid_gt_ratings)
         raw_idx+=1
-    if numel == 0:
-        return 0
-    val = np.sqrt(val / numel)
-    return val
+
+    return np.sqrt(val / numel)
 
 def mae(gt,pred):
     val = 0
@@ -302,13 +288,16 @@ def getInferredMatrix(parameters, data):
     return newarray
 
 
+
+rowLatents = 0
+colLatents = 0
+
+caches_done = False
+ret_list = [[]]
 inference = get_pred_for_users
 loss = standard_loss
+hitcount = [0]*(MAX_RECURSION+1)
 
 reg_alpha = .001
 USERLATENTCACHE = [None] * NUM_USERS
 MOVIELATENTCACHE = [None] * NUM_MOVIES
-U_HITS = [0] * NUM_USERS
-M_HITS = [0] * NUM_MOVIES
-USERCACHELOCK = [Lock() for x in range(NUM_USERS)]
-MOVIECACHELOCK = [Lock() for x in range(NUM_MOVIES)]

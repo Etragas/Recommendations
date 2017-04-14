@@ -1,16 +1,16 @@
 import autograd.numpy as np
 
 num_movie_latents = 10
-movie_latent_size = 40
+movie_latent_size = 60
 num_user_latents = 20
-user_latent_size = 40
-hyp_user_network_sizes = [movie_latent_size + 1, 100, 100, user_latent_size]
-hyp_movie_network_sizes = [user_latent_size + 1, 100, 100, movie_latent_size]
-rating_network_sizes = [movie_latent_size + user_latent_size,50, 50, 1]
+user_latent_size = 60
+hyp_user_network_sizes = [movie_latent_size + 1, 60, 60, user_latent_size]
+hyp_movie_network_sizes = [user_latent_size + 1, 60, 60, movie_latent_size]
+rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 1]
 scale = .1
 
 
-def build_params((row_size, col_size)):
+def build_params():
     parameters = {}
     parameters[keys_movie_to_user_net] = (init_random_params(scale, hyp_user_network_sizes))  # Neural Net Parameters
     parameters[keys_user_to_movie_net] = (init_random_params(scale, hyp_movie_network_sizes))  # Neural Net Parameters
@@ -60,7 +60,7 @@ def get_top_n(data, n):
     return indices
 
 
-def splitData(data, train_ratio = .8):
+def splitData(data, train_ratio=.8):
     # row, col = data.shape
     # row_indices, col_indices = [np.random.choice(range(row), row), np.random.choice(range(col), col)]
     # print row_indices
