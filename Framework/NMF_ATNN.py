@@ -29,7 +29,7 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     # Regularization Terms
     print num_batches
     predictions = inference(parameters, data=data, indices=indices)
-
+    print data[keys_row_first][0][get_ratings]
     data_loss = np.square((rmse(data,predictions,indices)))
     reg_loss = reg_alpha * np.square(flatten(parameters)[0]).sum() / float(num_proc) / float(num_batches)
 
@@ -39,17 +39,17 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
 
 def get_pred_for_users(parameters, data, indices=None, queue=None):
     setup_caches(data)
-    if not indices:
-        indices = range(len(data[keys_row_first]))
-
     row_first = data[keys_row_first]
+    if not indices:
+        indices = get_indices_from_range(range(len(row_first)),data[keys_row_first])
+
     full_predictions = []
 
     #Generate predictions over each row
-    for user_index in indices:
+    for user_index,movie_indices in indices:
         user_predictions = []
         #Generate prediction for some user and some movie
-        for movie_index in row_first[user_index][get_items]:
+        for movie_index in movie_indices:
             # For each index where a rating exists, generate it.
             user_predictions.append(recurrent_inference(parameters, iter, data, user_index, movie_index))
 
@@ -73,9 +73,10 @@ def recurrent_inference(parameters, iter=0, data=None, user_index=0, movie_index
 
 def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, caller_id=[[], []]):
 
-    global USERLATENTCACHE, hitcount, USERCACHELOCK, TRAININGMODE
+    global USERLATENTCACHE, hitcount, USERCACHELOCK, TRAININGMODE, EVIDENCELIMIT
     movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
     rowLatents = parameters[keys_row_latents]
+
     # Check if latent is canonical
     if user_index < rowLatents.shape[0]:
         return rowLatents[user_index, :]
@@ -90,15 +91,15 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
         return None
 
     # Must generate latent
+    evidence_count = raw_idx = 0
     items, ratings = shuffle(data[keys_row_first][user_index][get_items], data[keys_row_first][user_index][get_ratings])
     dense_ratings, dense_latents = [], []
     internal_caller = [caller_id[0] + [user_index], caller_id[1]]
 
-    evidence_count = 0
-    raw_idx = 0
     for movie_index in items:
-        if TRAININGMODE and evidence_count > 10:
+        if TRAININGMODE and evidence_count > EVIDENCELIMIT:
              break
+
         if movie_index not in internal_caller[1]:
             movie_latent = getMovieLatent(parameters, data, movie_index, recursion_depth - 1, internal_caller)
 
@@ -124,30 +125,33 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
 
 
 def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION, caller_id=[[], []]):
-    global MOVIELATENTCACHE, hitcount, MOVIECACHELOCK, TRAININGMODE
+    global MOVIELATENTCACHE, hitcount, MOVIECACHELOCK, TRAININGMODE, EVIDENCELIMIT
     user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
     colLatents = parameters[keys_col_latents]
+
+    # Check if latent is canonical
     if movie_index < colLatents.shape[1]:
         return colLatents[:, movie_index]
 
-    if  MOVIELATENTCACHE[movie_index] is not None:
+    # Check if latent is cached
+    if MOVIELATENTCACHE[movie_index] is not None:
         hitcount[MOVIELATENTCACHE[movie_index][1]] += 1
         return MOVIELATENTCACHE[movie_index][0]
 
     if recursion_depth < 1:
         return None
 
-    dense_ratings, dense_latents = [], []
 
     # Must Generate Latent
-    evidence_count = 0
-    raw_idx = 0
+    evidence_count = raw_idx = 0
     items, ratings = shuffle(data[keys_col_first][movie_index][get_items], data[keys_col_first][movie_index][get_ratings])
-
+    dense_ratings, dense_latents = [], []
     internal_caller = [caller_id[0], caller_id[1] + [movie_index]]  # [[],[]]#
+
     for user_index in items:
-        if TRAININGMODE and evidence_count > 10:
+        if TRAININGMODE and evidence_count > EVIDENCELIMIT:
              break
+
         if user_index not in internal_caller[0]:
             user_latent = getUserLatent(parameters, data, user_index, recursion_depth - 1, internal_caller)
             if user_latent is not None:
@@ -168,7 +172,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
     return column_latent
 
-
+EVIDENCELIMIT = 10
 def neural_net_predict(parameters=None, inputs=None):
     """Implements a deep neural network for classification.
        params is a list of (weights, bias) tuples.
@@ -192,18 +196,23 @@ def relu(data):
 
 def lossGrad(data,num_batches = 1):
     batch_indices = disseminate_values(len(data[keys_row_first]),num_batches)
+
     def training(params,iter,data=None, indices = None):
         global TRAININGMODE
         TRAININGMODE = True
-        loss = standard_loss(params,iter,data=data,indices=batch_indices[iter%num_batches],num_batches=num_batches)
+        indices = get_indices_from_range(batch_indices[iter%num_batches],data[keys_row_first])
+        loss = standard_loss(params,iter,data=data,indices=indices,num_batches=num_batches)
         TRAININGMODE = False
         return loss
+
     return grad(lambda params, iter: training(params, iter,data=data,indices = range(len(data[keys_row_first]))))
 
 
 def dataCallback(data,test=None):
     return lambda params, iter, grad: print_perf(params, iter, grad, train=data, test=test)
 
+def get_indices_from_range(range,row_first):
+    return map(lambda x: (x,row_first[x][get_items]),range)
 
 def print_perf(params, iter=0, gradient={}, train = None, test = None):
     """
@@ -216,14 +225,14 @@ def print_perf(params, iter=0, gradient={}, train = None, test = None):
     print("RMSE is ", rmse(gt=train, pred=inference(params, train)))
     print("Loss is ", loss(parameters=params, data=train))
     if (test):
-        print"Test RMSE is ", rmse(gt=test,pred=inference(params,test))
+        print "TEST"
+        test_idx = get_indices_from_range(range(len(test[keys_row_first])),test[keys_row_first])
+        print"Test RMSE is ", rmse(gt=test,pred=inference(params,train,indices=test_idx), indices=test_idx)
     for key in gradient.keys():
         x = gradient[key]
         print key
         print np.square(flatten(x)[0]).sum() / flatten(x)[0].size
     print "Hitcount is: ", hitcount, sum(hitcount)
-    # print U_HITS
-    # print M_HITS
     curtime = time.time()
 
 
@@ -251,16 +260,23 @@ def wipe_caches():
     MOVIECACHELOCK = [Lock() for x in range(NUM_MOVIES)]
 
 def rmse(gt,pred, indices = None):
-    if not indices:
-        indices = range(len(pred))
-    val = 0
-    raw_idx = 0
-    numel = 0
+    global TRAININGMODE
+
     row_first = gt[keys_row_first]
-    for i in indices:
-        val = val + (np.square(row_first[i][get_ratings] - pred[raw_idx])).sum()
-        numel += len(row_first[i][get_ratings])
+    if not indices:
+        indices = get_indices_from_range(range(len(pred)),row_first)
+    val = raw_idx = 0
+
+    numel = 0
+    for user_index, movie_indices in indices:
+        threshold = 0
+        valid_gt_ratings = row_first[user_index][get_ratings]
+        valid_pred_ratings = pred[raw_idx]
+        val = val + (np.square(valid_gt_ratings-valid_pred_ratings)).sum()
+        numel += len(valid_gt_ratings)
         raw_idx+=1
+    if numel == 0:
+        return 0
     val = np.sqrt(val / numel)
     return val
 
