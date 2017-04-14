@@ -4,7 +4,7 @@ from train import *
 
 # Load the data using DataLoader
 full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS)
-#full_data = full_data[:100,:100]
+full_data = full_data[:100,:100]
 print full_data[0,:].sum()
 print np.mean(np.sum(full_data > 0,axis = 1))
 # Our dataset only has 1000 users and 1700 movies
@@ -27,9 +27,10 @@ train_idx = test_idx = np.array([np.array(range(nrows)),np.array(range(ncols))])
 
 # Training Parameters
 step_size = 0.005
-num_users_per_batch = 50
+num_users_per_batch = 5
 batches_per_epoch = int(np.ceil(float(nrows) / num_users_per_batch))
 batches_per_can_epoch = int(np.ceil(float(utils.num_user_latents)/ num_users_per_batch))
+
 num_epochs = 40
 hyperp = [step_size, num_epochs, batches_per_can_epoch]
 hypert = [step_size / 2, num_epochs, batches_per_epoch]
@@ -39,4 +40,4 @@ parameters = build_params()
 
 # Train the parameters.  Pretraining the nets and canon latents are optional.
 parameters = train(train_data, test_data, can_idx, train_idx, test_idx, parameters,
-                   p1=False, p1Args=hyperp, p2=False, p2Args=hyperp, trainArgs=hypert)
+                   p1=True, p1Args=hyperp, p2=False, p2Args=hyperp, trainArgs=hypert)

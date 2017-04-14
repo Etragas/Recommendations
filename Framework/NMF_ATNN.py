@@ -254,7 +254,7 @@ def rmse(gt,pred, indices = None):
 
     if not indices:
         indices = get_indices_from_range(range(len(pred)),row_first)
-
+    print indices
     if type(indices) is int:
         print "UH OH"
         print indices
