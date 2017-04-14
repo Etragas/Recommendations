@@ -34,8 +34,14 @@ def get_canonical_indices(data, latent_sizes):
     indicators = data > 0
     user_rating_counts = indicators.sum(axis=1)  # Bug one found
     movie_rating_counts = indicators.sum(axis=0)  # Bug one found
-    user_indices = get_top_n(user_rating_counts, latent_sizes[0])
-    movie_indices = get_top_n(movie_rating_counts, latent_sizes[1])
+    user_indices = list(get_top_n(user_rating_counts, latent_sizes[0]))
+    movie_indices = list(get_top_n(movie_rating_counts, latent_sizes[1]))
+    for val in range(data.shape[0]):
+        if val not in user_indices:
+            user_indices.append(val)
+    for val in range(data.shape[1]):
+        if val not in movie_indices:
+            movie_indices.append(val)
     return user_indices, movie_indices
 
 

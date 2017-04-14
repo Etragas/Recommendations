@@ -28,7 +28,6 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     return reg_loss+data_loss
 
 
-
 def get_pred_for_users(parameters, data, indices=None):
     setup_caches(data)
     row_first = data[keys_row_first]
@@ -36,7 +35,6 @@ def get_pred_for_users(parameters, data, indices=None):
 
     if not indices:
         indices = get_indices_from_range(range(len(row_first)),data[keys_row_first])
-
 
     #Generate predictions over each row
     for user_index,movie_indices in indices:
@@ -164,7 +162,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
     return column_latent
 
-EVIDENCELIMIT = 10
+EVIDENCELIMIT = 20
 
 def neural_net_predict(parameters=None, inputs=None):
     """Implements a deep neural network for classification.
@@ -256,8 +254,15 @@ def rmse(gt,pred, indices = None):
 
     if not indices:
         indices = get_indices_from_range(range(len(pred)),row_first)
-    val = raw_idx = 0
 
+    if type(indices) is int:
+        print "UH OH"
+        print indices
+        print pred
+        raw_input()
+        return 0
+
+    val = raw_idx = 0
     for user_index, movie_indices in indices:
         valid_gt_ratings = row_first[user_index][get_ratings]
         valid_pred_ratings = pred[raw_idx]
