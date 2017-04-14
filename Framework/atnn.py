@@ -24,7 +24,7 @@ step_size = 0.005
 num_users_per_batch = 100
 batches_per_epoch = nrows / num_users_per_batch
 num_epochs = 40
-hyperp = [step_size, num_epochs, 1]
+hyperp = [step_size, num_epochs, batches_per_epoch]
 hypert = [step_size / 2, num_epochs, batches_per_epoch]
 
 # Build the dictionary of parameters for the nets, etc.
@@ -32,4 +32,4 @@ parameters = build_params()
 
 # Train the parameters.  Pretraining the nets and canon latents are optional.
 parameters = train(train_data, test_data, can_idx, train_idx, test_idx, parameters,
-                   p1=False, p1Args=hyperp, p2=False, p2Args=hyperp, trainArgs=hypert)
+                   p1=True, p1Args=hyperp, p2=True, p2Args=hyperp, trainArgs=hypert)
