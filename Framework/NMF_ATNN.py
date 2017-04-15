@@ -186,7 +186,7 @@ def relu(data):
 
 
 def lossGrad(data, num_batches=1):
-    batch_indices = disseminate_values(len(data[keys_row_first]),num_batches)
+    batch_indices = (disseminate_values(shuffle(range(len(data[keys_row_first]))),num_batches))
 
     def training(params,iter, data=None, indices = None):
         global TRAININGMODE

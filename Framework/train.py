@@ -24,7 +24,7 @@ def pretrain_canon_and_rating(full_data, parameters, step_size, num_epochs, batc
     grads = NMF_ATNN.lossGrad(train, num_batches=batches_per_epoch)
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=batches_per_epoch*num_epochs,
-                      callback=NMF_ATNN.dataCallback(train))
+                      callback=NMF_ATNN.dataCallback(train), b1=0.5)
     print "training"
     return parameters
 
@@ -52,7 +52,7 @@ def pretrain_combiners(full_data, parameters, step_size, num_epochs, batches_per
     train = listify(train)
     grads = NMF_ATNN.lossGrad(train, num_batches=batches_per_epoch)
     # Optimize our parameters using adam
-    parameters = adam(grads, parameters, step_size=step_size, num_iters=num_epochs*batches_per_epoch,
+    parameters = adam(grads, parameters, step_size=step_size, num_iters=num_epochs*batches_per_epoch,b1 = 0.5,
                       callback=NMF_ATNN.dataCallback(train))
 
     return parameters
