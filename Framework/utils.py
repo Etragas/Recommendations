@@ -42,7 +42,7 @@ def get_canonical_indices(data, latent_sizes):
     for val in range(data.shape[1]):
         if val not in movie_indices:
             movie_indices.append(val)
-    return user_indices, movie_indices
+    return np.array(user_indices), np.array(movie_indices)
 
 
 def fill_in_gaps(canonical_indices, new_indices, full_data):
