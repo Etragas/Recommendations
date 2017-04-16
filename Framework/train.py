@@ -42,7 +42,7 @@ def pretrain_combiners(full_data, parameters, step_size, num_epochs, batches_per
     '''
 
     # Create a quadrupled canonical set using a clever fill_in_gaps call
-    idx = [range(utils.num_user_latents),range(utils.num_movie_latents)]
+    idx = [np.array(range(utils.num_user_latents)),np.array(range(utils.num_movie_latents))]
     train = fill_in_gaps(np.array(idx),np.array(idx),full_data)
     # Initialize a zeroed array of equal size to our canonical set
     zeros = np.zeros((utils.num_user_latents, utils.num_movie_latents))
