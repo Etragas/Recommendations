@@ -26,13 +26,13 @@ print test_data[9,:]
 train_idx = test_idx = np.array([np.array(range(nrows)),np.array(range(ncols))])
 
 # Training Parameters
-step_size = 0.001
-num_users_per_batch = 10
+step_size = 0.0001
+num_users_per_batch = 50
 batches_per_epoch = int(np.ceil(float(nrows) / num_users_per_batch))
 batches_per_can_epoch = int(np.ceil(float(utils.num_user_latents)/ num_users_per_batch))
 
 num_epochs = 40
-hyperp = [step_size, num_epochs, batches_per_can_epoch]
+hyperp = [step_size*10, num_epochs, batches_per_can_epoch]
 hypert = [step_size, num_epochs, batches_per_epoch]
 
 # Build the dictionary of parameters for the nets, etc.

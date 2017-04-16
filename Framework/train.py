@@ -1,4 +1,4 @@
-from autograd.optimizers import adam
+from autograd.optimizers import adam,sgd, rmsprop
 
 import NMF_ATNN
 from NMF_ATNN import *
@@ -91,8 +91,8 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     grads = lossGrad(train_data,num_batches=trainArgs[2])
 
     # Optimize our parameters using adam
-    parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1],
-                      callback=dataCallback(train_data, test_data), b1=.5)
+    parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1]*trainArgs[2],
+                      callback=dataCallback(train_data, test_data))
 
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, train_data)

@@ -72,7 +72,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
         return rowLatents[user_index, :]
 
     # Check if latent is cached
-    if  USERLATENTCACHE[user_index] is not None:
+    if  USERLATENTCACHE[user_index] is not None and USERLATENTCACHE[user_index][1] >= recursion_depth:
         hitcount[USERLATENTCACHE[user_index][1]] += 1
         return USERLATENTCACHE[user_index][0]
 
@@ -124,7 +124,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
         return colLatents[:, movie_index]
 
     # Check if latent is cached
-    if MOVIELATENTCACHE[movie_index] is not None:
+    if MOVIELATENTCACHE[movie_index] is not None and MOVIELATENTCACHE[movie_index][1] >= recursion_depth:
         hitcount[MOVIELATENTCACHE[movie_index][1]] += 1
         return MOVIELATENTCACHE[movie_index][0]
 
@@ -255,7 +255,7 @@ def rmse(gt,pred, indices = None):
     if not indices:
         indices = get_indices_from_range(range(len(pred)),row_first)
 
-        
+
     if type(indices) is int:
         print "UH OH"
         print indices
@@ -304,6 +304,6 @@ inference = get_pred_for_users
 loss = standard_loss
 hitcount = [0]*(MAX_RECURSION+1)
 
-reg_alpha = .001
+reg_alpha = .01
 USERLATENTCACHE = [None] * NUM_USERS
 MOVIELATENTCACHE = [None] * NUM_MOVIES
