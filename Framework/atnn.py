@@ -26,13 +26,14 @@ print test_data[9,:]
 train_idx = test_idx = np.array([np.array(range(nrows)),np.array(range(ncols))])
 
 # Training Parameters
-step_size = 0.0001
-num_users_per_batch = 50
+step_size = 0.0005
+num_users_per_batch = 10
 batches_per_epoch = int(np.ceil(float(nrows) / num_users_per_batch))
 batches_per_can_epoch = int(np.ceil(float(utils.num_user_latents)/ num_users_per_batch))
 
 num_epochs = 40
-hyperp = [step_size*10, num_epochs, batches_per_can_epoch]
+hyperp1 = [step_size*10, num_epochs, batches_per_can_epoch]
+hyperp2 = [step_size*10, num_epochs/2, batches_per_can_epoch]
 hypert = [step_size, num_epochs, batches_per_epoch]
 
 # Build the dictionary of parameters for the nets, etc.
@@ -40,4 +41,4 @@ parameters = build_params()
 
 # Train the parameters.  Pretraining the nets and canon latents are optional.
 parameters = train(train_data, test_data, can_idx, train_idx, test_idx, parameters,
-                   p1=True, p1Args=hyperp, p2=True, p2Args=hyperp, trainArgs=hypert)
+                   p1=True, p1Args=hyperp1, p2=True, p2Args=hyperp2, trainArgs=hypert)

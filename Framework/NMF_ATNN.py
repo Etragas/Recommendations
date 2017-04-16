@@ -72,7 +72,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
         return rowLatents[user_index, :]
 
     # Check if latent is cached
-    if  USERLATENTCACHE[user_index] is not None and USERLATENTCACHE[user_index][1] >= recursion_depth:
+    if  USERLATENTCACHE[user_index] is not None :#and USERLATENTCACHE[user_index][1] >= recursion_depth:
         hitcount[USERLATENTCACHE[user_index][1]] += 1
         return USERLATENTCACHE[user_index][0]
 
@@ -124,7 +124,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
         return colLatents[:, movie_index]
 
     # Check if latent is cached
-    if MOVIELATENTCACHE[movie_index] is not None and MOVIELATENTCACHE[movie_index][1] >= recursion_depth:
+    if MOVIELATENTCACHE[movie_index] is not None :#and MOVIELATENTCACHE[movie_index][1] >= recursion_depth:
         hitcount[MOVIELATENTCACHE[movie_index][1]] += 1
         return MOVIELATENTCACHE[movie_index][0]
 
@@ -162,7 +162,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
     return column_latent
 
-EVIDENCELIMIT = 20
+EVIDENCELIMIT = 10
 
 def neural_net_predict(parameters=None, inputs=None):
     """Implements a deep neural network for classification.
@@ -248,7 +248,7 @@ def wipe_caches():
 def rmse(gt,pred, indices = None):
     row_first = gt[keys_row_first]
 
-    numel = reduce(lambda x,y:x+len(row_first[y][get_items]),range(len(row_first)),0)
+    numel = reduce(lambda x,y:x+len(pred[y]),range(len(pred)),0)
     if numel == 0:
         return 0
 
