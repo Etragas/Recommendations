@@ -162,7 +162,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
     return column_latent
 
-EVIDENCELIMIT = 10
+EVIDENCELIMIT = 100
 
 def neural_net_predict(parameters=None, inputs=None):
     """Implements a deep neural network for classification.

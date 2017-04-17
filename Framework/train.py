@@ -74,14 +74,17 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     '''
 
     # Generate the indices for the canonical users and canonical movies
-
     if p1:
         # Perform pretraining on the canonicals and rating net
-        parameters = pretrain_canon_and_rating(train_data, parameters, *p1Args)
+        p1_parameters = pretrain_canon_and_rating(train_data, parameters.copy(), *p1Args)
+
+    for key in [keys_col_latents,keys_row_latents,keys_rating_net]:
+        parameters[key] = p1_parameters[key]
 
     if p2:
         # Perform pretraining on the columnless and rowless nets
-        parameters = pretrain_combiners(train_data, parameters, *p2Args)
+        parameters = pretrain_combiners(train_data, parameters.copy(), *p2Args)
+    
 
     # Create our training matrix with canonicals using fill_in_gaps
     train_data = listify(train_data)
