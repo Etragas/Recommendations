@@ -185,18 +185,23 @@ def relu(data):
     return data * (data > 0)
 
 
-def lossGrad(data, num_batches=1):
+def lossGrad(data, num_batches=1, fixed_params = None, param_keys = None):
     batch_indices = (disseminate_values(shuffle(range(len(data[keys_row_first]))),num_batches))
-
-    def training(params,iter, data=None, indices = None):
+    fparams = None
+    if fixed_params:
+        fparams = {key:fixed_params[key] for key in param_keys}
+    def training(params,iter, data=None, indices = None,fixed_params = None, param_keys = None):
         global TRAININGMODE
         TRAININGMODE = True
         indices = get_indices_from_range(batch_indices[iter%num_batches],data[keys_row_first])
+        if fixed_params:
+            new_params = {key:fixed_params[key] if key in fixed_params else params[key] for key in params.keys()}
+            params = new_params
         loss = standard_loss(params,iter,data=data,indices=indices,num_batches=num_batches)
         TRAININGMODE = False
         return loss
 
-    return grad(lambda params, iter: training(params, iter,data=data,indices = range(len(data[keys_row_first]))))
+    return grad(lambda params, iter: training(params, iter,data=data,indices = range(len(data[keys_row_first])), fixed_params = fparams, param_keys = param_keys))
 
 
 def dataCallback(data,test=None):

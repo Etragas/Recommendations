@@ -21,7 +21,7 @@ def pretrain_canon_and_rating(full_data, parameters, step_size, num_epochs, batc
     train = full_data[:utils.num_user_latents,:utils.num_movie_latents].copy()
     train = listify(train)
     print "in p1 wtf", num_epochs, batches_per_epoch
-    grads = NMF_ATNN.lossGrad(train, num_batches=batches_per_epoch)
+    grads = NMF_ATNN.lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, param_keys=[keys_movie_to_user_net, keys_user_to_movie_net])
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=batches_per_epoch*num_epochs,
                       callback=NMF_ATNN.dataCallback(train), b1=0.5)
@@ -50,7 +50,7 @@ def pretrain_combiners(full_data, parameters, step_size, num_epochs, batches_per
     train[:utils.num_user_latents, :utils.num_movie_latents] = np.array(0)
     train[utils.num_user_latents:, utils.num_movie_latents:] = np.array(0)
     train = listify(train)
-    grads = NMF_ATNN.lossGrad(train, num_batches=batches_per_epoch)
+    grads = NMF_ATNN.lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, param_keys=[keys_rating_net,keys_col_latents,keys_row_latents])
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=num_epochs*batches_per_epoch,b1 = 0.5,
                       callback=NMF_ATNN.dataCallback(train))
@@ -76,10 +76,7 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     # Generate the indices for the canonical users and canonical movies
     if p1:
         # Perform pretraining on the canonicals and rating net
-        p1_parameters = pretrain_canon_and_rating(train_data, parameters.copy(), *p1Args)
-
-    for key in [keys_col_latents,keys_row_latents,keys_rating_net]:
-        parameters[key] = p1_parameters[key]
+        parameters = pretrain_canon_and_rating(train_data, parameters.copy(), *p1Args)
 
     if p2:
         # Perform pretraining on the columnless and rowless nets
