@@ -4,7 +4,7 @@ from train import *
 
 # Load the data using DataLoader
 full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS)
-full_data = full_data[:100,:100]
+#full_data = full_data[:100,:100]
 #print full_data[0,:].sum()
 print np.mean(np.sum(full_data > 0,axis = 1))
 # Our dataset only has 1000 users and 1700 movies
@@ -32,8 +32,8 @@ batches_per_epoch = int(np.ceil(float(nrows) / num_users_per_batch))
 batches_per_can_epoch = int(np.ceil(float(utils.num_user_latents)/ num_users_per_batch))
 
 num_epochs = 40
-hyperp1 = [step_size*10, 20, batches_per_can_epoch]
-hyperp2 = [step_size*10, 20, batches_per_can_epoch]
+hyperp1 = [step_size*10, 20, 1]
+hyperp2 = [step_size*10, 20, 1]
 hypert = [step_size, num_epochs, batches_per_epoch]
 
 # Build the dictionary of parameters for the nets, etc.

@@ -57,6 +57,18 @@ def pretrain_combiners(full_data, parameters, step_size, num_epochs, batches_per
 
     return parameters
 
+def pretrain_all(full_data, parameters, step_size, num_epochs, batches_per_epoch):
+    idx = [np.array(range(utils.num_user_latents)),np.array(range(utils.num_movie_latents))]
+    train = fill_in_gaps(np.array(idx),np.array(idx),full_data)
+    # Initialize a zeroed array of equal size to our canonical set
+    # Set the first and third quadrants of the quadrupled canonical graph to zero.  Set up for clever trickery.
+    train = listify(train)
+    grads = NMF_ATNN.lossGrad(train, num_batches=batches_per_epoch)
+    # Optimize our parameters using adam
+    parameters = adam(grads, parameters, step_size=step_size, num_iters=num_epochs*batches_per_epoch,b1 = 0.5,
+                      callback=NMF_ATNN.dataCallback(train))
+
+    return parameters
 
 def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, parameters=None, p1=False, p1Args=[.001, 2,1],
           p2=False, p2Args=[.001, 2, 1], trainArgs=[.001, 2, 1]):
@@ -82,7 +94,7 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
         # Perform pretraining on the columnless and rowless nets
         parameters = pretrain_combiners(train_data, parameters.copy(), *p2Args)
     
-
+    parameters = pretrain_all(train_data, parameters.copy(), *p2Args)
     # Create our training matrix with canonicals using fill_in_gaps
     train_data = listify(train_data)
     # Create our test matrix with canonicals using fill_in_gaps
