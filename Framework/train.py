@@ -21,7 +21,7 @@ def pretrain_canon_and_rating(full_data, parameters, step_size, num_epochs, batc
     train = full_data[:utils.num_user_latents,:utils.num_movie_latents].copy()
     train = listify(train)
     print "in p1 wtf", num_epochs, batches_per_epoch
-    grads = NMF_ATNN.lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, param_keys=[keys_movie_to_user_net, keys_user_to_movie_net])
+    grads = NMF_ATNN.lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, params_to_opt=[keys_col_latents,keys_row_latents,keys_rating_net])
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=batches_per_epoch*num_epochs,
                       callback=NMF_ATNN.dataCallback(train), b1=0.5)
@@ -50,7 +50,7 @@ def pretrain_combiners(full_data, parameters, step_size, num_epochs, batches_per
     train[:utils.num_user_latents, :utils.num_movie_latents] = np.array(0)
     train[utils.num_user_latents:, utils.num_movie_latents:] = np.array(0)
     train = listify(train)
-    grads = NMF_ATNN.lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, param_keys=[keys_rating_net,keys_col_latents,keys_row_latents])
+    grads = NMF_ATNN.lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, params_to_opt=[keys_user_to_movie_net,keys_movie_to_user_net])
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=num_epochs*batches_per_epoch,b1 = 0.5,
                       callback=NMF_ATNN.dataCallback(train))
@@ -65,7 +65,7 @@ def pretrain_all(full_data, parameters, step_size, num_epochs, batches_per_epoch
     train = listify(train)
     grads = NMF_ATNN.lossGrad(train, num_batches=batches_per_epoch)
     # Optimize our parameters using adam
-    parameters = adam(grads, parameters, step_size=step_size, num_iters=num_epochs*batches_per_epoch,b1 = 0.5,
+    parameters = adam(grads, parameters, step_size=step_size, num_iters=20,b1 = 0.5,
                       callback=NMF_ATNN.dataCallback(train))
 
     return parameters
@@ -100,11 +100,18 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     # Create our test matrix with canonicals using fill_in_gaps
     test_data = listify(test_data)
     # Define the loss for our train
-    grads = lossGrad(train_data,num_batches=trainArgs[2])
+    grads = NMF_ATNN.lossGrad(train_data, num_batches=trainArgs[2], fixed_params=parameters, params_to_opt=[keys_rating_net])
 
-    # Optimize our parameters using adam
+    param_to_opt = [[keys_col_latents,keys_row_latents],[keys_movie_to_user_net,keys_user_to_movie_net,keys_rating_net]]
+    #print raw_input("So it begins")
+    # num_opt_passes = 100
+    # for iter in range(num_opt_passes):
+    #     batch_indices = (disseminate_values(shuffle(range(len(train_data[keys_row_first]))),trainArgs[2]))
+    #     for param_keys in reversed(param_to_opt):
+    grads = NMF_ATNN.lossGrad(train_data, num_batches=trainArgs[2])
+        # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1]*trainArgs[2],
-                      callback=dataCallback(train_data, test_data), b1=.5)
+                  callback=dataCallback(train_data, test_data), b1=.5)
 
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, train_data)

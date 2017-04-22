@@ -49,7 +49,7 @@ class DataLoader:
         idx = 1
         f = open(file_path, 'r')
         # Determine length later
-        X = np.zeros((1000, 1700),
+        X = np.zeros((6050, 3910),
                      dtype=int)  # np.zeros((72000,11000))                                  ##TODO: FIX THIS MAGIC
 
         for elem in f.readlines():

@@ -12,7 +12,7 @@ curtime = 0
 MAX_RECURSION = 4
 TRAININGMODE = False
 
-def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_batches = 1):
+def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_batches = 1, reg_alpha = .01):
     """
     Compute simplified version of squared loss with penalty on vector norms
     :param parameters: Same as class parameter, here for autograd
@@ -24,7 +24,7 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
 
     predictions = inference(parameters, data=data, indices=indices)
     data_loss = np.square(rmse(data,predictions,indices))
-    reg_loss = reg_alpha * np.square(flatten(parameters)[0]).sum() / float(num_proc) / float(num_batches)
+    reg_loss = reg_alpha * np.square(flatten(parameters)[0]).sum() / float(num_proc)
     return reg_loss+data_loss
 
 
@@ -58,7 +58,7 @@ def recurrent_inference(parameters, iter=0, data=None, user_index=0, movie_index
 
     return neural_net_predict(
       parameters=parameters[keys_rating_net],
-      inputs=np.concatenate((userLatent, movieLatent)))
+      inputs=np.concatenate((userLatent, movieLatent)))#np.dot(np.array([1,2,3,4,5]),softmax())
 
 
 def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, caller_id=[[], []]):
@@ -162,7 +162,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
     return column_latent
 
-EVIDENCELIMIT = 100
+EVIDENCELIMIT = 10
 
 def neural_net_predict(parameters=None, inputs=None):
     """Implements a deep neural network for classification.
@@ -185,23 +185,25 @@ def relu(data):
     return data * (data > 0)
 
 
-def lossGrad(data, num_batches=1, fixed_params = None, param_keys = None):
-    batch_indices = (disseminate_values(shuffle(range(len(data[keys_row_first]))),num_batches))
+def lossGrad(data, num_batches=1, fixed_params = None, params_to_opt = None, batch_indices = None, reg_alpha=.01):
+    if not batch_indices:
+        batch_indices = disseminate_values(shuffle(range(len(data[keys_row_first]))),num_batches)
     fparams = None
     if fixed_params:
-        fparams = {key:fixed_params[key] for key in param_keys}
+        fparams = {key:fixed_params[key] if key not in params_to_opt else None for key in list(set(fixed_params.keys())-set(params_to_opt))}
+
     def training(params,iter, data=None, indices = None,fixed_params = None, param_keys = None):
         global TRAININGMODE
         TRAININGMODE = True
         indices = get_indices_from_range(batch_indices[iter%num_batches],data[keys_row_first])
         if fixed_params:
-            new_params = {key:fixed_params[key] if key in fixed_params else params[key] for key in params.keys()}
+            new_params = {key:fixed_params[key] if key in fixed_params else params[key] for key in params}
             params = new_params
-        loss = standard_loss(params,iter,data=data,indices=indices,num_batches=num_batches)
+        loss = standard_loss(params,iter,data=data,indices=indices,num_batches=num_batches, reg_alpha=reg_alpha)
         TRAININGMODE = False
         return loss
 
-    return grad(lambda params, iter: training(params, iter,data=data,indices = range(len(data[keys_row_first])), fixed_params = fparams, param_keys = param_keys))
+    return grad(lambda params, iter: training(params, iter,data=data,indices = range(len(data[keys_row_first])), fixed_params = fparams, param_keys = params_to_opt))
 
 
 def dataCallback(data,test=None):
@@ -309,6 +311,5 @@ inference = get_pred_for_users
 loss = standard_loss
 hitcount = [0]*(MAX_RECURSION+1)
 
-reg_alpha = .01
 USERLATENTCACHE = [None] * NUM_USERS
 MOVIELATENTCACHE = [None] * NUM_MOVIES
