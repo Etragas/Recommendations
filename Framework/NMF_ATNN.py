@@ -7,6 +7,7 @@ from autograd.util import flatten
 from utils import *
 from sklearn.utils import shuffle
 from MultiCore import disseminate_values
+from autograd.util import flatten_func
 
 curtime = 0
 MAX_RECURSION = 4

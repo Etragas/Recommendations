@@ -127,3 +127,30 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     print "\n".join([str(x) for x in ["Test", print_perf(parameters, train=test_data), test_data, np.round(invtrans)]])
 
     return parameters
+
+
+
+def adam(grad, init_params, callback=None, num_iters=100,
+         step_size=0.001, b1=0.9, b2=0.999, eps=10**-8, iter_val = 1):
+    """Adam as described in http://arxiv.org/pdf/1412.6980.pdf.
+    It's basically RMSprop with momentum and some correction terms."""
+    flattened_grad, unflatten, x = flatten_func(grad, init_params)
+    m = np.zeros(len(x))
+    v = np.zeros(len(x))
+    for i in range(0,num_iters,iter_val):
+        g = 0
+        print "i ,", i
+        for next_batch in range(iter_val):
+            print "aggregating grad, ", next_batch
+            g += flattened_grad(x,i+next_batch)
+        g = g / float(iter_val)
+        #g = clip(g,-.2,.2)
+        #clip
+        if callback: callback(unflatten(x), i, unflatten(g))
+
+        m = (1 - b1) * g      + b1 * m  # First  moment estimate.
+        v = (1 - b2) * (g**2) + b2 * v  # Second moment estimate.
+        mhat = m / (1 - b1**(i + 1))    # Bias correction.
+        vhat = v / (1 - b2**(i + 1))
+        x = x - step_size*mhat/(np.sqrt(vhat) + eps)
+    return unflatten(x)
