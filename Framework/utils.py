@@ -1,20 +1,21 @@
 import autograd.numpy as np
 
 num_movie_latents = 10
-movie_latent_size = 60
+movie_latent_size = 80
 num_user_latents = 20
-user_latent_size = 60
-hyp_user_network_sizes = [movie_latent_size + 1, 200, 100, user_latent_size]
-hyp_movie_network_sizes = [user_latent_size + 1, 200, 100, movie_latent_size]
-rating_network_sizes = [movie_latent_size + user_latent_size, 300, 150, 1]
+user_latent_size = 80
+hyp_user_network_sizes = [movie_latent_size + 1, 200, 200, user_latent_size]
+hyp_movie_network_sizes = [user_latent_size + 1, 200, 200, movie_latent_size]
+rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 5,1 ]
 scale = .1
 
 
 def build_params():
     parameters = {}
-    parameters[keys_movie_to_user_net] = (init_random_params(scale, hyp_user_network_sizes))  # Neural Net Parameters
+    parameters[keys_movie_to_user_net] = init_random_params(scale, hyp_user_network_sizes)  # Neural Net Parameters
     parameters[keys_user_to_movie_net] = (init_random_params(scale, hyp_movie_network_sizes))  # Neural Net Parameters
     parameters[keys_rating_net] = (init_random_params(scale, rating_network_sizes))  # Neural Net Parameters
+    parameters[keys_rating_net][3][0] = np.array([1,2,3,4,5])
     parameters[keys_col_latents] = (scale * np.random.rand(movie_latent_size, num_movie_latents))  # Column Latents
     parameters[keys_row_latents] = (
         scale * np.random.rand(num_user_latents, user_latent_size))  # user_latent_size,row_size))#Row Latents
@@ -25,8 +26,8 @@ def build_params():
 def init_random_params(scale, layer_sizes, rs=np.random.RandomState(0)):
     """Build a list of (weights, biases) tuples,
        one for each layer in the net."""
-    return [(scale * rs.randn(m, n),  # weight matrix
-             scale * rs.randn(n))  # bias vector
+    return [[scale * rs.randn(m, n),  # weight matrix
+             scale * rs.randn(n)]  # bias vector
             for m, n in zip(layer_sizes[:-1], layer_sizes[1:])]
 
 
@@ -67,10 +68,7 @@ def get_top_n(data, n):
 
 
 def splitData(data, train_ratio=.8):
-    # row, col = data.shape
-    # row_indices, col_indices = [np.random.choice(range(row), row), np.random.choice(range(col), col)]
-    # print row_indices
-    # print row,col
+    np.random.seed(0) #Debugging line
     data_bool = data > 0
     data_ind = data_bool * (np.random.rand(*data.shape))
     train = data_ind <= train_ratio

@@ -11,7 +11,7 @@ from MultiCore import disseminate_values
 curtime = 0
 MAX_RECURSION = 4
 TRAININGMODE = False
-
+glob = np.array([1,2,3,4,5])
 def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_batches = 1, reg_alpha = .01):
     """
     Compute simplified version of squared loss with penalty on vector norms
@@ -23,7 +23,8 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     # Regularization Terms
 
     predictions = inference(parameters, data=data, indices=indices)
-    data_loss = np.square(rmse(data,predictions,indices))
+    numel = reduce(lambda x,y:x+len(predictions[y]),range(len(predictions)),0)
+    data_loss = numel*np.square(rmse(data,predictions,indices))
     reg_loss = reg_alpha * np.square(flatten(parameters)[0]).sum() / float(num_proc)
     return reg_loss+data_loss
 
@@ -55,10 +56,10 @@ def recurrent_inference(parameters, iter=0, data=None, user_index=0, movie_index
 
     if movieLatent is None or userLatent is None:
         return 2.5
-
-    return neural_net_predict(
+    val = neural_net_predict(
       parameters=parameters[keys_rating_net],
-      inputs=np.concatenate((userLatent, movieLatent)))#np.dot(np.array([1,2,3,4,5]),softmax())
+      inputs=np.concatenate((userLatent, movieLatent)))
+    return val#np.dot(np.array([1,2,3,4,5]),softmax())
 
 
 def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, caller_id=[[], []]):
@@ -162,7 +163,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
     return column_latent
 
-EVIDENCELIMIT = 10
+EVIDENCELIMIT = 100
 
 def neural_net_predict(parameters=None, inputs=None):
     """Implements a deep neural network for classification.
@@ -178,7 +179,7 @@ def neural_net_predict(parameters=None, inputs=None):
 def softmax(x):
     e_x = np.exp(x - np.max(x))
     out = e_x / e_x.sum()
-    return out
+    return np.array(out)
 
 
 def relu(data):
@@ -232,6 +233,7 @@ def print_perf(params, iter=0, gradient={}, train = None, test = None):
         x = gradient[key]
         print key
         print np.square(flatten(x)[0]).sum() / flatten(x)[0].size
+        print np.median(abs(flatten(x)[0]))
     print "Hitcount is: ", hitcount, sum(hitcount)
     curtime = time.time()
 
