@@ -220,6 +220,7 @@ def print_perf(params, iter=0, gradient={}, train = None, test = None):
     Prints the performance of the model
     """
     global curtime, hitcount
+    print("iter is ", iter)
     if (iter%10 != 0):
         return
     print "It took: {} s".format(time.time() - curtime)
