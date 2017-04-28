@@ -51,7 +51,7 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1):
     # Squared error between
     for i in range(len(indices)):
         loss = loss + np.square(data[i, keep[i, :]] - predictions[i]).sum()
-    loss = loss / data.size
+    loss = loss / (data > 0).sum()
     return loss
 
 
@@ -217,6 +217,8 @@ def print_perf(params, max_iter, iter=0, gradient={}, data=None):
     print "It took: {} s".format(time.time() - curtime)
     print("iter is ", iter)
     print("MSE is ", mse)
+    print("MAE is ", (abs(data - predicted_data).sum()) / ((data > 0).sum()))
+    print("Loss is, ", loss(parameters=params, data=data))
     print "Hitcount is: ", hitcount
     for key in gradient.keys():
         x = gradient[key]
@@ -226,15 +228,19 @@ def print_perf(params, max_iter, iter=0, gradient={}, data=None):
 
 
     #Start printing out the pretrain 1 plot, pretrain 2 plot, and train plot
+    #code is ugly as sin, will clean up soon
     if iter != 0:
       plt.cla()
 
+    #p1 is for graphing pretraining rating nets and canonical latents
     if len(p1_mse) < max_iter:
       p1_mse.append(mse)
       p1_mse_iters.append(iter)
+    #p2 is for graphing combiner rating nets
     elif len(p1_mse) == max_iter and len(p2_mse) < max_iter:
       p2_mse.append(mse)
       p2_mse_iters.append(iter)
+    #train_mse is for graphing ultimate training net performance
     elif len(p2_mse) == max_iter:
       train_mse.append(mse)
       train_mse_iters.append(iter)
@@ -250,10 +256,13 @@ def print_perf(params, max_iter, iter=0, gradient={}, data=None):
     plt.draw()
     plt.pause(0.001)	
     if len(train_mse) == max_iter:
+      #End the plotting with a raw input
+      plt.savefig('finalgraph.png')
       raw_input()
 
     #print U_HITS
     #print M_HITS
+    
     curtime = time.time()
 
 
