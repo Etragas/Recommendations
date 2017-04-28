@@ -1,4 +1,5 @@
 import autograd.numpy as np
+import matplotlib.pyplot as plt
 
 num_movie_latents = 10
 movie_latent_size = 80
@@ -6,7 +7,7 @@ num_user_latents = 20
 user_latent_size = 80
 hyp_user_network_sizes = [movie_latent_size + 1, 200, 200, user_latent_size]
 hyp_movie_network_sizes = [user_latent_size + 1, 200, 200, movie_latent_size]
-rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 5,1 ]
+rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 5 ,1 ]
 scale = .1
 
 
@@ -98,6 +99,29 @@ def listify(data):
         col_first.append((user_indices,ratings))
     print "done"
     return {keys_row_first:row_first, keys_col_first: col_first}
+
+def getXinCanonical(data, len_can):
+    num_here = 0
+    for x in range(data.shape[0]):
+        if (data[x,:len_can] > 0).sum() > 0:
+            print x," ",(data[x,:len_can] > 0).sum()
+            num_here +=1
+    print "wat, ", num_here
+    return num_here
+
+def getNeighbours(full_data,percentiles=[.01,.02,.03,.04,.05,.10,.20,.3,.4,.5,.6,.7,.8,.9,1]):
+    user_results = []
+    for percent in percentiles:
+        num_canonicals = int(np.ceil(full_data.shape[1] * percent))
+        can_idx = get_canonical_indices(full_data, [num_canonicals, num_canonicals]) #The one we aren't testing doesn't amtter
+
+        #Resort data so that canonical users and movies are in top left
+        full_data = full_data[:,can_idx[1]]
+        full_data = full_data[can_idx[0],:]
+        user_results.append(getXinCanonical(full_data,num_canonicals)/float(full_data.shape[0]))
+    plt.plot(percentiles,user_results)
+    plt.show()
+    return user_results
 
 get_items = 0
 get_ratings = 1

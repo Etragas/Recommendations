@@ -22,7 +22,7 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     """
     # Frobenius Norm squared error term
     # Regularization Terms
-
+    global UCANHIT,MCANHIT
     predictions = inference(parameters, data=data, indices=indices)
     numel = reduce(lambda x,y:x+len(predictions[y]),range(len(predictions)),0)
     data_loss = numel*np.square(rmse(data,predictions,indices))
@@ -65,12 +65,13 @@ def recurrent_inference(parameters, iter=0, data=None, user_index=0, movie_index
 
 def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, caller_id=[[], []]):
 
-    global USERLATENTCACHE, hitcount, USERCACHELOCK, TRAININGMODE, EVIDENCELIMIT
+    global USERLATENTCACHE, hitcount, USERCACHELOCK, TRAININGMODE, EVIDENCELIMIT, UCANHIT
     movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
     rowLatents = parameters[keys_row_latents]
 
     # Check if latent is canonical
     if user_index < rowLatents.shape[0]:
+        UCANHIT[user_index] = 1
         return rowLatents[user_index, :]
 
     # Check if latent is cached
@@ -117,12 +118,13 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
 
 
 def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION, caller_id=[[], []]):
-    global MOVIELATENTCACHE, hitcount, MOVIECACHELOCK, TRAININGMODE, EVIDENCELIMIT
+    global MOVIELATENTCACHE, hitcount, MOVIECACHELOCK, TRAININGMODE, EVIDENCELIMIT, MCANHIT
     user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
     colLatents = parameters[keys_col_latents]
 
     # Check if latent is canonical
     if movie_index < colLatents.shape[1]:
+        MCANHIT[movie_index] = 1
         return colLatents[:, movie_index]
 
     # Check if latent is cached
@@ -222,8 +224,8 @@ def print_perf(params, iter=0, gradient={}, train = None, test = None):
     """
     global curtime, hitcount
     print("iter is ", iter)
-    if (iter%10 != 0):
-        return
+    #if (iter%10 != 0):
+    #    return
     print "It took: {} s".format(time.time() - curtime)
     print("iter is ", iter)
     print("MAE is", mae(gt=train, pred=inference(params, train)))
@@ -252,11 +254,13 @@ def setup_caches(data):
 
 
 def wipe_caches():
-    global USERLATENTCACHE, MOVIELATENTCACHE
+    global USERLATENTCACHE, MOVIELATENTCACHE, UCANHIT, MCANHIT
     global hitcount
     hitcount = [0]*(MAX_RECURSION+1)
     USERLATENTCACHE = [None] * NUM_USERS
     MOVIELATENTCACHE = [None] * NUM_MOVIES
+    UCANHIT = [0]*NUM_USERS
+    MCANHIT = [0]*NUM_MOVIES
 
 def rmse(gt,pred, indices = None):
     row_first = gt[keys_row_first]
@@ -316,6 +320,7 @@ ret_list = [[]]
 inference = get_pred_for_users
 loss = standard_loss
 hitcount = [0]*(MAX_RECURSION+1)
-
+UCANHIT = [0]*500
+MCANHIT = [0]*500
 USERLATENTCACHE = [None] * NUM_USERS
 MOVIELATENTCACHE = [None] * NUM_MOVIES
