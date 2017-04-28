@@ -12,6 +12,8 @@ from autograd.util import flatten_func
 curtime = 0
 MAX_RECURSION = 4
 TRAININGMODE = False
+EVIDENCELIMIT = 100
+
 glob = np.array([1,2,3,4,5])
 def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_batches = 1, reg_alpha = .01):
     """
@@ -26,6 +28,8 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     predictions = inference(parameters, data=data, indices=indices)
     numel = reduce(lambda x,y:x+len(predictions[y]),range(len(predictions)),0)
     data_loss = numel*np.square(rmse(data,predictions,indices))
+    #print "UCANHIT, ",sum(UCANHIT)
+    #print "MCANHIT, ",sum(MCANHIT)
     reg_loss = reg_alpha * np.square(flatten(parameters)[0]).sum() / float(num_proc)
     return reg_loss+data_loss
 
@@ -52,8 +56,8 @@ def get_pred_for_users(parameters, data, indices=None):
 
 def recurrent_inference(parameters, iter=0, data=None, user_index=0, movie_index=0):
     # Predict full matrix
-    movieLatent = getMovieLatent(parameters, data, movie_index)
     userLatent = getUserLatent(parameters, data, user_index)
+    movieLatent = getMovieLatent(parameters, data, movie_index)
 
     if movieLatent is None or userLatent is None:
         return 2.5
@@ -166,7 +170,6 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
     return column_latent
 
-EVIDENCELIMIT = 100
 
 def neural_net_predict(parameters=None, inputs=None):
     """Implements a deep neural network for classification.
@@ -199,7 +202,8 @@ def lossGrad(data, num_batches=1, fixed_params = None, params_to_opt = None, bat
     def training(params,iter, data=None, indices = None,fixed_params = None, param_keys = None):
         global TRAININGMODE
         TRAININGMODE = True
-        indices = get_indices_from_range(batch_indices[iter%num_batches],data[keys_row_first])
+        indices = get_indices_from_range(batch_indices[iter%num_batches],data[keys_row_first], 50)
+        #print indices
         if fixed_params:
             new_params = {key:fixed_params[key] if key in fixed_params else params[key] for key in params}
             params = new_params
@@ -214,9 +218,8 @@ def dataCallback(data,test=None):
     return lambda params, iter, grad: print_perf(params, iter, grad, train=data, test=test)
 
 
-def get_indices_from_range(range,row_first):
-    return map(lambda x: (x,row_first[x][get_items]),range)
-
+def get_indices_from_range(range,row_first,rating_limit =None):
+    return map(lambda x: (x,np.sort(shuffle(row_first[x][get_items])[:rating_limit])),range)
 
 def print_perf(params, iter=0, gradient={}, train = None, test = None):
     """
@@ -243,9 +246,6 @@ def print_perf(params, iter=0, gradient={}, train = None, test = None):
     print "Hitcount is: ", hitcount, sum(hitcount)
     curtime = time.time()
 
-
-NUM_USERS = 1000
-NUM_MOVIES = 1800
 
 def setup_caches(data):
     global NUM_USERS, NUM_MOVIES
@@ -282,6 +282,14 @@ def rmse(gt,pred, indices = None):
 
     val = raw_idx = 0
     for user_index, movie_indices in indices:
+        # valid_gt_ratings = []
+        # used_idx = []
+        # for idx in range(len(row_first[user_index][get_items])):
+        #     if row_first[user_index][get_items][idx] in np.sort(movie_indices):
+        #         used_idx.append(row_first[user_index][get_items][idx])
+        #         valid_gt_ratings.append(row_first[user_index][get_ratings][idx])
+        # if used_idx != list(movie_indices):
+        #     raw_input("OH SHIT")
         valid_gt_ratings = row_first[user_index][get_ratings]
         valid_pred_ratings = pred[raw_idx]
         val = val + (np.square(valid_gt_ratings-valid_pred_ratings)).sum()
@@ -320,7 +328,9 @@ ret_list = [[]]
 inference = get_pred_for_users
 loss = standard_loss
 hitcount = [0]*(MAX_RECURSION+1)
-UCANHIT = [0]*500
-MCANHIT = [0]*500
+NUM_USERS = 0
+NUM_MOVIES = 0
+UCANHIT = [0]*NUM_USERS
+MCANHIT = [0]*NUM_MOVIES
 USERLATENTCACHE = [None] * NUM_USERS
 MOVIELATENTCACHE = [None] * NUM_MOVIES

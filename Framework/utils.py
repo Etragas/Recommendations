@@ -89,12 +89,18 @@ def listify(data):
     row_first = []
     col_first = []
     for usr_idx in range(row_size):
-        movie_indices = tuple(np.ravel(np.nonzero(data[usr_idx,:])))
+        rav = np.ravel(np.nonzero(data[usr_idx,:]))
+        # if len(rav) == 0:
+        #     continue
+        movie_indices = tuple(rav)
         ratings = tuple(data[usr_idx,movie_indices])
         row_first.append((movie_indices,ratings))
 
     for movie_idx in range(col_size):
-        user_indices = tuple(np.ravel(np.nonzero(data[:,movie_idx])))
+        rav = np.ravel(np.nonzero(data[:,movie_idx]))
+        # if len(rav) == 0:
+        #     continue
+        user_indices = tuple(rav)
         ratings = tuple(data[user_indices,movie_idx])
         col_first.append((user_indices,ratings))
     print "done"
@@ -109,7 +115,7 @@ def getXinCanonical(data, len_can):
     print "wat, ", num_here
     return num_here
 
-def getNeighbours(full_data,percentiles=[.01,.02,.03,.04,.05,.10,.20,.3,.4,.5,.6,.7,.8,.9,1]):
+def getNeighbours(full_data,percentiles=[01,.01,.02,.03,.04,.05,.10,.20]):
     user_results = []
     for percent in percentiles:
         num_canonicals = int(np.ceil(full_data.shape[1] * percent))

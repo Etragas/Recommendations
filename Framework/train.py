@@ -1,7 +1,7 @@
 from autograd.optimizers import adam,sgd, rmsprop
-
-import NMF_ATNN
 from NMF_ATNN import *
+from autograd.util import flatten_func
+import numpy as np
 import utils
 import cPickle as pickle
 
@@ -21,10 +21,10 @@ def pretrain_canon_and_rating(full_data, parameters, step_size, num_epochs, batc
     train = full_data[:utils.num_user_latents,:utils.num_movie_latents].copy()
     train = listify(train)
     print "in p1 wtf", num_epochs, batches_per_epoch
-    grads = NMF_ATNN.lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, params_to_opt=[keys_col_latents,keys_row_latents,keys_rating_net], reg_alpha=1)
+    grads = lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, params_to_opt=[keys_col_latents,keys_row_latents,keys_rating_net], reg_alpha=1)
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=batches_per_epoch*num_epochs,
-                      callback=NMF_ATNN.dataCallback(train), b1=0.5, iter_val=1)
+                      callback=dataCallback(train), b1=0.5, iter_val=4)
     print "training"
     return parameters
 
@@ -50,10 +50,10 @@ def pretrain_combiners(full_data, parameters, step_size, num_epochs, batches_per
     train[:utils.num_user_latents, :utils.num_movie_latents] = np.array(0)
     train[utils.num_user_latents:, utils.num_movie_latents:] = np.array(0)
     train = listify(train)
-    grads = NMF_ATNN.lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, params_to_opt=[keys_user_to_movie_net,keys_movie_to_user_net], reg_alpha=1)
+    grads = lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, params_to_opt=[keys_user_to_movie_net,keys_movie_to_user_net], reg_alpha=1)
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=num_epochs*batches_per_epoch,b1 = 0.5,
-                      callback=NMF_ATNN.dataCallback(train),iter_val=1)
+                      callback=dataCallback(train),iter_val=4)
 
     return parameters
 
@@ -63,10 +63,10 @@ def pretrain_all(full_data, parameters, step_size, num_epochs, batches_per_epoch
     # Initialize a zeroed array of equal size to our canonical set
     # Set the first and third quadrants of the quadrupled canonical graph to zero.  Set up for clever trickery.
     train = listify(train)
-    grads = NMF_ATNN.lossGrad(train, num_batches=batches_per_epoch, reg_alpha=1)
+    grads = lossGrad(train, num_batches=batches_per_epoch, reg_alpha=1)
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=20,b1 = 0.5,
-                      callback=NMF_ATNN.dataCallback(train), iter_val=1)
+                      callback=dataCallback(train), iter_val=4)
 
     return parameters
 
@@ -95,11 +95,12 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
             # Perform pretraining on the columnless and rowless nets
             parameters = pretrain_combiners(train_data, parameters.copy(), *p2Args)
 
-        #parameters = pretrain_all(train_data, parameters.copy(), *p2Args)
+        parameters = pretrain_all(train_data, parameters.copy(), *p2Args)
 
         pickle.dump(parameters, open("parameters", "wb"))
     else:
         parameters = pickle.load( open( "parameters", "rb" ) )
+
 
     # Create our training matrix with canonicals using fill_in_gaps
     train_data = listify(train_data)
@@ -113,10 +114,10 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     # for iter in range(num_opt_passes):
     #     batch_indices = (disseminate_values(shuffle(range(len(train_data[keys_row_first]))),trainArgs[2]))
     #     for param_keys in (param_to_opt):
-    grads = NMF_ATNN.lossGrad(train_data, num_batches=trainArgs[2], reg_alpha=.01,fixed_params=parameters,params_to_opt=[keys_row_latents,keys_col_latents,keys_movie_to_user_net,keys_user_to_movie_net,keys_rating_net])
+    grads = lossGrad(train_data, num_batches=trainArgs[2], reg_alpha=.01)
         # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1]*trainArgs[2],
-              callback=dataCallback(train_data, test_data), b1 = 0.9,iter_val=1)
+              callback=dataCallback(train_data, test_data), b1 = 0.9,iter_val=4)
 
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, train_data)
@@ -141,9 +142,9 @@ def adam(grad, init_params, callback=None, num_iters=100,
         g = 0
         print "i ,", i
         for next_batch in range(iter_val):
-            print "aggregating grad, ", next_batch
+            #print "aggregating grad, ", next_batch
             g += flattened_grad(x,i+next_batch)
-            print (g == 0).sum()
+            #print "g is 0 sum, ", (g == 0).sum()
         g = g / float(iter_val)
         #g = clip(g,-.2,.2)
         #clip

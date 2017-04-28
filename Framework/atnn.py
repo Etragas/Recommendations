@@ -10,14 +10,19 @@ print np.mean(np.sum(full_data > 0,axis = 1)) #Check average ratings per user
 
 # Reduce the matrix to toy size
 #full_data = full_data[:100,:100]
+rows = [x for x in range((full_data.shape[0])) if full_data[x,:].sum() > 0]
+cols = [x for x in range((full_data.shape[1])) if full_data[:,x].sum() > 0]
+full_data = full_data[rows,:]
+full_data = full_data[:,cols]
+
 #Determine number of latents for movie/user
 print full_data.shape
 nrows, ncols = full_data.shape
 
 
-utils.num_user_latents = int(np.ceil(.1*nrows))
-utils.num_movie_latents = int(np.ceil(.1*ncols))
-
+utils.num_user_latents = int(np.ceil(.05*nrows))
+utils.num_movie_latents = int(np.ceil(.01*ncols))
+print utils.num_user_latents, utils.num_movie_latents
 can_idx = get_canonical_indices(full_data, [utils.num_user_latents, utils.num_movie_latents])
 
 #Resort data so that canonical users and movies are in top left
@@ -34,8 +39,8 @@ batches_per_epoch = int(np.ceil(float(nrows) / num_users_per_batch))
 batches_per_can_epoch = int(np.ceil(float(utils.num_user_latents)/ num_users_per_batch))
 
 num_epochs = 40
-hyperp1 = [step_size*10, 5, batches_per_can_epoch]
-hyperp2 = [step_size*10, 5, batches_per_can_epoch]
+hyperp1 = [step_size*10, 20, batches_per_can_epoch]
+hyperp2 = [step_size*10, 20, batches_per_can_epoch]
 hypert = [step_size, num_epochs, batches_per_epoch]
 
 # Build the dictionary of parameters for the nets, etc.
