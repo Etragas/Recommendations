@@ -95,10 +95,10 @@ def train(full_data, can__idx=None, train_idx=None, test_idx=None, parameters=No
     # TODO: Make an inference function that calls the below
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, train)
-    print "\n".join([str(x) for x in ["Train", print_perf(parameters, data=train), train, np.round(invtrans)]])
+    print "\n".join([str(x) for x in ["Train", print_perf(parameters, trainArgs[1], data=train), train, np.round(invtrans)]])
 
     # Generate our rating predictions on the test set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, test)
-    print "\n".join([str(x) for x in ["Test", print_perf(parameters, data=test), test, np.round(invtrans)]])
+    print "\n".join([str(x) for x in ["Test", print_perf(parameters, trainArgs[1], data=test), test, np.round(invtrans)]])
 
     return parameters
