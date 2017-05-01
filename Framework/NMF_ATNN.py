@@ -254,7 +254,7 @@ def get_candidate_latents(all_items, all_ratings, split = None):
     can_items, can_ratings = all_items[:split], all_ratings[:split]
     rec_items, rec_ratings = all_items[split:], all_ratings[split:]
     rec_items, rec_ratings=shuffle(rec_items,rec_ratings)
-    items, ratings = can_items+rec_items, can_ratings+rec_ratings
+    items, ratings = list(can_items)+list(rec_items), list(can_ratings)+list(rec_ratings)
     return items, ratings
 
 def setup_caches(data):
