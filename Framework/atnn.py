@@ -19,9 +19,8 @@ full_data = full_data[:,cols]
 print full_data.shape
 nrows, ncols = full_data.shape
 
-
-utils.num_user_latents = int(np.ceil(.05*nrows))
-utils.num_movie_latents = int(np.ceil(.01*ncols))
+utils.num_user_latents = int(np.ceil(.1*nrows))
+utils.num_movie_latents = int(np.ceil(.1*ncols))
 print utils.num_user_latents, utils.num_movie_latents
 can_idx = get_canonical_indices(full_data, [utils.num_user_latents, utils.num_movie_latents])
 
@@ -34,7 +33,7 @@ train_idx = test_idx = np.array([np.array(range(nrows)),np.array(range(ncols))])
 
 # Training Parameters
 step_size = 0.0001
-num_users_per_batch = 5
+num_users_per_batch = 2
 batches_per_epoch = int(np.ceil(float(nrows) / num_users_per_batch))
 batches_per_can_epoch = int(np.ceil(float(utils.num_user_latents)/ num_users_per_batch))
 
@@ -48,4 +47,4 @@ parameters = build_params()
 
 # Train the parameters.  Pretraining the nets and canon latents are optional.
 parameters = train(train_data, test_data, can_idx, train_idx, test_idx, parameters,
-                   p1=True, p1Args=hyperp1, p2=True, p2Args=hyperp2, trainArgs=hypert, use_cache=False)
+                   p1=True, p1Args=hyperp1, p2=True, p2Args=hyperp2, trainArgs=hypert, use_cache=True)

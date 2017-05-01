@@ -12,8 +12,8 @@ from autograd.util import flatten_func
 curtime = 0
 MAX_RECURSION = 4
 TRAININGMODE = False
-EVIDENCELIMIT = 100
-
+EVIDENCELIMIT = 80
+RATINGLIMIT = 50
 glob = np.array([1,2,3,4,5])
 def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_batches = 1, reg_alpha = .01):
     """
@@ -24,13 +24,11 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     """
     # Frobenius Norm squared error term
     # Regularization Terms
-    global UCANHIT,MCANHIT
     predictions = inference(parameters, data=data, indices=indices)
     numel = reduce(lambda x,y:x+len(predictions[y]),range(len(predictions)),0)
     data_loss = numel*np.square(rmse(data,predictions,indices))
-    #print "UCANHIT, ",sum(UCANHIT)
-    #print "MCANHIT, ",sum(MCANHIT)
     reg_loss = reg_alpha * np.square(flatten(parameters)[0]).sum() / float(num_proc)
+
     return reg_loss+data_loss
 
 
@@ -75,7 +73,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
 
     # Check if latent is canonical
     if user_index < rowLatents.shape[0]:
-        UCANHIT[user_index] = 1
+        USERLATENTCACHE[user_index] = (rowLatents[user_index, :], recursion_depth)
         return rowLatents[user_index, :]
 
     # Check if latent is cached
@@ -89,7 +87,8 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
 
     # Must generate latent
     evidence_count = raw_idx = 0
-    items, ratings = shuffle(data[keys_row_first][user_index][get_items], data[keys_row_first][user_index][get_ratings])
+    items, ratings = get_candidate_latents(data[keys_row_first][user_index][get_items], data[keys_row_first][user_index][get_ratings], split=num_movie_latents)
+
     dense_ratings, dense_latents = [], []
     internal_caller = [caller_id[0] + [user_index], caller_id[1]]
 
@@ -128,7 +127,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
     # Check if latent is canonical
     if movie_index < colLatents.shape[1]:
-        MCANHIT[movie_index] = 1
+        MOVIELATENTCACHE[movie_index] = (colLatents[:, movie_index], recursion_depth)
         return colLatents[:, movie_index]
 
     # Check if latent is cached
@@ -142,7 +141,8 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
     # Must Generate Latent
     evidence_count = raw_idx = 0
-    items, ratings = shuffle(data[keys_col_first][movie_index][get_items], data[keys_col_first][movie_index][get_ratings])
+    items, ratings = get_candidate_latents(data[keys_col_first][movie_index][get_items], data[keys_col_first][movie_index][get_ratings], split = num_user_latents)
+
     dense_ratings, dense_latents = [], []
     internal_caller = [caller_id[0], caller_id[1] + [movie_index]]  # [[],[]]#
 
@@ -192,22 +192,25 @@ def relu(data):
     return data * (data > 0)
 
 
-def lossGrad(data, num_batches=1, fixed_params = None, params_to_opt = None, batch_indices = None, reg_alpha=.01):
+def lossGrad(data, num_batches=1, fixed_params = None, params_to_opt = None, batch_indices = None, reg_alpha=.01, num_aggregates = 1):
     if not batch_indices:
         batch_indices = disseminate_values(shuffle(range(len(data[keys_row_first]))),num_batches)
     fparams = None
+
     if fixed_params:
         fparams = {key:fixed_params[key] if key not in params_to_opt else None for key in list(set(fixed_params.keys())-set(params_to_opt))}
 
     def training(params,iter, data=None, indices = None,fixed_params = None, param_keys = None):
-        global TRAININGMODE
+        global TRAININGMODE, RATINGLIMIT
         TRAININGMODE = True
-        indices = get_indices_from_range(batch_indices[iter%num_batches],data[keys_row_first], 50)
+        print batch_indices[iter%num_batches]
+        indices = get_indices_from_range(batch_indices[iter%num_batches],data[keys_row_first], rating_limit=RATINGLIMIT)
         #print indices
         if fixed_params:
             new_params = {key:fixed_params[key] if key in fixed_params else params[key] for key in params}
             params = new_params
-        loss = standard_loss(params,iter,data=data,indices=indices,num_batches=num_batches, reg_alpha=reg_alpha)
+
+        loss = standard_loss(params,iter,data=data,indices=indices,num_batches=num_batches, reg_alpha=reg_alpha, num_proc=num_aggregates)
         TRAININGMODE = False
         return loss
 
@@ -219,6 +222,7 @@ def dataCallback(data,test=None):
 
 
 def get_indices_from_range(range,row_first,rating_limit =None):
+    #return map(lambda x: (x,row_first[x][get_items])[:rating_limit],range)
     return map(lambda x: (x,np.sort(shuffle(row_first[x][get_items])[:rating_limit])),range)
 
 def print_perf(params, iter=0, gradient={}, train = None, test = None):
@@ -246,6 +250,12 @@ def print_perf(params, iter=0, gradient={}, train = None, test = None):
     print "Hitcount is: ", hitcount, sum(hitcount)
     curtime = time.time()
 
+def get_candidate_latents(all_items, all_ratings, split = None):
+    can_items, can_ratings = all_items[:split], all_ratings[:split]
+    rec_items, rec_ratings = all_items[split:], all_ratings[split:]
+    rec_items, rec_ratings=shuffle(rec_items,rec_ratings)
+    items, ratings = can_items+rec_items, can_ratings+rec_ratings
+    return items, ratings
 
 def setup_caches(data):
     global NUM_USERS, NUM_MOVIES
@@ -259,8 +269,7 @@ def wipe_caches():
     hitcount = [0]*(MAX_RECURSION+1)
     USERLATENTCACHE = [None] * NUM_USERS
     MOVIELATENTCACHE = [None] * NUM_MOVIES
-    UCANHIT = [0]*NUM_USERS
-    MCANHIT = [0]*NUM_MOVIES
+
 
 def rmse(gt,pred, indices = None):
     row_first = gt[keys_row_first]
@@ -282,15 +291,16 @@ def rmse(gt,pred, indices = None):
 
     val = raw_idx = 0
     for user_index, movie_indices in indices:
-        # valid_gt_ratings = []
-        # used_idx = []
-        # for idx in range(len(row_first[user_index][get_items])):
-        #     if row_first[user_index][get_items][idx] in np.sort(movie_indices):
-        #         used_idx.append(row_first[user_index][get_items][idx])
-        #         valid_gt_ratings.append(row_first[user_index][get_ratings][idx])
-        # if used_idx != list(movie_indices):
-        #     raw_input("OH SHIT")
-        valid_gt_ratings = row_first[user_index][get_ratings]
+        valid_gt_ratings = []
+        used_idx = []
+        items, ratings = row_first[user_index][get_items],row_first[user_index][get_ratings]
+        for idx in range(len(items)):
+            if items[idx] in np.sort(movie_indices):
+                used_idx.append(items[idx])
+                valid_gt_ratings.append(ratings[idx])
+        if used_idx != list(movie_indices):
+            raw_input("OH SHIT")
+        #valid_gt_ratings = row_first[user_index][get_ratings]
         valid_pred_ratings = pred[raw_idx]
         val = val + (np.square(valid_gt_ratings-valid_pred_ratings)).sum()
         raw_idx+=1
@@ -330,7 +340,5 @@ loss = standard_loss
 hitcount = [0]*(MAX_RECURSION+1)
 NUM_USERS = 0
 NUM_MOVIES = 0
-UCANHIT = [0]*NUM_USERS
-MCANHIT = [0]*NUM_MOVIES
 USERLATENTCACHE = [None] * NUM_USERS
 MOVIELATENTCACHE = [None] * NUM_MOVIES

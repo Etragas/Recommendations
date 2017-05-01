@@ -95,7 +95,7 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
             # Perform pretraining on the columnless and rowless nets
             parameters = pretrain_combiners(train_data, parameters.copy(), *p2Args)
 
-        parameters = pretrain_all(train_data, parameters.copy(), *p2Args)
+        #parameters = pretrain_all(train_data, parameters.copy(), *p2Args)
 
         pickle.dump(parameters, open("parameters", "wb"))
     else:
@@ -114,10 +114,30 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     # for iter in range(num_opt_passes):
     #     batch_indices = (disseminate_values(shuffle(range(len(train_data[keys_row_first]))),trainArgs[2]))
     #     for param_keys in (param_to_opt):
-    grads = lossGrad(train_data, num_batches=trainArgs[2], reg_alpha=.01)
+    #indices = get_indices_from_range(range(88),train_data[keys_row_first])
+    grads = lossGrad(train_data, num_batches=trainArgs[2], reg_alpha=.001, num_aggregates=4)
         # Optimize our parameters using adam
+    #x, unflatten = flatten(parameters)
+    # #flattened_grad, unflatten, x = flatten_func(grads, parameters)
+    # loss = standard_loss(unflatten(x),data=train_data,indices=indices,num_batches=1, reg_alpha=.01)
+    # test_x = x + 10**-8
+    # grad_guess = []
+    # for val in range(10):
+    #     print val
+    #     x[val] += 10**-8
+    #     grad_guess.append((standard_loss(unflatten(x),data=train_data,indices=indices,num_batches=1, reg_alpha=.01)-loss)/float(10**-8))
+    #     x[val] -= 10**-8
+    # flattened_grad = 0
+    # for i in range(4):
+    #     flattened_grad += flatten(grads(unflatten(x),i))
+    # flattened_grad = flattened_grad/4
+    # #print grad_guess
+    # print grad_guess
+    # print flattened_grad[:10]
+    # print (flattened_grad[:10] -grad_guess)
+    # raw_input()
     parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1]*trainArgs[2],
-              callback=dataCallback(train_data, test_data), b1 = 0.9,iter_val=4)
+              callback=dataCallback(train_data, test_data), b1 = 0.5,iter_val=4)
 
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, train_data)
@@ -136,6 +156,7 @@ def adam(grad, init_params, callback=None, num_iters=100,
     """Adam as described in http://arxiv.org/pdf/1412.6980.pdf.
     It's basically RMSprop with momentum and some correction terms."""
     flattened_grad, unflatten, x = flatten_func(grad, init_params)
+    test_x = x + eps
     m = np.zeros(len(x))
     v = np.zeros(len(x))
     for i in range(0,num_iters,iter_val):
@@ -145,7 +166,6 @@ def adam(grad, init_params, callback=None, num_iters=100,
             #print "aggregating grad, ", next_batch
             g += flattened_grad(x,i+next_batch)
             #print "g is 0 sum, ", (g == 0).sum()
-        g = g / float(iter_val)
         #g = clip(g,-.2,.2)
         #clip
         if callback: callback(unflatten(x), i, unflatten(g))

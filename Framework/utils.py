@@ -92,16 +92,16 @@ def listify(data):
         rav = np.ravel(np.nonzero(data[usr_idx,:]))
         # if len(rav) == 0:
         #     continue
-        movie_indices = tuple(rav)
-        ratings = tuple(data[usr_idx,movie_indices])
+        movie_indices = list(rav)
+        ratings = list(data[usr_idx,movie_indices])
         row_first.append((movie_indices,ratings))
 
     for movie_idx in range(col_size):
         rav = np.ravel(np.nonzero(data[:,movie_idx]))
         # if len(rav) == 0:
         #     continue
-        user_indices = tuple(rav)
-        ratings = tuple(data[user_indices,movie_idx])
+        user_indices = list(rav)
+        ratings = list(data[user_indices,movie_idx])
         col_first.append((user_indices,ratings))
     print "done"
     return {keys_row_first:row_first, keys_col_first: col_first}
