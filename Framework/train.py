@@ -24,7 +24,7 @@ def pretrain_canon_and_rating(full_data, parameters, step_size, num_epochs, batc
     grads = lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, params_to_opt=[keys_col_latents,keys_row_latents,keys_rating_net], reg_alpha=1)
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=batches_per_epoch*num_epochs,
-                      callback=dataCallback(train), b1=0.5, iter_val=4)
+                      callback=dataCallback(train, num_epochs * batches_per_epoch), b1=0.5, iter_val=4)
     print "training"
     return parameters
 
@@ -53,7 +53,7 @@ def pretrain_combiners(full_data, parameters, step_size, num_epochs, batches_per
     grads = lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, params_to_opt=[keys_user_to_movie_net,keys_movie_to_user_net], reg_alpha=1)
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=num_epochs*batches_per_epoch,b1 = 0.5,
-                      callback=dataCallback(train),iter_val=4)
+                      callback=dataCallback(train, num_epochs * batches_per_epoch),iter_val=4)
 
     return parameters
 
@@ -66,7 +66,7 @@ def pretrain_all(full_data, parameters, step_size, num_epochs, batches_per_epoch
     grads = lossGrad(train, num_batches=batches_per_epoch, reg_alpha=1)
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=20,b1 = 0.5,
-                      callback=dataCallback(train), iter_val=4)
+                      callback=dataCallback(train, num_epochs * batches_per_epoch), iter_val=4)
 
     return parameters
 
@@ -137,15 +137,16 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     # print (flattened_grad[:10] -grad_guess)
     # raw_input()
     parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1]*trainArgs[2],
-              callback=dataCallback(train_data, test_data), b1 = 0.5,iter_val=4)
+              #callback=dataCallback(train_data, test_data), b1 = 0.5,iter_val=4)
+              callback=dataCallback(train_data, trainArgs[1]), b1 = 0.5,iter_val=4)
 
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, train_data)
-    print "\n".join([str(x) for x in ["Train", print_perf(parameters, train=train_data), train_data, np.round(invtrans)]])
+    print "\n".join([str(x) for x in ["Train", print_perf(parameters, trainArgs[1], train=train_data), train_data, np.round(invtrans)]])
 
     # Generate our rating predictions on the test set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, test_data)
-    print "\n".join([str(x) for x in ["Test", print_perf(parameters, train=test_data), test_data, np.round(invtrans)]])
+    print "\n".join([str(x) for x in ["Test", print_perf(parameters, trainArgs[1], train=test_data), test_data, np.round(invtrans)]])
 
     return parameters
 

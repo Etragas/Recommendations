@@ -3,13 +3,13 @@ from DataLoader import *
 from train import *
 
 # Load the data using DataLoader
-full_data = DataLoader().LoadData(file_path="../Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS)
-#full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS)
-print full_data.shape
+#full_data = DataLoader().LoadData(file_path="../Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS)
+full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS)
+#print full_data.shape
 print np.mean(np.sum(full_data > 0,axis = 1)) #Check average ratings per user
 
 # Reduce the matrix to toy size
-#full_data = full_data[:100,:100]
+full_data = full_data[:100,:100]
 rows = [x for x in range((full_data.shape[0])) if full_data[x,:].sum() > 0]
 cols = [x for x in range((full_data.shape[1])) if full_data[:,x].sum() > 0]
 full_data = full_data[rows,:]
