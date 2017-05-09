@@ -98,6 +98,7 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
         #parameters = pretrain_all(train_data, parameters.copy(), *p2Args)
 
         pickle.dump(parameters, open("parameters", "wb"))
+
     else:
         parameters = pickle.load( open( "parameters", "rb" ) )
 
@@ -138,15 +139,15 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     # raw_input()
     parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1]*trainArgs[2],
               #callback=dataCallback(train_data, test_data), b1 = 0.5,iter_val=4)
-              callback=dataCallback(train_data, trainArgs[1]), b1 = 0.5,iter_val=4)
+              callback=dataCallback(train_data, trainArgs[1] * trainArgs[2]), b1 = 0.5,iter_val=4)
 
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, train_data)
-    print "\n".join([str(x) for x in ["Train", print_perf(parameters, trainArgs[1], train=train_data), train_data, np.round(invtrans)]])
+    print "\n".join([str(x) for x in ["Train", print_perf(parameters, trainArgs[1] * trainArgs[2], train=train_data), train_data, np.round(invtrans)]])
 
     # Generate our rating predictions on the test set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, test_data)
-    print "\n".join([str(x) for x in ["Test", print_perf(parameters, trainArgs[1], train=test_data), test_data, np.round(invtrans)]])
+    print "\n".join([str(x) for x in ["Test", print_perf(parameters, trainArgs[1] * trainArgs[2], train=test_data), test_data, np.round(invtrans)]])
 
     return parameters
 
@@ -177,3 +178,4 @@ def adam(grad, init_params, callback=None, num_iters=100,
         vhat = v / (1 - b2**(i + 1))
         x = x - step_size*mhat/(np.sqrt(vhat) + eps)
     return unflatten(x)
+

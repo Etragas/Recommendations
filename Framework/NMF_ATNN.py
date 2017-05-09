@@ -300,7 +300,7 @@ def softmax(x):
 
 def relu(data):
     """
-    Computers and returns the relu of data.
+    Computes and returns the relu of data.
     """
     return data * (data > 0)
 
@@ -338,11 +338,7 @@ def get_indices_from_range(range,row_first,rating_limit =None):
     #return map(lambda x: (x,row_first[x][get_items])[:rating_limit],range)
     return map(lambda x: (x,np.sort(shuffle(row_first[x][get_items])[:rating_limit])),range)
 
-p1_mse_iters = []
-p2_mse_iters = []
 train_mse_iters = []
-p1_mse = []
-p2_mse = []
 train_mse = []
 
 def print_perf(params, max_iter, iter=0, gradient={}, train = None, test = None):
@@ -350,11 +346,11 @@ def print_perf(params, max_iter, iter=0, gradient={}, train = None, test = None)
     Prints the performance of the model
     """
     global curtime, hitcount
+    print max_iter
     print("iter is ", iter)
     #if (iter%10 != 0):
     #    return
     print "It took: {} s".format(time.time() - curtime)
-    print("iter is ", iter)
     print("MAE is", mae(gt=train, pred=inference(params, train)))
     print("RMSE is ", rmse(gt=train, pred=inference(params, train)))
     print("Loss is ", loss(parameters=params, data=train))
@@ -371,36 +367,22 @@ def print_perf(params, max_iter, iter=0, gradient={}, train = None, test = None)
     curtime = time.time()
 
     mse = rmse(gt=train, pred=inference(params, train))
-    if iter != 0:
-      plt.cla()
      #p1 is for graphing pretraining rating nets and canonical latents
-    if len(p1_mse) < max_iter:
-      p1_mse.append(mse)
-      p1_mse_iters.append(iter)
-    #p2 is for graphing combiner rating nets
-    elif len(p1_mse) == max_iter and len(p2_mse) < max_iter:
-      p2_mse.append(mse)
-      p2_mse_iters.append(iter)
-    #train_mse is for graphing ultimate training net performance
-    elif len(p2_mse) == max_iter:
+    if len(train_mse) < max_iter/4:
       train_mse.append(mse)
       train_mse_iters.append(iter)
 
-    plt.scatter(p1_mse_iters, p1_mse, color='red')
-    plt.scatter(p2_mse_iters, p2_mse, color='blue')
-    plt.scatter(train_mse_iters, train_mse, color='green')
+    #plt.scatter(train_mse_iters, train_mse, color='black')
 
-    #plt.plot(p1_mse_iters, p1_mse, 'r--', p2_mse_iters, p2_mse, '.r-', train_mse_iters, train_mse, 'xb-')
-    plt.plot(p1_mse_iters, p1_mse)
-    plt.plot(p2_mse_iters, p2_mse)
-    plt.plot(train_mse_iters, train_mse)
-    plt.draw()
-    plt.pause(0.001)
-    if len(train_mse) == max_iter:
+    #plt.plot(train_mse_iters, train_mse)
+    #plt.title('MovieLens 100K Performance (with pretraining)')
+    #plt.xlabel('Iterations')
+    #plt.ylabel('RMSE')
+    #plt.draw()
+    #plt.pause(0.001)
+    if len(train_mse) == max_iter/4:
       #End the plotting with a raw input
-      plt.savefig('finalgraph.png')
-      print("Final Pretrain 1 Performance: ", p1_mse)
-      print("Final Pretrain 2 Performance: ", p2_mse)
+      #plt.savefig('finalgraph.png')
       print("Final Total Performance: ", train_mse)
     
 
@@ -474,7 +456,8 @@ def getInferredMatrix(parameters, data):
     Uses the network's predictions to generate a full matrix for comparison.
     """
     row_len, col_len = len(data[keys_row_first]), len(data[keys_col_first])
-    inferred = inference(parameters, data=data, indices=range(row_len))
+    #inferred = inference(parameters, data=data, indices=range(row_len))
+    inferred = inference(parameters, data=data, indices = get_indices_from_range(range(row_len),data[keys_row_first]))
     newarray = np.zeros((len(data[keys_row_first]),len(data[keys_col_first])))
 
     for i in range(row_len):
@@ -484,3 +467,4 @@ def getInferredMatrix(parameters, data):
 
 inference = get_pred_for_users
 loss = standard_loss
+
