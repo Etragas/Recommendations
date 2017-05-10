@@ -9,7 +9,7 @@ class DataLoader:
     MOVIELENS = "Movielens"
     NETFLIX = "Netflix"
 
-    def LoadData(self, file_path, data_type):
+    def LoadData(self, file_path, data_type, size):
         """
         Entrance method for this class.
         It's responsible for loading in arbitrary files.
@@ -18,7 +18,7 @@ class DataLoader:
         :param type: The type of data (e.g Netflix ...)
         :return: A 2D numpy array containing real numbered entries
         """
-        return {self.MOVIELENS: self.LoadMovieLens(file_path), self.NETFLIX: 2}.get(data_type, None)
+        return {self.MOVIELENS: self.LoadMovieLens(file_path,size), self.NETFLIX: 2}.get(data_type, None)
 
     def fixMovelens100m(self, file_path):
         encountered = {}
@@ -44,13 +44,13 @@ class DataLoader:
             fixed.write(out)
         return X
 
-    def LoadMovieLens(self, file_path):
+    def LoadMovieLens(self, file_path, size):
         encountered = {}
         idx = 1
         f = open(file_path, 'r')
         # Determine length later
-        full_data = np.zeros((6050, 3910),
-                     dtype=int)  # np.zeros((72000,11000))                                  ##TODO: FIX THIS MAGIC
+        full_data = np.zeros((size),#np.zeros((6050, 3910),
+                     dtype=int)  #                                   ##TODO: FIX THIS MAGIC
 
         for elem in f.readlines():
             user, item, rating = [x for x in elem.split()][:3]

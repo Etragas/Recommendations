@@ -14,13 +14,13 @@ Initialize all non-mode-specific parameters
 """
 
 curtime = 0
-
-#These don't belong here
 MAX_RECURSION = 4
 TRAININGMODE = False
 EVIDENCELIMIT = 80
 RATINGLIMIT = 50
 
+train_mse_iters = []
+train_mse = []
 def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_batches = 1, reg_alpha = .01):
     """
     Compute simplified version of squared loss with penalty on vector norms
@@ -37,20 +37,24 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     """
     # Frobenius Norm squared error term
     # Regularization Terms
-		
+
 		#generate predictions on specified indices with given parameters
     predictions = inference(parameters, data=data, indices=indices)
-   
+
     #vector norm (number of elements) TODO: Clarify with Elias why there is a 0 at the end
     numel = reduce(lambda x,y:x+len(predictions[y]),range(len(predictions)),0)
 
     #Unregularized loss is penalized on vector norms is number of elements times squared error.
     data_loss = numel*np.square(rmse(data,predictions,indices))
 
-    #Regularized term is regularization scalar times sum of all parameters squared. NOTE: Autograd's flatten. 
-    #TODO: Clarify what num_proc is doing.
+    # canonicals = [parameters[keys_col_latents],parameters[keys_row_latents]]
+    # combiners = [parameters[keys_movie_to_user_net],parameters[keys_user_to_movie_net]]
+    # rating_net = parameters[keys_rating_net]
+    # reg_loss = 0
+    # for reg,params in zip([.00001,.0001,.001],[canonicals,combiners,rating_net]):
+    #     reg_loss = reg_loss + reg*np.square(flatten(params)[0]).sum() / float(num_proc)
+    # # reg_loss = .0001 * canonicals
     reg_loss = reg_alpha * np.square(flatten(parameters)[0]).sum() / float(num_proc)
-
     return reg_loss+data_loss
 
 
@@ -81,7 +85,7 @@ def get_pred_for_users(parameters, data, indices=None):
         user_predictions = []
         for movie_index in movie_indices:
             # For each index where a rating exists, generate it and append to our user predictions.
-            user_predictions.append(recurrent_inference(parameters, iter, data, user_index, movie_index))
+            user_predictions.append(recurrent_inference(parameters, data, user_index, movie_index))
 
         #Append our user-specific results to the full prediction matrix.
         full_predictions.append(np.array(user_predictions).reshape((len(user_predictions))))
@@ -89,11 +93,11 @@ def get_pred_for_users(parameters, data, indices=None):
     return full_predictions
 
 
-def recurrent_inference(parameters, iter=0, data=None, user_index=0, movie_index=0):
+def recurrent_inference(parameters, data=None, user_index=0, movie_index=0):
     """
     Using our recurrent structure, perform inference on the specifed user and movie.
 
-    :param parameters: all the parameters in our model 
+    :param parameters: all the parameters in our model
     :param iters: The current iteration number, 0 by default. IS THIS USED?
     :param data: The dataset, None by default.
     :param user_index: The index of the user we want to generate a movie for
@@ -134,7 +138,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
 
     global USERLATENTCACHE, hitcount, USERCACHELOCK, TRAININGMODE, EVIDENCELIMIT, UCANHIT
 
-		#Get our necessary parameters from the parameters dictionary
+    #Get our necessary parameters from the parameters dictionary
     movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
     rowLatents = parameters[keys_row_latents]
 
@@ -152,9 +156,11 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     if recursion_depth < 1:
         return None
 
-    #Otherwise we must generate our latent
-    evidence_count = raw_idx = 0
-		#TODO:Naively shuffle the movie indices and ratings of the movies user has watched, preserving relative order
+    # Must generate latent
+    evidence_count = 0
+    evidence_limit = EVIDENCELIMIT / (2**(MAX_RECURSION - recursion_depth))
+    #print evidence_limit
+
     items, ratings = get_candidate_latents(data[keys_row_first][user_index][get_items], data[keys_row_first][user_index][get_ratings], split=num_movie_latents)
 
     #Initialize lists for our dense ratings and latents
@@ -163,24 +169,21 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     internal_caller = [caller_id[0] + [user_index], caller_id[1]]
 
     #Retrieve latents for every movie watched by user
-    for movie_index in items:
-        #When it is training mode we use evidence count.
-        #When we go over the evidence limit, we no longer need to look for latents
-        if TRAININGMODE and evidence_count > EVIDENCELIMIT:
+    for movie_index, rating in zip(items,ratings):
+    #When it is training mode we use evidence count.
+    #When we go over the evidence limit, we no longer need to look for latents
+        if TRAININGMODE and evidence_count > evidence_limit:
              break
 
         #If the movie latent is valid, and does not produce a cycle, append it
         if movie_index not in internal_caller[1]:
-            movie_latent = getMovieLatent(parameters, data, movie_index, recursion_depth - 1, internal_caller)
+            movie_latent = getMovieLatent(parameters, data, movie_index, recursion_depth - 1, caller_id = internal_caller)
 
             if movie_latent is not None:
                 dense_latents.append(movie_latent)  # We got another movie latent
-                dense_ratings.append(ratings[raw_idx])  # Add its corresponding rating
+                dense_ratings.append(rating)  # Add its corresponding rating
                 evidence_count += 1
-        #Increment the counter that synchronizes movie latents and corresponding ratings
-        raw_idx += 1
 
-    #Case where we receive no latents and ratings.
     if dense_ratings == []:
         return None
 
@@ -190,8 +193,8 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
 
     latents_with_ratings = np.concatenate((dense_latents, dense_ratings), axis=1)  # Append ratings to latents
     prediction = neural_net_predict(movie_to_user_net_parameters, (latents_with_ratings))  # Feed through NN
-    row_latent = np.mean(prediction, axis=0) #Our user latent is the average of the neural net outputs.
-    USERLATENTCACHE[user_index] = (row_latent, recursion_depth) #Cache the user latent with the current recursion depth
+    row_latent = np.mean(prediction, axis=0)
+    USERLATENTCACHE[user_index] = (row_latent, recursion_depth)
 
     return row_latent
 
@@ -231,9 +234,11 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     if recursion_depth < 1:
         return None
 
-    #Otherwise we must generate our latent
-    evidence_count = raw_idx = 0
-    #TODO:Naively shuffle the movie indices and ratings of the movies user has watched, preserving relative order
+
+    # Must Generate Latent
+    evidence_count  = 0
+    evidence_limit = EVIDENCELIMIT / (2**(MAX_RECURSION - recursion_depth))
+    #print evidence_limit
     items, ratings = get_candidate_latents(data[keys_col_first][movie_index][get_items], data[keys_col_first][movie_index][get_ratings], split = num_user_latents)
 
     #Initialize lists for our dense ratings and latents
@@ -242,23 +247,20 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     internal_caller = [caller_id[0], caller_id[1] + [movie_index]]
 
     #Retrieve latents for every user who watched the movie
-    for user_index in items:
+    for user_index, rating in zip(items,ratings):
         #When it is training mode we use evidence count.
         #When we go over the evidence limit, we no longer need to look for latents
-        if TRAININGMODE and evidence_count > EVIDENCELIMIT:
+        if TRAININGMODE and evidence_count > evidence_limit:
              break
 
         #If the user latent is valid, and does not produce a cycle, append it
         if user_index not in internal_caller[0]:
-            user_latent = getUserLatent(parameters, data, user_index, recursion_depth - 1, internal_caller)
+            user_latent = getUserLatent(parameters, data, user_index, recursion_depth - 1, caller_id= internal_caller)
             if user_latent is not None:
-                dense_latents.append(user_latent) # We get another user latent
-                dense_ratings.append(ratings[raw_idx]) # Add its corresponding rating
-                evidence_count += 1
-        #Increment the counter that synchronizes movie latents and corresponding ratings
-        raw_idx += 1
-    
-    #Case where we receive no latents and ratings.
+                dense_latents.append(user_latent)
+                dense_ratings.append(rating)
+                evidence_count+=1
+
     if dense_ratings == []:
         return None
 
@@ -327,26 +329,22 @@ def lossGrad(data, num_batches=1, fixed_params = None, params_to_opt = None, bat
         TRAININGMODE = False
         return loss
 
-    return grad(lambda params, iter: training(params, iter,data=data,indices = range(len(data[keys_row_first])), fixed_params = fparams, param_keys = params_to_opt))
+    return grad(lambda params, iter: training(params, iter,data=data,indices = batch_indices, fixed_params = fparams, param_keys = params_to_opt))
 
 
-def dataCallback(data, max_iter, test=None):
-    return lambda params, iter, grad: print_perf(params, max_iter, iter, grad, train=data, test=test)
+def dataCallback(data,test=None):
+    return lambda params, iter, grad: print_perf(params, iter, grad, train=data, test=test)
 
 
 def get_indices_from_range(range,row_first,rating_limit =None):
     #return map(lambda x: (x,row_first[x][get_items])[:rating_limit],range)
     return map(lambda x: (x,np.sort(shuffle(row_first[x][get_items])[:rating_limit])),range)
 
-train_mse_iters = []
-train_mse = []
-
-def print_perf(params, max_iter, iter=0, gradient={}, train = None, test = None):
+def print_perf(params, iter=0, gradient={}, train = None, test = None):
     """
     Prints the performance of the model
     """
-    global curtime, hitcount
-    print max_iter
+    global curtime, hitcount, TRAININGMODE
     print("iter is ", iter)
     #if (iter%10 != 0):
     #    return
@@ -383,7 +381,7 @@ def print_perf(params, max_iter, iter=0, gradient={}, train = None, test = None)
       #End the plotting with a raw input
       plt.savefig('finalgraph.png')
       print("Final Total Performance: ", train_mse)
-    
+
 
 def get_candidate_latents(all_items, all_ratings, split = None):
     can_items, can_ratings = all_items[:split], all_ratings[:split]
@@ -455,8 +453,8 @@ def getInferredMatrix(parameters, data):
     Uses the network's predictions to generate a full matrix for comparison.
     """
     row_len, col_len = len(data[keys_row_first]), len(data[keys_col_first])
-    #inferred = inference(parameters, data=data, indices=range(row_len))
-    inferred = inference(parameters, data=data, indices = get_indices_from_range(range(row_len),data[keys_row_first]))
+    inferred = inference(parameters, data=data, indices=range(row_len))
+    #inferred = inference(parameters, data=data, indices = get_indices_from_range(range(row_len),data[keys_row_first]))
     newarray = np.zeros((len(data[keys_row_first]),len(data[keys_col_first])))
 
     for i in range(row_len):
@@ -464,6 +462,20 @@ def getInferredMatrix(parameters, data):
         newarray[i, ratings_high] = inferred[i]
     return newarray
 
+
+
+rowLatents = 0
+colLatents = 0
+
+caches_done = False
+ret_list = [[]]
 inference = get_pred_for_users
 loss = standard_loss
+hitcount = [0]*(MAX_RECURSION+1)
+NUM_USERS = 0
+NUM_MOVIES = 0
+USERLATENTCACHE = [None] * NUM_USERS
+MOVIELATENTCACHE = [None] * NUM_MOVIES
+USERLATENTCACHEPRIME = [None] * NUM_USERS
+MOVIELATENTCACHEPRIME = [None] * NUM_MOVIES
 

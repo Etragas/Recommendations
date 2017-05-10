@@ -15,11 +15,14 @@ def build_params():
     parameters = {}
     parameters[keys_movie_to_user_net] = init_random_params(scale, hyp_user_network_sizes)  # Neural Net Parameters
     parameters[keys_user_to_movie_net] = (init_random_params(scale, hyp_movie_network_sizes))  # Neural Net Parameters
+    parameters[keys_col_latents] = (scale * np.random.rand(movie_latent_size, num_movie_latents))  # Column Latents
+    parameters[keys_row_latents] = (scale * np.random.rand(num_user_latents, user_latent_size))  #Row Latents
+
+    parameters[keys_col_latents] = (scale * np.random.rand(movie_latent_size, num_movie_latents))  # Column Latents
+    parameters[keys_row_latents] = (scale * np.random.rand(num_user_latents, user_latent_size))  #Row Latents
+
     parameters[keys_rating_net] = (init_random_params(scale, rating_network_sizes))  # Neural Net Parameters
     parameters[keys_rating_net][3][0] = np.array([1,2,3,4,5])
-    parameters[keys_col_latents] = (scale * np.random.rand(movie_latent_size, num_movie_latents))  # Column Latents
-    parameters[keys_row_latents] = (
-        scale * np.random.rand(num_user_latents, user_latent_size))  # user_latent_size,row_size))#Row Latents
     return parameters
 
 
@@ -138,3 +141,7 @@ keys_user_to_movie_net = "UserToMovie"
 keys_row_latents = "RowLatents"
 keys_col_latents = "ColLatents"
 keys_rating_net = "PredNet"
+keys_movie_to_user_net_prime = "MovieToUserPrime"
+keys_user_to_movie_net_prime = "UserToMoviePrime"
+keys_col_latents_prime = "ColLatentsPrime"
+keys_row_latents_prime = "RowLatentsPrime"
