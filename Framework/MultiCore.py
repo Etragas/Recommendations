@@ -65,11 +65,18 @@ def dataCallback(data):
     return lambda params, iter, grad: print_perf(params, iter, grad, data=data)
 
 
-def disseminate_values(num_items, num_bins):
+def disseminate_values(values, num_bins):
+    num_items = len(values)
     chunk_size = num_items / num_bins
     ranges = [chunk_size] * num_bins
     remainder = num_items - num_bins * chunk_size
     # Remainder < num_bins
     for x in range(remainder):
         ranges[x] += 1
+
+    offset = 0
+    for idx in range(len(ranges)):
+        tmp = ranges[idx]
+        ranges[idx] = values[offset:offset+ranges[idx]]
+        offset += tmp
     return ranges

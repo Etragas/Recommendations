@@ -49,7 +49,7 @@ class DataLoader:
         idx = 1
         f = open(file_path, 'r')
         # Determine length later
-        X = np.zeros((1000, 1700),
+        full_data = np.zeros((6050, 3910),
                      dtype=int)  # np.zeros((72000,11000))                                  ##TODO: FIX THIS MAGIC
 
         for elem in f.readlines():
@@ -57,10 +57,16 @@ class DataLoader:
             if item not in encountered:
                 encountered[item] = idx
                 idx += 1
+
             user, item, rating = [int(user), int(item), float(rating)]
-            X[user - 1, item - 1] = rating
+            full_data[user - 1, item - 1] = rating
         f.close()
-        return X
+        rows = [x for x in range((full_data.shape[0])) if full_data[x,:].sum() > 0]
+        cols = [x for x in range((full_data.shape[1])) if full_data[:,x].sum() > 0]
+        full_data = full_data[rows,:]
+        full_data = full_data[:,cols]
+
+        return full_data
 
     def parseNetflixMovieData(self, file_path, user_arr, movie_arr, seen_id, counter):
         f = open(file_path, 'r')
