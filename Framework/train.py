@@ -23,7 +23,7 @@ def pretrain_canon_and_rating(full_data, can_idx, parameters, step_size, num_ite
     grads = NMF_ATNN.lossGrad(train)
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=num_iters,
-                      callback=NMF_ATNN.dataCallback(train))
+                      callback=NMF_ATNN.dataCallback(train, num_iters))
 
     return parameters
 
@@ -52,7 +52,7 @@ def pretrain_combiners(full_data, can_idx, parameters, step_size, num_iters):
     grads = NMF_ATNN.lossGrad(train)
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=num_iters,
-                      callback=NMF_ATNN.dataCallback(train))
+                      callback=NMF_ATNN.dataCallback(train, num_iters))
 
     return parameters
 
@@ -90,15 +90,15 @@ def train(full_data, can__idx=None, train_idx=None, test_idx=None, parameters=No
     # Define the loss for our train
     grads = lossGrad(train)
     # Optimize our parameters using adam
-    parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1], callback=dataCallback(train))
+    parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=trainArgs[1], callback=dataCallback(train, trainArgs[1]))
 
     # TODO: Make an inference function that calls the below
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, train)
-    print "\n".join([str(x) for x in ["Train", print_perf(parameters, data=train), train, np.round(invtrans)]])
+    print "\n".join([str(x) for x in ["Train", print_perf(parameters, trainArgs[1], data=train), train, np.round(invtrans)]])
 
     # Generate our rating predictions on the test set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, test)
-    print "\n".join([str(x) for x in ["Test", print_perf(parameters, data=test), test, np.round(invtrans)]])
+    print "\n".join([str(x) for x in ["Test", print_perf(parameters, trainArgs[1], data=test), test, np.round(invtrans)]])
 
     return parameters

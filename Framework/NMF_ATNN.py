@@ -6,6 +6,8 @@ from autograd.util import flatten
 
 from utils import *
 
+import matplotlib.pyplot as plt
+
 curtime = 0
 MAX_RECURSION = 4
 
@@ -15,6 +17,19 @@ hitcount = 0
 
 caches_done = False
 ret_list = [[]]
+
+#fig = plt.figure(figsize=(8,8), facecolor='white')
+#ax = fig.add_subplot(111, frameon=False)
+#plt.ion()
+#plt.show(block=False)
+p1_mse_iters = []
+p2_mse_iters = []
+train_mse_iters = []
+p1_mse = []
+p2_mse = []
+train_mse = []
+counter = 0
+#max_iters = 0
 
 
 def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1):
@@ -188,18 +203,20 @@ def lossGrad(data):
     return grad(lambda params, _: standard_loss(params, data=data))
 
 
-def dataCallback(data):
-    return lambda params, iter, grad: print_perf(params, iter, grad, data=data)
+def dataCallback(data, max_iter):
+    return lambda params, iter, grad: print_perf(params, max_iter, iter, grad, data=data)
 
 
-def print_perf(params, iter=0, gradient={}, data=None):
+def print_perf(params, max_iter, iter=0, gradient={}, data=None):
     """
     Prints the performance of the model
     """
     global curtime, hitcount, U_HITS, M_HITS
     predicted_data = getInferredMatrix(params, data)
+    mse = (abs(data - predicted_data).sum()) / ((data > 0).sum())
     print "It took: {} s".format(time.time() - curtime)
     print("iter is ", iter)
+    print("MSE is ", mse)
     print("MAE is ", (abs(data - predicted_data).sum()) / ((data > 0).sum()))
     print("Loss is, ", loss(parameters=params, data=data))
     print "Hitcount is: ", hitcount
@@ -207,8 +224,45 @@ def print_perf(params, iter=0, gradient={}, data=None):
         x = gradient[key]
         print key
         print np.square(flatten(x)[0]).sum() / flatten(x)[0].size
-    print U_HITS
-    print M_HITS
+    print(loss(parameters=params, data=data))
+
+
+    #Start printing out the pretrain 1 plot, pretrain 2 plot, and train plot
+    #code is ugly as sin, will clean up soon
+    if iter != 0:
+      plt.cla()
+
+    #p1 is for graphing pretraining rating nets and canonical latents
+    if len(p1_mse) < max_iter:
+      p1_mse.append(mse)
+      p1_mse_iters.append(iter)
+    #p2 is for graphing combiner rating nets
+    elif len(p1_mse) == max_iter and len(p2_mse) < max_iter:
+      p2_mse.append(mse)
+      p2_mse_iters.append(iter)
+    #train_mse is for graphing ultimate training net performance
+    elif len(p2_mse) == max_iter:
+      train_mse.append(mse)
+      train_mse_iters.append(iter)
+
+    plt.scatter(p1_mse_iters, p1_mse, color='red')
+    plt.scatter(p2_mse_iters, p2_mse, color='blue')
+    plt.scatter(train_mse_iters, train_mse, color='green')
+  
+    #plt.plot(p1_mse_iters, p1_mse, 'r--', p2_mse_iters, p2_mse, '.r-', train_mse_iters, train_mse, 'xb-')
+    plt.plot(p1_mse_iters, p1_mse)
+    plt.plot(p2_mse_iters, p2_mse)
+    plt.plot(train_mse_iters, train_mse)
+    plt.draw()
+    plt.pause(0.001)	
+    if len(train_mse) == max_iter:
+      #End the plotting with a raw input
+      plt.savefig('finalgraph.png')
+      raw_input()
+
+    #print U_HITS
+    #print M_HITS
+    
     curtime = time.time()
 
 

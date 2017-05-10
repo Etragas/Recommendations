@@ -4,7 +4,8 @@ import utils
 
 # Load the data using DataLoader
 full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS)
-full_data = full_data[:100,:100]
+full_data = full_data[:100, :170]
+#full_data = full_data[:100,:100]
 # Our dataset only has 1000 users and 1700 movies
 
 # Reduce the matrix to toy size
