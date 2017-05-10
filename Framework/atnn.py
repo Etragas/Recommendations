@@ -9,7 +9,7 @@ print full_data.shape
 print np.mean(np.sum(full_data > 0,axis = 1)) #Check average ratings per user
 
 # Reduce the matrix to toy size
-#full_data = full_data[:100,:100]
+full_data = full_data[:100,:100]
 rows = [x for x in range((full_data.shape[0])) if full_data[x,:].sum() > 0]
 cols = [x for x in range((full_data.shape[1])) if full_data[:,x].sum() > 0]
 full_data = full_data[rows,:]
@@ -33,7 +33,7 @@ train_idx = test_idx = np.array([np.array(range(nrows)),np.array(range(ncols))])
 
 # Training Parameters
 step_size = 0.0001
-num_users_per_batch = 2
+num_users_per_batch = 10
 batches_per_epoch = int(np.ceil(float(nrows) / num_users_per_batch))
 batches_per_can_epoch = int(np.ceil(float(utils.num_user_latents)/ num_users_per_batch))
 

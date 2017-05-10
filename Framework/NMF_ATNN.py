@@ -101,15 +101,15 @@ def recurrent_inference(parameters, iter=0, data=None, user_index=0, movie_index
 
     :return val: The predicted rating value for the specified user and movie
     """
-		#Generate user and movie latents
+	#Generate user and movie latents
     userLatent = getUserLatent(parameters, data, user_index)
     movieLatent = getMovieLatent(parameters, data, movie_index)
 
-		#Default value for the latents is arbitrarily chosen to be 2.5
+	#Default value for the latents is arbitrarily chosen to be 2.5
     if movieLatent is None or userLatent is None:
         return 2.5
 
-		#Run through the rating net, passing in rating net parameters and the concatenated latents
+	#Run through the rating net, passing in rating net parameters and the concatenated latents
     val = neural_net_predict(
       parameters=parameters[keys_rating_net],
       inputs=np.concatenate((userLatent, movieLatent)))
@@ -368,21 +368,20 @@ def print_perf(params, max_iter, iter=0, gradient={}, train = None, test = None)
 
     mse = rmse(gt=train, pred=inference(params, train))
      #p1 is for graphing pretraining rating nets and canonical latents
-    if len(train_mse) < max_iter/4:
-      train_mse.append(mse)
-      train_mse_iters.append(iter)
+    train_mse.append(mse)
+    train_mse_iters.append(iter)
 
-    #plt.scatter(train_mse_iters, train_mse, color='black')
+    plt.scatter(train_mse_iters, train_mse, color='black')
 
-    #plt.plot(train_mse_iters, train_mse)
-    #plt.title('MovieLens 100K Performance (with pretraining)')
-    #plt.xlabel('Iterations')
-    #plt.ylabel('RMSE')
-    #plt.draw()
-    #plt.pause(0.001)
-    if len(train_mse) == max_iter/4:
+    plt.plot(train_mse_iters, train_mse)
+    plt.title('MovieLens 100K Performance (with pretraining)')
+    plt.xlabel('Iterations')
+    plt.ylabel('RMSE')
+    plt.draw()
+    plt.pause(0.001)
+    if len(train_mse)%10 == 0:
       #End the plotting with a raw input
-      #plt.savefig('finalgraph.png')
+      plt.savefig('finalgraph.png')
       print("Final Total Performance: ", train_mse)
     
 
