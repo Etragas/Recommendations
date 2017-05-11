@@ -16,7 +16,7 @@ Initialize all non-mode-specific parameters
 curtime = 0
 MAX_RECURSION = 4
 TRAININGMODE = False
-EVIDENCELIMIT = 80
+EVIDENCELIMIT = 10
 RATINGLIMIT = 50
 
 train_mse_iters = []
@@ -121,7 +121,7 @@ def recurrent_inference(parameters, data=None, user_index=0, movie_index=0):
     return val#np.dot(np.array([1,2,3,4,5]),softmax())
 
 
-def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, caller_id=[[], []]):
+def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, caller_id=[[], []], call_train = {}):
     """
     Generate or retrieve the user latent.
     If it is a canonical, we retrieve it.
@@ -137,7 +137,6 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     """
 
     global USERLATENTCACHE, hitcount, USERCACHELOCK, TRAININGMODE, EVIDENCELIMIT, UCANHIT
-
     #Get our necessary parameters from the parameters dictionary
     movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
     rowLatents = parameters[keys_row_latents]
@@ -172,14 +171,16 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     for movie_index, rating in zip(items,ratings):
     #When it is training mode we use evidence count.
     #When we go over the evidence limit, we no longer need to look for latents
-        if TRAININGMODE and evidence_count > evidence_limit:
+        if True and evidence_count > evidence_limit:
              break
 
-        #If the movie latent is valid, and does not produce a cycle, append it
+        #If the movie latent is valid, and does not produce a cycle, append it        children = {user_index: []}
+        children = {movie_index: []}
         if movie_index not in internal_caller[1]:
-            movie_latent = getMovieLatent(parameters, data, movie_index, recursion_depth - 1, caller_id = internal_caller)
+            movie_latent = getMovieLatent(parameters, data, movie_index, recursion_depth - 1, caller_id = internal_caller, call_train=children)
 
             if movie_latent is not None:
+                call_train[user_index].append(children)
                 dense_latents.append(movie_latent)  # We got another movie latent
                 dense_ratings.append(rating)  # Add its corresponding rating
                 evidence_count += 1
@@ -199,7 +200,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     return row_latent
 
 
-def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION, caller_id=[[], []]):
+def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION, caller_id=[[], []], call_train = {}):
     """
     Generate or retrieve the movie latent.
     If it is a canonical, we retrieve it.
@@ -250,13 +251,15 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     for user_index, rating in zip(items,ratings):
         #When it is training mode we use evidence count.
         #When we go over the evidence limit, we no longer need to look for latents
-        if TRAININGMODE and evidence_count > evidence_limit:
+        if True and evidence_count > evidence_limit:
              break
 
         #If the user latent is valid, and does not produce a cycle, append it
+        children = {user_index: []}
         if user_index not in internal_caller[0]:
-            user_latent = getUserLatent(parameters, data, user_index, recursion_depth - 1, caller_id= internal_caller)
+            user_latent = getUserLatent(parameters, data, user_index, recursion_depth - 1, caller_id= internal_caller, call_train = children)
             if user_latent is not None:
+                call_train[movie_index].append(children)
                 dense_latents.append(user_latent)
                 dense_ratings.append(rating)
                 evidence_count+=1

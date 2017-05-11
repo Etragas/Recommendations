@@ -132,6 +132,14 @@ def getNeighbours(full_data,percentiles=[01,.01,.02,.03,.04,.05,.10,.20]):
     plt.show()
     return user_results
 
+def print_train(num_tabs = 0,isMovie = 0,names = [[],[]],*call_train):
+    if not call_train: return
+
+    for parent in call_train:
+        for node in parent:
+            print str("".join(["---"]*num_tabs)), names[isMovie][node], node, "(C)" if node < 10 else "(G)"
+            print_train(num_tabs+1,not isMovie,names,*parent[node])
+
 get_items = 0
 get_ratings = 1
 keys_row_first = "row"
