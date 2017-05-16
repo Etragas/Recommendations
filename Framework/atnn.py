@@ -60,7 +60,7 @@ call_train = {13:[]}
 ltrain = listify(train_data)
 setup_caches(ltrain)
 getUserLatent(parameters,ltrain,13,call_train = call_train)
-draw_stuff(names,call_train)
+draw_stuff(names,call_train,train_data)
 global TRAININGMODE
 TRAININGMODE = True
 print_train(0,0,names,*[call_train])
