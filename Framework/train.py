@@ -21,10 +21,10 @@ def pretrain_canon_and_rating(full_data, parameters, step_size, num_epochs, batc
     train = full_data[:utils.num_user_latents,:utils.num_movie_latents].copy()
     train = listify(train)
     print "in p1 wtf", num_epochs, batches_per_epoch
-    grads = lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, params_to_opt=[keys_col_latents,keys_row_latents,keys_rating_net], reg_alpha=.001,num_aggregates=4)
+    grads = lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, params_to_opt=[keys_col_latents,keys_row_latents,keys_rating_net], reg_alpha=.001,num_aggregates=1)
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=batches_per_epoch*num_epochs,
-                      callback=dataCallback(train), b1=0.5, iter_val=4)
+                      callback=dataCallback(train), b1=0.5, iter_val=1)
     print "training"
     return parameters
 
@@ -50,10 +50,10 @@ def pretrain_combiners(full_data, parameters, step_size, num_epochs, batches_per
     train[:utils.num_user_latents, :utils.num_movie_latents] = np.array(0)
     train[utils.num_user_latents:, utils.num_movie_latents:] = np.array(0)
     train = listify(train)
-    grads = lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, params_to_opt=[keys_user_to_movie_net,keys_movie_to_user_net], reg_alpha=.001, num_aggregates=4)
+    grads = lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, params_to_opt=[keys_user_to_movie_net,keys_movie_to_user_net], reg_alpha=.001, num_aggregates=1)
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=num_epochs*batches_per_epoch,b1 = 0.5,
-                      callback=dataCallback(train),iter_val=4)
+                      callback=dataCallback(train),iter_val=1)
 
     return parameters
 
@@ -63,10 +63,10 @@ def pretrain_all(full_data, parameters, step_size, num_epochs, batches_per_epoch
     # Initialize a zeroed array of equal size to our canonical set
     # Set the first and third quadrants of the quadrupled canonical graph to zero.  Set up for clever trickery.
     train = listify(train)
-    grads = lossGrad(train, num_batches=batches_per_epoch, reg_alpha=.001, num_aggregates=4)
+    grads = lossGrad(train, num_batches=batches_per_epoch, reg_alpha=.001, num_aggregates=1)
     # Optimize our parameters using adam
-    parameters = adam(grads, parameters, step_size=step_size, num_iters=20,b1 = 0.5,
-                      callback=dataCallback(train), iter_val=4)
+    parameters = adam(grads, parameters, step_size=step_size, num_iters=60,b1 = 0.5,
+                      callback=dataCallback(train), iter_val=1)
 
     return parameters
 
