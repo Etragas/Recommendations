@@ -18,7 +18,7 @@ class DataLoader:
         :param type: The type of data (e.g Netflix ...)
         :return: A 2D numpy array containing real numbered entries
         """
-        return {self.MOVIELENS: self.LoadMovieLens(file_path,size), self.NETFLIX: 2}.get(data_type, None)
+        return {self.MOVIELENS: self.LoadMovieLens, self.NETFLIX: self.LoadNetflix}.get(data_type, None)(file_path,size)
 
     def fixMovelens100m(self, file_path):
         encountered = {}
@@ -43,6 +43,27 @@ class DataLoader:
                 out += "{} {} {} \n".format(user_id, movie_id, rating)
             fixed.write(out)
         return X
+
+    def LoadNetflix(self,file_path,size):
+        #We know how many users, we know how many movies
+        #
+        row_size, col_size = size
+        row_count = [0]*row_size
+        col_count = [0]*col_size
+        row_first = [[list(),list()]]*row_size
+        col_first = [[list(),list()]]*col_size
+        print "HERE"
+        f = open(file_path,'r')
+        for elem in f.readlines():
+            user, item, rating = [x for x in elem.split(",")]
+            user,item = int(user), int(item)
+            row_count[user] += 1
+            col_count[item] += 1
+            row_first[0].append(item)
+            row_first[1].append(rating)
+            col_first[0].append(user)
+            col_first[1].append(rating)
+            print user
 
     def LoadMovieLens(self, file_path, size):
         encountered = {}
