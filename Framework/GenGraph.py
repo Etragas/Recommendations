@@ -19,7 +19,7 @@ def numel(items = [], isMovie = 0, names=[[],[]], call_train = {}, data = None):
             numel(items,not isMovie, names, child,data)
     return items
 
-def draw_stuff(names,call_train,data):
+def draw_stuff(names,call_trains,data):
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
         import igraph
@@ -27,35 +27,38 @@ def draw_stuff(names,call_train,data):
         igraph.__version__
 
         g = pgv.AGraph(directed=True,ranksep='.1',nodesep='.1')
-        print call_train
-
-        edges = numel([],0,names,call_train, data)
-        print edges
-        sublprop = zip(*edges)[:2]
-        vertices = set([item for sublist in sublprop for item in sublist])
-        #Create mapped edges
-        g.add_nodes_from(vertices)
-        for edge in edges:
-            print "New edge"
-            print edge
-            g.add_edge(edge[1],edge[0],label=edge[2],dir='back')
-
+        print call_trains
+        ind = 0
+        for call_train in call_trains:
+            edges = numel([],ind,names,call_train, data)
+            print edges
+            sublprop = zip(*edges)[:2]
+            vertices = set([item for sublist in sublprop for item in sublist])
+            #Create mapped edges
+            g.add_nodes_from(vertices)
+            for edge in edges:
+                print "New edge"
+                print edge
+                g.add_edge(edge[1],edge[0],label=edge[2],dir='back')
+            ind+=1
         for x in range(100):
             #User
             try:
                 n = g.get_node(names[0][x])
                 if x < 10:
-                    n.attr['shape'] = 'box'
-                n.attr['color'] = 'blue'
+                    n.attr['style'] = 'filled'
+                #n.attr['color'] = 'blue'
             except:
                 pass
             try:
                 n = g.get_node(names[1][x])
                 if x < 10 :
-                    n.attr['shape'] = 'box'
-                n.attr['color'] = 'green'
+                    n.attr['style'] = 'filled'
+                #n.attr['color'] = 'green'
             except:
                 pass
+            g.add_edge(names[0][call_trains[0].keys()[0]],'?',dir='back')
+            g.add_edge(names[1][call_trains[1].keys()[0]],'?',dir='back')
         g = g.reverse()
         g.layout(prog="dot",)
         g.draw('file.png')

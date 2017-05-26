@@ -14,9 +14,9 @@ Initialize all non-mode-specific parameters
 """
 
 curtime = 0
-MAX_RECURSION = 1
+MAX_RECURSION = 3
 TRAININGMODE = False
-EVIDENCELIMIT = 10
+EVIDENCELIMIT = 6
 RATINGLIMIT = 50
 
 train_mse_iters = []

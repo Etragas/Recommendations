@@ -8,7 +8,8 @@ print core.__file__
 #full_data = DataLoader().LoadData(file_path="../Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
 #full_data = DataLoader().LoadData(file_path="../Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
 full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS, size= (1200,2000))
-print full_data.shape
+#full_data = DataLoader().LoadData(file_path="../Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
+#print full_data.shape
 print np.mean(np.sum(full_data > 0,axis = 1)) #Check average ratings per user
 # Reduce the matrix to toy size
 full_data = full_data[:100,:100]
@@ -50,20 +51,21 @@ print can_idx
 with open("../Data/ml-100k/u.item") as f:
     names = [x.split('|')[1] for x in f.readlines()]
 
-names = [names[x] for x in can_idx[1]]
-unames = ["user #" + str(i) for i in range(88)]
+names = [names[x].split('(')[0].strip().replace(', The','') for x in can_idx[1]]
+unames = ["user " + str(i) for i in range(88)]
 names = [unames,names]
 print names
-
-call_train = {13:[]}
+call_train1 = {13:[]}
+call_train2 = {19:[]}
 #train_data[15,9]=0
 ltrain = listify(train_data)
 setup_caches(ltrain)
-getUserLatent(parameters,ltrain,13,call_train = call_train)
-draw_stuff(names,call_train,train_data)
+getUserLatent(parameters,ltrain,13,call_train = call_train1)
+getMovieLatent(parameters,ltrain,19,call_train = call_train2)
+draw_stuff(names,[call_train1,call_train2],train_data)
 global TRAININGMODE
 TRAININGMODE = True
-print_train(0,0,names,*[call_train])
+#print_train(0,0,names,*[call_train])
 raw_input()
 # Train the parameters.  Pretraining the nets and canon latents are optional.
 parameters = train(train_data, test_data, can_idx, train_idx, test_idx, parameters,
