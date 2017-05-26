@@ -55,7 +55,7 @@ class DataLoader:
         print "HERE"
         f = open(file_path,'r')
         for elem in f.readlines():
-            user, item, rating = [x for x in elem.split()[:3]]
+            user, item, rating = [x for x in elem.split(',')[:3]]
             user, item, rating = int(user)-1, int(item)-1, float(rating)
             row_count[user] += 1
             col_count[item] += 1
@@ -68,7 +68,7 @@ class DataLoader:
         while u_idx < (row_size):
             items_ratings = zip(*row_first[u_idx])
             if not items_ratings:
-                print "EMPTY Row"
+                print "EMPTY Row", u_idx
                 del row_first[u_idx]
                 row_size -= 1
                 u_idx += 1
@@ -79,7 +79,7 @@ class DataLoader:
         while m_idx < (col_size):
             items_ratings = zip(*col_first[m_idx])
             if not items_ratings:
-                print "EMPTY Col"
+                print "EMPTY Col", m_idx
                 del col_first[m_idx]
                 col_size -= 1
                 m_idx += 1

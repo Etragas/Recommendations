@@ -4,11 +4,11 @@ from train import *
 from autograd import core
 print core.__file__
 # Load the data using DataLoader
-#full_data = DataLoader().LoadData(file_path="../Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
+netflix_full_data = DataLoader().LoadData(file_path="../Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
 #full_data = DataLoader().LoadData(file_path="../Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
-#full_data = DataLoader().LoadData(file_path="../Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
+#netflix_full_data= DataLoader().LoadData(file_path="../Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.NETFLIX, size= (6100,4000))
 full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS, size= (1200,2000))
-netflix_full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.NETFLIX, size= (1200,2000))
+#netflix_full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.NETFLIX, size= (1200,2000))
 # Reduce the matrix to toy size
 #full_data = full_data[:100,:100]
 
@@ -16,8 +16,8 @@ netflix_full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", da
 print full_data.shape
 nrows, ncols = full_data.shape
 
-utils.num_user_latents = int(np.ceil(10))
-utils.num_movie_latents = int(np.ceil(10))
+utils.num_user_latents = int(np.ceil(40))
+utils.num_movie_latents = int(np.ceil(20))
 
 print utils.num_user_latents, utils.num_movie_latents
 can_idx = get_canonical_indices(full_data, [utils.num_user_latents, utils.num_movie_latents])
@@ -35,7 +35,7 @@ can_idx_netflix = get_canonical_indices_from_list(netflix_full_data, [utils.num_
 #Resort data so that canonical users and movies are in top left
 full_data = full_data[:,can_idx[1]]
 full_data = full_data[can_idx[0],:]
-netflix_full_data = index_sort(netflix_full_data,can_idx)
+netflix_full_data = index_sort(netflix_full_data,can_idx_netflix)
 
 for x in range(11):
     print len(netflix_full_data[keys_row_first][x][get_items])
@@ -46,7 +46,6 @@ print netflix_full_data[keys_row_first][0][get_items]
 for x in range(10):
     print len(netflix_full_data[keys_col_first][x][get_items])
 
-raw_input()
 train_data, test_data = splitData(full_data)
 net_train, net_test = splitDataList(netflix_full_data,.8)
 train_idx = test_idx = np.array([np.array(range(nrows)),np.array(range(ncols))])
