@@ -3,7 +3,7 @@ from os import listdir
 from os.path import join
 import numpy as np
 from scipy.sparse import *
-
+from utils import keys_row_first,keys_col_first
 
 class DataLoader:
     MOVIELENS = "Movielens"
@@ -50,20 +50,45 @@ class DataLoader:
         row_size, col_size = size
         row_count = [0]*row_size
         col_count = [0]*col_size
-        row_first = [[list(),list()]]*row_size
-        col_first = [[list(),list()]]*col_size
+        row_first = [[list(),list()] for lol in range(row_size)]
+        col_first = [[list(),list()] for lol in range(col_size)]
         print "HERE"
         f = open(file_path,'r')
         for elem in f.readlines():
-            user, item, rating = [x for x in elem.split(",")]
-            user,item = int(user), int(item)
+            user, item, rating = [x for x in elem.split()[:3]]
+            user, item, rating = int(user)-1, int(item)-1, float(rating)
             row_count[user] += 1
             col_count[item] += 1
-            row_first[0].append(item)
-            row_first[1].append(rating)
-            col_first[0].append(user)
-            col_first[1].append(rating)
-            print user
+            row_first[user][0].append(item)
+            row_first[user][1].append(rating)
+            col_first[item][0].append(user)
+            col_first[item][1].append(rating)
+        u_idx = 0
+        m_idx = 0
+        while u_idx < (row_size):
+            items_ratings = zip(*row_first[u_idx])
+            if not items_ratings:
+                print "EMPTY Row"
+                del row_first[u_idx]
+                row_size -= 1
+                u_idx += 1
+                continue
+            row_first[u_idx] = zip(*sorted(items_ratings))
+            u_idx += 1
+
+        while m_idx < (col_size):
+            items_ratings = zip(*col_first[m_idx])
+            if not items_ratings:
+                print "EMPTY Col"
+                del col_first[m_idx]
+                col_size -= 1
+                m_idx += 1
+                continue
+            col_first[m_idx] = zip(*sorted(items_ratings))
+            m_idx += 1
+        row_first = [r for r in row_first if sum(r[0]) > 0]
+        col_first = [c for c in col_first if sum(c[0]) > 0]
+        return {keys_row_first: row_first,keys_col_first:col_first}
 
     def LoadMovieLens(self, file_path, size):
         encountered = {}

@@ -39,8 +39,10 @@ def get_canonical_indices(data, latent_sizes):
     indicators = data > 0
     user_rating_counts = indicators.sum(axis=1)  # Bug one found
     movie_rating_counts = indicators.sum(axis=0)  # Bug one found
+    print user_rating_counts
     user_indices = list(get_top_n(user_rating_counts, latent_sizes[0]))
     movie_indices = list(get_top_n(movie_rating_counts, latent_sizes[1]))
+    print user_indices
     for val in range(data.shape[0]):
         if val not in user_indices:
             user_indices.append(val)
@@ -48,6 +50,58 @@ def get_canonical_indices(data, latent_sizes):
         if val not in movie_indices:
             movie_indices.append(val)
     return np.array(user_indices), np.array(movie_indices)
+
+def get_canonical_indices_from_list(data, latent_sizes):
+    num_row, num_col = len(data[keys_row_first]), len(data[keys_col_first])
+    user_rating_counts = [len(data[keys_row_first][x][get_items]) for x in range(len(data[keys_row_first])) if data[keys_row_first][x]]   # Bug one found
+    movie_rating_counts = [len(data[keys_col_first][x][get_items]) for x in range(len(data[keys_col_first])) if data[keys_col_first][x]]   # Bug one found
+    print (user_rating_counts)
+    user_indices = list(get_top_n(np.array(user_rating_counts), latent_sizes[0]))
+    movie_indices = list(get_top_n(np.array(movie_rating_counts), latent_sizes[1]))
+    print user_indices
+    for val in range(num_row):
+        if val not in user_indices:
+            user_indices.append(val)
+    for val in range(num_col):
+        if val not in movie_indices:
+            movie_indices.append(val)
+    return np.array(user_indices), np.array(movie_indices)
+
+def index_sort(data,indices):
+    #First, figure out the appropriate remappings
+    #Then, update the reference of every item  s.t they point to where items will be
+    #Then, put items in the right place
+    indices = [{indices[i][x]:x for x in range(len(indices[i]))} for i in range(len(indices))]
+    #index_mappings_items = {indices[1][x]:x for x in range(len(indices[0]))}
+    #Col mappings go into rows, row mappings into cols
+    num_row, num_col = len(data[keys_row_first]), len(data[keys_col_first])
+    for y in range(num_col):
+        #print "index ",y
+        #print "data before ",data[keys_col_first][y][get_items]
+        data[keys_col_first][y][get_items] = [indices[0][user] for user in data[keys_col_first][y][get_items]]
+        data[keys_col_first][y] = zip(*sorted(zip(*data[keys_col_first][y])))
+        #print "data after ",data[keys_col_first][y][get_items]
+
+    for x in range(num_row):
+        #print "index ",x
+        #print "Data before ", data[keys_row_first][x][get_items]
+        data[keys_row_first][x][get_items] = [indices[1][col] for col in data[keys_row_first][x][get_items]]
+        #raw_input()
+        data[keys_row_first][x] = zip(*sorted(zip(*data[keys_row_first][x])))
+        #print "Data after ",data[keys_row_first][x][get_items]
+    #Reference updates done
+    #Swap items
+    keys = data.keys()
+    rows, cols = data[keys_row_first], data[keys_col_first]
+    row_maps, col_maps = indices
+    new_rows, new_cols = [[list(),list()] for lol in range(num_row)], [[list(),list()] for lol in range(num_col)]
+    for idx in range(num_row):
+        new_rows[row_maps[idx]] = rows[idx]
+    for idx in range(num_col):
+        new_cols[col_maps[idx]] = cols[idx]
+    data[keys_row_first] = new_rows
+    data[keys_col_first] = new_cols
+    return data
 
 
 def fill_in_gaps(canonical_indices, new_indices, full_data):
@@ -71,6 +125,7 @@ def get_top_n(data, n):
     return indices
 
 
+
 def splitData(data, train_ratio=.8):
     np.random.seed(0) #Debugging line
     data_bool = data > 0
@@ -81,6 +136,25 @@ def splitData(data, train_ratio=.8):
     test = data * test
     return train, test#[row_indices[:row_split], col_indices[:col_split]], [row_indices[row_split:], col_indices[col_split:]]
 
+def splitDataList(data, train_ration=.8):
+    np.random.seed(0)
+    num_rows, num_cols = len(data[keys_row_first]), len(data[keys_col_first])
+    train_rows, test_rows, train_cols, test_cols = [[list(),list()] for lol in range(num_rows)],[[list(),list()] for lol in range(num_rows)],\
+                                                   [[list(),list()] for lol in range(num_cols)],[[list(),list()] for lol in range(num_cols)]
+    for user_idx in range(num_rows):
+        cur_user = data[keys_row_first][user_idx]
+        num_items = len(cur_user[get_items])
+        train_indices = sorted(np.random.choice(num_items,int(.8*num_items),replace=False))
+        test_indices = sorted(set(range(num_items)) - set(train_indices))
+        train_rows[user_idx]= np.array(cur_user[get_items])[train_indices], np.array(cur_user[get_ratings])[train_indices]
+        test_rows[user_idx] = np.array(cur_user[get_items])[test_indices], np.array(cur_user[get_ratings])[test_indices]
+        for item,rating in zip(*train_rows[user_idx]):
+            train_cols[item][get_items] += [user_idx]
+            train_cols[item][get_ratings]+= [rating]
+        for item,rating in zip(*test_rows[user_idx]):
+            test_cols[item][get_items] += [user_idx]
+            test_cols[item][get_ratings]+= [rating]
+    return {keys_row_first: train_rows,keys_col_first:train_cols}, {keys_row_first: test_rows,keys_col_first:test_cols}
 def listify(data):
     """
     Returns a dict of two lists, one row-first the other column-first.

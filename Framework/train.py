@@ -85,7 +85,7 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     :return: final trained parameters
     '''
 
-    if not use_cache:
+    if not use_cache and (p1 or p2):
         # Generate the indices for the canonical users and canonical movies
         if p1:
             # Perform pretraining on the canonicals and rating net
@@ -99,13 +99,15 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
 
         pickle.dump(parameters, open("parameters", "wb"))
     else:
-        parameters = pickle.load( open( "parameters", "rb" ) )
+        if (use_cache):
+            parameters = pickle.load( open( "parameters", "rb" ) )
+            print "better not pre-train"
 
 
     # Create our training matrix with canonicals using fill_in_gaps
-    train_data = listify(train_data)
+    #train_data = listify(train_data)
     # Create our test matrix with canonicals using fill_in_gaps
-    test_data = listify(test_data)
+    #test_data = listify(test_data)
     # Define the loss for our train
 
     param_to_opt = [[key for key in parameters]]
