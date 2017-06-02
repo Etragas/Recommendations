@@ -20,7 +20,6 @@ utils.num_user_latents = int(np.ceil(40))
 utils.num_movie_latents = int(np.ceil(20))
 
 print utils.num_user_latents, utils.num_movie_latents
-can_idx = get_canonical_indices(full_data, [utils.num_user_latents, utils.num_movie_latents])
 can_idx_netflix = get_canonical_indices_from_list(netflix_full_data, [utils.num_user_latents, utils.num_movie_latents])
 
 # for x in range(len(can_idx_netflix[0])):
@@ -33,26 +32,14 @@ can_idx_netflix = get_canonical_indices_from_list(netflix_full_data, [utils.num_
 #
 #     raw_input()
 #Resort data so that canonical users and movies are in top left
-full_data = full_data[:,can_idx[1]]
-full_data = full_data[can_idx[0],:]
 netflix_full_data = index_sort(netflix_full_data,can_idx_netflix)
 
-for x in range(11):
-    print len(netflix_full_data[keys_row_first][x][get_items])
-    print x, netflix_full_data[keys_row_first][x][get_items]
-print netflix_full_data[keys_col_first][0][get_items]
-print netflix_full_data[keys_row_first][0][get_items]
-
-for x in range(10):
-    print len(netflix_full_data[keys_col_first][x][get_items])
-
-train_data, test_data = splitData(full_data)
 net_train, net_test = splitDataList(netflix_full_data,.8)
 train_idx = test_idx = np.array([np.array(range(nrows)),np.array(range(ncols))])
 
 # Training Parameters
 step_size = 0.0001
-num_users_per_batch = 20
+num_users_per_batch = 10
 batches_per_epoch = int(np.ceil(float(nrows) / num_users_per_batch))
 batches_per_can_epoch = int(np.ceil(float(utils.num_user_latents)/ num_users_per_batch))
 
@@ -64,6 +51,7 @@ hypert = [step_size, num_epochs, batches_per_epoch]
 # Build the dictionary of parameters for the nets, etc.
 parameters = build_params()
 
+print "WHAT"
 # Train the parameters.  Pretraining the nets and canon latents are optional.
-parameters = train(net_train, net_test, can_idx, train_idx, test_idx, parameters,
+parameters = train(net_train, net_test, can_idx_netflix, train_idx, test_idx, parameters,
                    p1=False, p1Args=hyperp1, p2=False, p2Args=hyperp2, trainArgs=hypert, use_cache=False)

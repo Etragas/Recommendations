@@ -55,10 +55,8 @@ def get_canonical_indices_from_list(data, latent_sizes):
     num_row, num_col = len(data[keys_row_first]), len(data[keys_col_first])
     user_rating_counts = [len(data[keys_row_first][x][get_items]) for x in range(len(data[keys_row_first])) if data[keys_row_first][x]]   # Bug one found
     movie_rating_counts = [len(data[keys_col_first][x][get_items]) for x in range(len(data[keys_col_first])) if data[keys_col_first][x]]   # Bug one found
-    print (user_rating_counts)
     user_indices = list(get_top_n(np.array(user_rating_counts), latent_sizes[0]))
     movie_indices = list(get_top_n(np.array(movie_rating_counts), latent_sizes[1]))
-    print user_indices
     for val in range(num_row):
         if val not in user_indices:
             user_indices.append(val)
