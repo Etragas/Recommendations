@@ -8,6 +8,7 @@ from utils import *
 from sklearn.utils import shuffle
 from MultiCore import disseminate_values
 from autograd.util import flatten_func
+import cPickle as pickle
 
 """
 Initialize all non-mode-specific parameters
@@ -370,7 +371,9 @@ def print_perf(params, iter=0, gradient={}, train = None, test = None):
     train_mse_iters.append(iter)
 
     plt.scatter(train_mse_iters, train_mse, color='black')
-
+    if iter%100 == 0:
+        pickle.dump(params, open("parameters", "wb"))
+    print "Caching"
     plt.plot(train_mse_iters, train_mse)
     plt.title('MovieLens 100K Performance (with pretraining)')
     plt.xlabel('Iterations')

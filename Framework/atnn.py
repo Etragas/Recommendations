@@ -4,7 +4,7 @@ from train import *
 from autograd import core
 print core.__file__
 # Load the data using DataLoader
-full_data = DataLoader().LoadData(file_path="../Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
+#full_data = DataLoader().LoadData(file_path="../Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
 #full_data = DataLoader().LoadData(file_path="../Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
 #full_data = DataLoader().LoadData(file_path="../Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
 full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS, size= (1200,2000))
@@ -49,5 +49,38 @@ hypert = [step_size, num_epochs, batches_per_epoch]
 parameters = build_params()
 
 # Train the parameters.  Pretraining the nets and canon latents are optional.
-parameters = train(train_data, test_data, can_idx, train_idx, test_idx, parameters,
-                   p1=True, p1Args=hyperp1, p2=True, p2Args=hyperp2, trainArgs=hypert, use_cache=False)
+off_rows,off_cols= int(.8 * nrows), int(.8 * ncols)
+offline_train_data = listify(train_data[:off_rows,:off_cols])
+online_train_data = listify(train_data)
+
+offline_test = listify(test_data[:off_rows,:off_cols])
+online_test = test_data + 0
+online_test[:off_rows,:off_cols] = 0
+online_test = listify(online_test)
+# Create our test matrix with canonicals using fill_in_gaps
+print online_test
+
+# Define the loss for our train
+
+print hypert
+
+param_to_opt = [[key for key in parameters]]
+num_opt_passes = 100
+
+for iter in range(num_opt_passes):
+    offline_region_test_idx = get_indices_from_range(range(off_rows),offline_test[keys_row_first])
+    offline_region_train_idx = get_indices_from_range(range(off_rows),offline_train_data[keys_row_first])
+    print "what"
+    online_region_test_idx = get_indices_from_range(range(nrows),online_test[keys_row_first])
+    online_region_train_idx = get_indices_from_range(range(nrows),online_train_data[keys_row_first])
+    # print offline_region_train_idx
+    # print offline_region_test_idx
+    # print online_region_test_idx
+    # print online_region_train_idx
+    print"Offline Test RMSE is ", rmse(gt=offline_test,pred=inference(parameters,online_train_data,indices=offline_region_test_idx), indices=offline_region_test_idx)
+    print"Online Test RMSE is ", rmse(gt=online_test,pred=inference(parameters,online_train_data,indices=online_region_test_idx), indices=online_region_test_idx)
+
+    grads = lossGrad(offline_train_data, num_batches=hypert[2], reg_alpha=.001, num_aggregates=1)
+    parameters = adam(grads, parameters, step_size=hypert[0], num_iters=10,callback=dataCallback(offline_train_data, offline_test), b1 = 0.5,iter_val=1)
+    print "COMPARISON TIME"
+
