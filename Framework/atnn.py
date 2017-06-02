@@ -19,8 +19,10 @@ nrows, ncols = full_data.shape
 utils.num_user_latents = int(np.ceil(40))
 utils.num_movie_latents = int(np.ceil(20))
 
+print "SEGFAULT 1"
 print utils.num_user_latents, utils.num_movie_latents
 can_idx_netflix = get_canonical_indices_from_list(netflix_full_data, [utils.num_user_latents, utils.num_movie_latents])
+print "SEGFAULT 2"
 
 # for x in range(len(can_idx_netflix[0])):
 #     if can_idx[0][x] == can_idx_netflix[0][x]:
@@ -34,9 +36,10 @@ can_idx_netflix = get_canonical_indices_from_list(netflix_full_data, [utils.num_
 #Resort data so that canonical users and movies are in top left
 netflix_full_data = index_sort(netflix_full_data,can_idx_netflix)
 
+print "SEGFAULT 3"
 net_train, net_test = splitDataList(netflix_full_data,.8)
 train_idx = test_idx = np.array([np.array(range(nrows)),np.array(range(ncols))])
-
+print "SEGFAULT 4"
 # Training Parameters
 step_size = 0.0001
 num_users_per_batch = 10
@@ -47,9 +50,11 @@ num_epochs = 40
 hyperp1 = [step_size*10, 40, batches_per_can_epoch]
 hyperp2 = [step_size*10, 40 , batches_per_can_epoch]
 hypert = [step_size, num_epochs, batches_per_epoch]
+print "SEGFAULT 6"
 
 # Build the dictionary of parameters for the nets, etc.
 parameters = build_params()
+print "SEGFAULT 6"
 
 print "WHAT"
 # Train the parameters.  Pretraining the nets and canon latents are optional.
