@@ -14,7 +14,7 @@ full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=
 
 #Determine number of latents for movie/user
 print full_data.shape
-nrows, ncols = full_data.shape
+nrows, ncols = len(netflix_full_data[keys_row_first]),len(netflix_full_data[keys_col_first])
 
 utils.num_user_latents = int(np.ceil(40))
 utils.num_movie_latents = int(np.ceil(20))
