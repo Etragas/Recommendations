@@ -1,6 +1,9 @@
 import autograd.numpy as np
 import matplotlib.pyplot as plt
-
+import torch
+from torch.autograd import Variable
+import torch.nn as nn
+import torch.nn.functional as F
 num_movie_latents = 10
 movie_latent_size = 80
 num_user_latents = 20
@@ -10,16 +13,53 @@ hyp_movie_network_sizes = [user_latent_size + 1, 200, 200, movie_latent_size]
 rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 5 ,1 ]
 scale = .1
 
+class ItemGeneratorNet(nn.Module):
+    def __init__(self):
+        super(ItemGeneratorNet, self).__init__()
+        self.fc1 = nn.Linear(user_latent_size,200)
+        self.fc2 = nn.Linear(200,200)
+        self.fc3 = nn.Linear(200,movie_latent_size)
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+
+class UserGeneratorNet(nn.Module):
+    def __init__(self):
+        super(UserGeneratorNet, self).__init__()
+        self.fc1 = nn.Linear(movie_latent_size,200)
+        self.fc2 = nn.Linear(200,200)
+        self.fc3 = nn.Linear(200,user_latent_size)
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+
+class RatingGeneratorNet(nn.Module):
+    def __init__(self):
+        super(RatingGeneratorNet, self).__init__()
+        self.fc1 = nn.Linear(user_latent_size+movie_latent_size,200)
+        self.fc2 = nn.Linear(200,200)
+        self.fc3 = nn.Linear(200,100)
+        self.fc4 = nn.Linear(100,20)
+        self.fc5 = nn.Linear(20,1)
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        x = F.relu(self.fc4(x))
+        x = F.relu(self.fc5(x))
+
 
 def build_params():
     parameters = {}
-    parameters[keys_movie_to_user_net] = init_random_params(scale, hyp_user_network_sizes)  # Neural Net Parameters
-    parameters[keys_user_to_movie_net] = (init_random_params(scale, hyp_movie_network_sizes))  # Neural Net Parameters
-    parameters[keys_col_latents] = (scale * np.random.rand(movie_latent_size, num_movie_latents))  # Column Latents
-    parameters[keys_row_latents] = (scale * np.random.rand(num_user_latents, user_latent_size))  #Row Latents
-
-    parameters[keys_col_latents] = (scale * np.random.rand(movie_latent_size, num_movie_latents))  # Column Latents
-    parameters[keys_row_latents] = (scale * np.random.rand(num_user_latents, user_latent_size))  #Row Latents
+    parameters[keys_movie_to_user_net] = UserGeneratorNet()
+    parameters[keys_user_to_movie_net] = ItemGeneratorNet()
+    parameters[keys_col_latents] = Variable(torch.from_numpy(scale * np.random.rand(movie_latent_size, num_movie_latents)))  # Column Latents
+    parameters[keys_row_latents] = Variable(torch.from_numpy((scale * np.random.rand(num_user_latents, user_latent_size)))  #Row Latents
 
     parameters[keys_rating_net] = (init_random_params(scale, rating_network_sizes))  # Neural Net Parameters
     parameters[keys_rating_net][3][0] = np.array([1,2,3,4,5])

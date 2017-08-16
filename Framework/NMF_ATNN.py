@@ -48,13 +48,13 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     data_loss = numel*np.square(rmse(data,predictions,indices))
 
     # canonicals = [parameters[keys_col_latents],parameters[keys_row_latents]]
-    # combiners = [parameters[keys_movie_to_user_net],parameters[keys_user_to_movie_net]]
-    # rating_net = parameters[keys_rating_net]
+    combiners = [parameters[keys_movie_to_user_net],parameters[keys_user_to_movie_net]]
+    rating_net = parameters[keys_rating_net]
     # reg_loss = 0
     # for reg,params in zip([.00001,.0001,.001],[canonicals,combiners,rating_net]):
     #     reg_loss = reg_loss + reg*np.square(flatten(params)[0]).sum() / float(num_proc)
     # # reg_loss = .0001 * canonicals
-    reg_loss = reg_alpha * np.square(flatten(parameters)[0]).sum() / float(num_proc)
+    reg_loss = reg_alpha * np.abs(flatten(parameters)[0]).sum() / float(num_proc)
     return reg_loss+data_loss
 
 
@@ -70,16 +70,8 @@ def get_pred_for_users(parameters, data, indices=None):
              computes all rating predictions.
     """
 
-    setup_caches(data)
-    #Grab the row-first list of tuples of movies and ratings
-    row_first = data[keys_row_first]
-    #Initialize our prediction matrix
-    full_predictions = []
-
-    #If no indices specified, get the complete movie indices for each user in our dataset.
-    if not indices:
-        indices = get_indices_from_range(range(len(row_first)),data[keys_row_first])
-
+    row_size, col_size = data.size()
+    print(row_size,col_size)
     #Generate predictions over each row
     for user_index,movie_indices in indices:
         user_predictions = []
@@ -106,8 +98,9 @@ def recurrent_inference(parameters, data=None, user_index=0, movie_index=0):
     :return val: The predicted rating value for the specified user and movie
     """
 	#Generate user and movie latents
-    userLatent = getUserLatent(parameters, data, user_index)
     movieLatent = getMovieLatent(parameters, data, movie_index)
+    userLatent = getUserLatent(parameters, data, user_index)
+
 
 	#Default value for the latents is arbitrarily chosen to be 2.5
     if movieLatent is None or userLatent is None:
@@ -144,7 +137,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
 
     #If user is canonical, return their latent immediately and cache it.
     if user_index < rowLatents.shape[0]:
-        USERLATENTCACHE[user_index] = (rowLatents[user_index, :], recursion_depth)
+        #USERLATENTCACHE[user_index] = (rowLatents[user_index, :], recursion_depth)
         return rowLatents[user_index, :]
 
     #If user latent is cached, return their latent immediately
@@ -194,7 +187,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     latents_with_ratings = np.concatenate((dense_latents, dense_ratings), axis=1)  # Append ratings to latents
     prediction = neural_net_predict(movie_to_user_net_parameters, (latents_with_ratings))  # Feed through NN
     row_latent = np.mean(prediction, axis=0)
-    USERLATENTCACHE[user_index] = (row_latent, recursion_depth)
+    #USERLATENTCACHE[user_index] = (row_latent, recursion_depth)
 
     return row_latent
 
@@ -222,7 +215,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
     #If movie is canonical, return their latent immediately and cache it.
     if movie_index < colLatents.shape[1]:
-        MOVIELATENTCACHE[movie_index] = (colLatents[:, movie_index], recursion_depth)
+        #MOVIELATENTCACHE[movie_index] = (colLatents[:, movie_index], recursion_depth)
         return colLatents[:, movie_index]
 
     #If movie latent is cached, return their latent immediately
@@ -271,7 +264,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     latents_with_ratings = np.concatenate((dense_latents, dense_ratings), axis=1)  # Append ratings to latents
     prediction = neural_net_predict(user_to_movie_net_parameters, latents_with_ratings)  # Feed through NN
     column_latent = np.mean(prediction, axis=0) #Our movie latent is the average of the neural net outputs.
-    MOVIELATENTCACHE[movie_index] = (column_latent, recursion_depth) #Cache the movie latent with the current recursion depth
+    #MOVIELATENTCACHE[movie_index] = (column_latent, recursion_depth) #Cache the movie latent with the current recursion depth
 
     return column_latent
 
