@@ -89,6 +89,7 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
 
     :return: final trained parameters
     '''
+    global hitMatrix
     nrows,ncols = train_data.shape
     if use_cache:
         print("Using cache")
@@ -135,7 +136,6 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
         parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=1,callback=dataCallback(ltrain_data, ltest_data), b1 = 0.5,iter_val=1)
         print("--------------------")
         curLossRec= rmse(ltest_data,get_pred_for_users(parameters,ltest_data))
-        print(np.sum(hitMatrix))
         print 'post loss SVD', np.round(curLossSVD, 4)
         print 'post loss REC', np.round(curLossRec, 4)
         print("Percent reductions are {} for REC and {} for SVD".format(curLossRec/prevLossRec,curLossSVD/prevLoss))

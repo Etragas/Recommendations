@@ -17,7 +17,7 @@ Initialize all non-mode-specific parameters
 curtime = 0
 MAX_RECURSION = 4
 TRAININGMODE = False
-EVIDENCELIMIT = 80
+EVIDENCELIMIT = 20
 RATINGLIMIT = 50
 
 train_mse_iters = []
@@ -179,7 +179,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
         #If the movie latent is valid, and does not produce a cycle, append it
         if movie_index not in internal_caller[1]:
             movie_latent = getMovieLatent(parameters, data, movie_index, recursion_depth - 1, caller_id = internal_caller)
-            hitMatrix[user_index,movie_index] = 1
+            hitMatrix[user_index,movie_index] += 1
             if movie_latent is not None:
                 dense_latents.append(movie_latent)  # We got another movie latent
                 dense_ratings.append(rating)  # Add its corresponding rating
@@ -257,7 +257,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
         #If the user latent is valid, and does not produce a cycle, append it
         if user_index not in internal_caller[0]:
-            hitMatrix[user_index,movie_index] = 1
+            hitMatrix[user_index,movie_index] +=1
             user_latent = getUserLatent(parameters, data, user_index, recursion_depth - 1, caller_id= internal_caller)
             if user_latent is not None:
                 dense_latents.append(user_latent)
@@ -349,6 +349,7 @@ def print_perf(params, iter=0, gradient={}, train = None, test = None):
     """
     global curtime, hitcount, TRAININGMODE
     print("iter is ", iter)
+    print("Total hitcount is {}".format(np.sum(hitMatrix)))
     #if (iter%10 != 0):
     #    return
     print "It took: {} s".format(time.time() - curtime)
@@ -367,23 +368,6 @@ def print_perf(params, iter=0, gradient={}, train = None, test = None):
     print "Hitcount is: ", hitcount, sum(hitcount)
     curtime = time.time()
 
-    mse = rmse(gt=train, pred=inference(params, train))
-     #p1 is for graphing pretraining rating nets and canonical latents
-    train_mse.append(mse)
-    train_mse_iters.append(iter)
-
-    plt.scatter(train_mse_iters, train_mse, color='black')
-
-    plt.plot(train_mse_iters, train_mse)
-    plt.title('MovieLens 100K Performance (with pretraining)')
-    plt.xlabel('Iterations')
-    plt.ylabel('RMSE')
-    plt.draw()
-    plt.pause(0.001)
-    if len(train_mse)%10 == 0:
-      #End the plotting with a raw input
-      plt.savefig('finalgraph.png')
-      print("Final Total Performance: ", train_mse)
 
 
 def get_candidate_latents(all_items, all_ratings, split = None):
