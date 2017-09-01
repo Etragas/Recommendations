@@ -3,6 +3,7 @@ from threading import Lock
 
 from autograd import grad
 from autograd.util import flatten
+from scipy.sparse import dok_matrix
 
 from utils import *
 from sklearn.utils import shuffle
@@ -114,9 +115,9 @@ def recurrent_inference(parameters, data=None, user_index=0, movie_index=0):
         return 2.5
 
 	#Run through the rating net, passing in rating net parameters and the concatenated latents
-    val = neural_net_predict(
-      parameters=parameters[keys_rating_net],
-      inputs=np.concatenate((userLatent, movieLatent)))
+    val = np.dot(userLatent,movieLatent)#neural_net_predict(
+    #   parameters=parameters[keys_rating_net],
+    #   inputs=np.concatenate((userLatent, movieLatent)))
 
     return val#np.dot(np.array([1,2,3,4,5]),softmax())
 
@@ -136,21 +137,21 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     :return: the predicted user latent
     """
 
-    global USERLATENTCACHE, hitcount, USERCACHELOCK, TRAININGMODE, EVIDENCELIMIT, UCANHIT
+    global USERLATENTCACHE, hitcount, USERCACHELOCK, TRAININGMODE, EVIDENCELIMIT, UCANHIT, hitMatrix
 
     #Get our necessary parameters from the parameters dictionary
     movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
     rowLatents = parameters[keys_row_latents]
-
+    call_hash = user_index
     #If user is canonical, return their latent immediately and cache it.
     if user_index < rowLatents.shape[0]:
-        USERLATENTCACHE[user_index] = (rowLatents[user_index, :], recursion_depth)
+        USERLATENTCACHE[call_hash] = (rowLatents[user_index, :], recursion_depth)
         return rowLatents[user_index, :]
 
     #If user latent is cached, return their latent immediately
-    if  USERLATENTCACHE[user_index] is not None :#and USERLATENTCACHE[user_index][1] >= recursion_depth:
-        hitcount[USERLATENTCACHE[user_index][1]] += 1
-        return USERLATENTCACHE[user_index][0]
+    if  USERLATENTCACHE.get(call_hash) is not None :#and USERLATENTCACHE[user_index][1] >= recursion_depth:
+        hitcount[USERLATENTCACHE[call_hash][1]] += 1
+        return USERLATENTCACHE[call_hash][0]
 
     #If we reached our recursion depth, return None
     if recursion_depth < 1:
@@ -178,7 +179,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
         #If the movie latent is valid, and does not produce a cycle, append it
         if movie_index not in internal_caller[1]:
             movie_latent = getMovieLatent(parameters, data, movie_index, recursion_depth - 1, caller_id = internal_caller)
-
+            hitMatrix[user_index,movie_index] = 1
             if movie_latent is not None:
                 dense_latents.append(movie_latent)  # We got another movie latent
                 dense_ratings.append(rating)  # Add its corresponding rating
@@ -194,7 +195,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     latents_with_ratings = np.concatenate((dense_latents, dense_ratings), axis=1)  # Append ratings to latents
     prediction = neural_net_predict(movie_to_user_net_parameters, (latents_with_ratings))  # Feed through NN
     row_latent = np.mean(prediction, axis=0)
-    USERLATENTCACHE[user_index] = (row_latent, recursion_depth)
+    USERLATENTCACHE[call_hash] = (row_latent, recursion_depth)
 
     return row_latent
 
@@ -214,21 +215,22 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     :return: the predicted movie latent
     """
 
-    global MOVIELATENTCACHE, hitcount, MOVIECACHELOCK, TRAININGMODE, EVIDENCELIMIT, MCANHIT
+    global MOVIELATENTCACHE, hitcount, MOVIECACHELOCK, TRAININGMODE, EVIDENCELIMIT, hitMatrix
+
 
     #Get our necessary parameters from the parameters dictionary
     user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
     colLatents = parameters[keys_col_latents]
-
+    call_hash = movie_index
     #If movie is canonical, return their latent immediately and cache it.
     if movie_index < colLatents.shape[1]:
-        MOVIELATENTCACHE[movie_index] = (colLatents[:, movie_index], recursion_depth)
+        MOVIELATENTCACHE[call_hash] = (colLatents[:, movie_index], recursion_depth)
         return colLatents[:, movie_index]
 
     #If movie latent is cached, return their latent immediately
-    if MOVIELATENTCACHE[movie_index] is not None :#and MOVIELATENTCACHE[movie_index][1] >= recursion_depth:
-        hitcount[MOVIELATENTCACHE[movie_index][1]] += 1
-        return MOVIELATENTCACHE[movie_index][0]
+    if MOVIELATENTCACHE.get(call_hash) is not None :#and MOVIELATENTCACHE[movie_index][1] >= recursion_depth:
+        hitcount[MOVIELATENTCACHE[call_hash][1]] += 1
+        return MOVIELATENTCACHE[call_hash][0]
 
     #If we reached our recursion depth, return None
     if recursion_depth < 1:
@@ -255,6 +257,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
         #If the user latent is valid, and does not produce a cycle, append it
         if user_index not in internal_caller[0]:
+            hitMatrix[user_index,movie_index] = 1
             user_latent = getUserLatent(parameters, data, user_index, recursion_depth - 1, caller_id= internal_caller)
             if user_latent is not None:
                 dense_latents.append(user_latent)
@@ -271,7 +274,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     latents_with_ratings = np.concatenate((dense_latents, dense_ratings), axis=1)  # Append ratings to latents
     prediction = neural_net_predict(user_to_movie_net_parameters, latents_with_ratings)  # Feed through NN
     column_latent = np.mean(prediction, axis=0) #Our movie latent is the average of the neural net outputs.
-    MOVIELATENTCACHE[movie_index] = (column_latent, recursion_depth) #Cache the movie latent with the current recursion depth
+    MOVIELATENTCACHE[call_hash] = (column_latent, recursion_depth) #Cache the movie latent with the current recursion depth
 
     return column_latent
 
@@ -397,11 +400,12 @@ def setup_caches(data):
 
 
 def wipe_caches():
-    global USERLATENTCACHE, MOVIELATENTCACHE, UCANHIT, MCANHIT
+    global USERLATENTCACHE, MOVIELATENTCACHE, UCANHIT, MCANHIT, hitMatrix, NUM_MOVIES, NUM_USERS
     global hitcount
     hitcount = [0]*(MAX_RECURSION+1)
-    USERLATENTCACHE = [None] * NUM_USERS
-    MOVIELATENTCACHE = [None] * NUM_MOVIES
+    USERLATENTCACHE = {}
+    MOVIELATENTCACHE = {}
+    hitMatrix = dok_matrix((NUM_USERS,NUM_MOVIES))
 
 
 def rmse(gt,pred, indices = None):
@@ -474,8 +478,9 @@ loss = standard_loss
 hitcount = [0]*(MAX_RECURSION+1)
 NUM_USERS = 0
 NUM_MOVIES = 0
-USERLATENTCACHE = [None] * NUM_USERS
-MOVIELATENTCACHE = [None] * NUM_MOVIES
+hitMatrix = dok_matrix((NUM_USERS,NUM_MOVIES))
+USERLATENTCACHE = []
+MOVIELATENTCACHE = []
 USERLATENTCACHEPRIME = [None] * NUM_USERS
 MOVIELATENTCACHEPRIME = [None] * NUM_MOVIES
 

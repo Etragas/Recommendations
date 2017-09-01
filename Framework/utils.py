@@ -22,7 +22,7 @@ def build_params():
     parameters[keys_row_latents] = (scale * np.random.rand(num_user_latents, user_latent_size))  #Row Latents
 
     parameters[keys_rating_net] = (init_random_params(scale, rating_network_sizes))  # Neural Net Parameters
-    parameters[keys_rating_net][3][0] = np.array([1,2,3,4,5])
+    #parameters[keys_rating_net][3][0] = np.array([1,2,3,4,5])
     return parameters
 
 
