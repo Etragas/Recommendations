@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 
 num_movie_latents = 10
 movie_latent_size = 80
-num_user_latents = 20
+num_user_latents = 10
 user_latent_size = 80
 hyp_user_network_sizes = [movie_latent_size + 1, 200, 200, user_latent_size]
 hyp_movie_network_sizes = [user_latent_size + 1, 200, 200, movie_latent_size]
-rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 5 ,1 ]
+rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 100, 50,1 ]
 scale = .1
 
 
@@ -22,7 +22,6 @@ def build_params():
     parameters[keys_row_latents] = (scale * np.random.rand(num_user_latents, user_latent_size))  #Row Latents
 
     parameters[keys_rating_net] = (init_random_params(scale, rating_network_sizes))  # Neural Net Parameters
-    parameters[keys_rating_net][3][0] = np.array([1,2,3,4,5])
     return parameters
 
 

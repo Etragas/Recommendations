@@ -1,9 +1,8 @@
 import time
 from threading import Lock
-
+import autograd.numpy as np
 from autograd import grad
 from autograd.util import flatten
-
 from utils import *
 from sklearn.utils import shuffle
 from MultiCore import disseminate_values
@@ -16,7 +15,7 @@ Initialize all non-mode-specific parameters
 curtime = 0
 MAX_RECURSION = 4
 TRAININGMODE = False
-EVIDENCELIMIT = 80
+EVIDENCELIMIT = 20
 RATINGLIMIT = 50
 
 train_mse_iters = []
@@ -106,9 +105,9 @@ def recurrent_inference(parameters, data=None, user_index=0, movie_index=0):
     :return val: The predicted rating value for the specified user and movie
     """
 	#Generate user and movie latents
-    userLatent = getUserLatent(parameters, data, user_index)
     movieLatent = getMovieLatent(parameters, data, movie_index)
-
+    userLatent = getUserLatent(parameters, data, user_index)
+    print("Getting prediction for user {} and movie {}".format(user_index,movie_index))
 	#Default value for the latents is arbitrarily chosen to be 2.5
     if movieLatent is None or userLatent is None:
         return 2.5
@@ -136,7 +135,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     :return: the predicted user latent
     """
 
-    global USERLATENTCACHE, hitcount, USERCACHELOCK, TRAININGMODE, EVIDENCELIMIT, UCANHIT
+    global USERLATENTCACHE, hitcount, USERCACHELOCK, TRAININGMODE, EVIDENCELIMIT, UCANHIT, UserDependenciesMap, MovieDependenciesMap
 
     #Get our necessary parameters from the parameters dictionary
     movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
@@ -169,14 +168,17 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     internal_caller = [caller_id[0] + [user_index], caller_id[1]]
 
     #Retrieve latents for every movie watched by user
+
     for movie_index, rating in zip(items,ratings):
     #When it is training mode we use evidence count.
     #When we go over the evidence limit, we no longer need to look for latents
         if TRAININGMODE and evidence_count > evidence_limit:
              break
-
         #If the movie latent is valid, and does not produce a cycle, append it
         if movie_index not in internal_caller[1]:
+            if((recursion_depth-1,movie_index) not in MovieDependenciesMap):
+                MovieDependenciesMap[(recursion_depth - 1, movie_index)] = []
+            MovieDependenciesMap[(recursion_depth - 1, movie_index)].append(user_index)
             movie_latent = getMovieLatent(parameters, data, movie_index, recursion_depth - 1, caller_id = internal_caller)
 
             if movie_latent is not None:
@@ -214,7 +216,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     :return: the predicted movie latent
     """
 
-    global MOVIELATENTCACHE, hitcount, MOVIECACHELOCK, TRAININGMODE, EVIDENCELIMIT, MCANHIT
+    global MOVIELATENTCACHE, hitcount, MOVIECACHELOCK, TRAININGMODE, EVIDENCELIMIT, MCANHIT, MovieDependenciesMap, UserDependenciesMap
 
     #Get our necessary parameters from the parameters dictionary
     user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
@@ -247,6 +249,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     internal_caller = [caller_id[0], caller_id[1] + [movie_index]]
 
     #Retrieve latents for every user who watched the movie
+    #print("internal caller", internal_caller)
     for user_index, rating in zip(items,ratings):
         #When it is training mode we use evidence count.
         #When we go over the evidence limit, we no longer need to look for latents
@@ -255,6 +258,9 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
         #If the user latent is valid, and does not produce a cycle, append it
         if user_index not in internal_caller[0]:
+            if((recursion_depth-1,user_index) not in UserDependenciesMap):
+                UserDependenciesMap[(recursion_depth - 1, user_index)] = []
+            UserDependenciesMap[(recursion_depth - 1, user_index)].append(movie_index)
             user_latent = getUserLatent(parameters, data, user_index, recursion_depth - 1, caller_id= internal_caller)
             if user_latent is not None:
                 dense_latents.append(user_latent)
@@ -340,11 +346,106 @@ def get_indices_from_range(range,row_first,rating_limit =None):
     #return map(lambda x: (x,row_first[x][get_items])[:rating_limit],range)
     return map(lambda x: (x,np.sort(shuffle(row_first[x][get_items])[:rating_limit])),range)
 
+def propagate_to_dependents(max_depth, data, parameters):
+    global UserDependenciesMap, MovieDependenciesMap
+
+    rowLatents = parameters[keys_row_latents]
+    colLatents = parameters[keys_col_latents]
+    movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
+    user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
+    vectorMap = {}
+    for depth in range(0,max_depth):
+        print("DEPTH IS", depth)
+        userToMovieNetInputs= []
+        movieToUserNetInputs = []
+        userToMoviePredTarget = []
+        movieToUserPredTarget = []
+        rowHasVals = False
+        colHasVales = False
+        for _,entryRow in [x for x in UserDependenciesMap.iterkeys() if x[0] == depth]:
+            rowHasVals = True
+            if depth == 0:
+                #Add net to input vector
+                if entryRow < rowLatents.shape[0]:
+                    latent = rowLatents[entryRow, :]
+                    for dependentItem in UserDependenciesMap[depth, entryRow]:
+                        # print(entryRow,dependentItem)
+                        # print(data[keys_row_first][entryRow])
+
+                        rating_index = data[keys_row_first][entryRow][get_items].index(dependentItem)
+                        rating = np.asarray(data[keys_row_first][entryRow][get_ratings][rating_index]).reshape(1)
+                        # print(latent.shape)
+                        # print(rating.shape)
+                        userToMovieNetInputs.append(np.concatenate((latent,rating)))
+                        userToMoviePredTarget.append(dependentItem)
+                else:
+                    continue
+            else:
+                if entryRow < rowLatents.shape[0]:
+                    latent = rowLatents[entryRow, :]
+                else:
+                    if ((entryRow,-1,depth-1) not in vectorMap):
+                        continue
+                    latent = np.mean(vectorMap[(entryRow,-1,depth-1)],axis = 0)
+                for dependentItem in UserDependenciesMap[depth, entryRow]:
+                    rating_index = data[keys_row_first][entryRow][get_items].index(dependentItem)
+                    rating = np.asarray(data[keys_row_first][entryRow][get_ratings][rating_index]).reshape(1)
+                    userToMovieNetInputs.append(np.concatenate((latent,rating)))
+                    userToMoviePredTarget.append(dependentItem)
+
+        for _,entryCol in [x for x in MovieDependenciesMap.iterkeys() if x[0] == depth]:
+            colHasVales = True
+            if depth == 0:
+                #Add net to input vector
+                if entryCol < colLatents.shape[1]:
+                    latent = colLatents[:, entryCol]
+                    for dependentRow in MovieDependenciesMap[depth, entryCol]:
+                        rating_index = data[keys_col_first][entryCol][get_items].index(dependentRow)
+                        print("Rating idx is", rating_index)
+                        rating = np.asarray(data[keys_col_first][entryCol][get_ratings][rating_index]).reshape(1)
+                        movieToUserNetInputs.append(np.concatenate((latent,rating)))
+                        movieToUserPredTarget.append(dependentRow)
+                else:
+                    continue
+            else:
+                if entryCol < colLatents.shape[1]:
+                    latent = colLatents[:,entryCol]
+                else:
+                    if ((-1,entryCol,depth-1) not in vectorMap):
+                        print("fail")
+                        continue
+                    print("Success")
+                    latent = np.mean(vectorMap[(-1,entryCol,depth-1)],axis=0)
+                for dependentRow in MovieDependenciesMap[depth, entryCol]:
+                    rating_index = data[keys_col_first][entryCol][get_items].index(dependentRow)
+                    print("Rating idx is", rating_index)
+                    rating = np.asarray(data[keys_col_first][entryCol][get_ratings][rating_index]).reshape(1)
+                    movieToUserNetInputs.append(np.concatenate((latent,rating)))
+                    movieToUserPredTarget.append(dependentRow)
+        if rowHasVals:
+            for latent,targetCol in zip(neural_net_predict(user_to_movie_net_parameters,userToMovieNetInputs),userToMoviePredTarget):
+                if (-1,targetCol,depth) not in vectorMap:
+                    vectorMap[(-1,targetCol,depth)] = []
+                vectorMap[(-1,targetCol,depth)].append(latent)
+                print("Size of input vectors", len(vectorMap[(-1,targetCol,depth)]))
+
+        if colHasVales:
+            for latent, targetRow in zip(neural_net_predict(movie_to_user_net_parameters,movieToUserNetInputs),movieToUserPredTarget):
+                #print("latent",latent,targetRow)
+                if (targetRow,-1,depth) not in vectorMap:
+                    vectorMap[(targetRow,-1,depth)] = []
+                vectorMap[(targetRow,-1,depth)].append(latent)
+                print("Size of input vectors", len(vectorMap[(targetRow,-1,depth)]))
+        print("keys",[x for x in vectorMap.keys() if x[2] == depth])
+        raw_input()
+
 def print_perf(params, iter=0, gradient={}, train = None, test = None):
     """
     Prints the performance of the model
     """
-    global curtime, hitcount, TRAININGMODE
+    global curtime, hitcount, TRAININGMODE, UserDependenciesMap, MovieDependenciesMap
+    #UserDependenciesMap = sorted(UserDependenciesMap.iterkeys(), key=lambda tup: tup[0])
+    #MovieDependenciesMap = sorted(MovieDependenciesMap.iterkeys(), key=lambda tup: tup[0])
     print("iter is ", iter)
     #if (iter%10 != 0):
     #    return
@@ -397,11 +498,31 @@ def setup_caches(data):
 
 
 def wipe_caches():
-    global USERLATENTCACHE, MOVIELATENTCACHE, UCANHIT, MCANHIT
+    global USERLATENTCACHE, MOVIELATENTCACHE, UCANHIT, MCANHIT, UserDependenciesMap, MovieDependenciesMap
     global hitcount
+    UserDependenciesMap = {}
+    MovieDependenciesMap = {}
     hitcount = [0]*(MAX_RECURSION+1)
     USERLATENTCACHE = [None] * NUM_USERS
     MOVIELATENTCACHE = [None] * NUM_MOVIES
+
+
+
+def getInferredMatrix(parameters, data):
+    """
+    Uses the network's predictions to generate a full matrix for comparison.
+    """
+    row_len, col_len = len(data[keys_row_first]), len(data[keys_col_first])
+    inferred = inference(parameters, data=data, indices=range(row_len))
+    #inferred = inference(parameters, data=data, indices = get_indices_from_range(range(row_len),data[keys_row_first]))
+    newarray = np.zeros((len(data[keys_row_first]),len(data[keys_col_first])))
+
+    for i in range(row_len):
+        ratings_high = data[keys_row_first][i][get_items]
+        newarray[i, ratings_high] = inferred[i]
+    return newarray
+
+
 
 
 def rmse(gt,pred, indices = None):
@@ -447,23 +568,6 @@ def mae(gt,pred):
         val = val + abs(row_first[i][get_ratings] - pred[i]).sum()
     val = val / sum([len(row[get_ratings]) for row in row_first])
     return val
-
-def getInferredMatrix(parameters, data):
-    """
-    Uses the network's predictions to generate a full matrix for comparison.
-    """
-    row_len, col_len = len(data[keys_row_first]), len(data[keys_col_first])
-    inferred = inference(parameters, data=data, indices=range(row_len))
-    #inferred = inference(parameters, data=data, indices = get_indices_from_range(range(row_len),data[keys_row_first]))
-    newarray = np.zeros((len(data[keys_row_first]),len(data[keys_col_first])))
-
-    for i in range(row_len):
-        ratings_high = data[keys_row_first][i][get_items]
-        newarray[i, ratings_high] = inferred[i]
-    return newarray
-
-
-
 rowLatents = 0
 colLatents = 0
 
@@ -474,6 +578,8 @@ loss = standard_loss
 hitcount = [0]*(MAX_RECURSION+1)
 NUM_USERS = 0
 NUM_MOVIES = 0
+MovieDependenciesMap = {}
+UserDependenciesMap = {}
 USERLATENTCACHE = [None] * NUM_USERS
 MOVIELATENTCACHE = [None] * NUM_MOVIES
 USERLATENTCACHEPRIME = [None] * NUM_USERS

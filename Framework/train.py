@@ -1,5 +1,5 @@
 from autograd.optimizers import sgd, rmsprop
-from NMF_ATNN import *
+from NMF_ATTN_V2 import *
 from autograd.util import flatten_func
 import numpy as np
 import utils
@@ -95,9 +95,9 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
             # Perform pretraining on the columnless and rowless nets
             parameters = pretrain_combiners(train_data, parameters.copy(), *p2Args)
 
-        parameters = pretrain_all(train_data, parameters.copy(), *p2Args)
+        #parameters = pretrain_all(train_data, parameters.copy(), *p2Args)
 
-        pickle.dump(parameters, open("parameters", "wb"))
+        #   pickle.dump(parameters, open("parameters", "wb"))
     else:
         parameters = pickle.load( open( "parameters", "rb" ) )
 
@@ -112,8 +112,8 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     num_opt_passes = 100
 
     for iter in range(num_opt_passes):
-        grads = lossGrad(train_data, num_batches=trainArgs[2], reg_alpha=.001, num_aggregates=2)
-        parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=100,callback=dataCallback(train_data, test_data), b1 = 0.5,iter_val=2)
+        grads = lossGrad(train_data, num_batches=trainArgs[2], reg_alpha=.001, num_aggregates=1)
+        parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=100,callback=dataCallback(train_data, test_data), b1 = 0.5,iter_val=1)
 
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, train_data)
