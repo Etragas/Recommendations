@@ -133,14 +133,11 @@ def get_pred_for_users(parameters, data, indices=None):
                 #print(v)
                 #print(v.latent)
             # For each index where a rating exists, generate it and append to our user predictions.
-    build_latents(data,parameters,MAX_RECURSION)
-
+    #build_latents(data,parameters,MAX_RECURSION)
 
         #Append our user-specific results to the full prediction matrix.
     for user_index,movie_indices in indices:
         user_predictions = []
-        user_pred_node = Node(user_index,USER,MAX_RECURSION)
-        gen_dependencies(data,parameters,user_pred_node)
         for movie_index in movie_indices:
             # We create a node here.
             user_predictions.append(recurrent_inference(parameters, data, user_index, movie_index))
@@ -164,7 +161,9 @@ def build_latents(data, parameters, max_depth):
         #Basically, take a node, and then bin its out-flows by rating, and then for each rating add one input with latent
         #To the corresponding net's queue
         #print(" collecting targets")
-        for node_tuple in [x for x in NODE_MAP.keys() if x[2] == source_depth]:
+        for node_tuple in NODE_MAP.keys():
+            if node_tuple[2] != source_depth:
+                continue
             node = NODE_MAP[node_tuple]
             #print(node)
             if node.depth != source_depth or node.latent is None:
