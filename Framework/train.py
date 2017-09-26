@@ -62,7 +62,7 @@ def pretrain_combiners(full_data, parameters, step_size, num_epochs, batches_per
 
     return parameters
 
-@profile
+#@profile
 def adam(grad, init_params, callback=None, num_iters=100,
          step_size=0.001, b1=0.9, b2=0.999, eps=10**-8, iter_val = 1):
     """Adam as described in http://arxiv.org/pdf/1412.6980.pdf.
@@ -131,7 +131,7 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
             # Perform pretraining on the columnless and rowless nets
             parameters = pretrain_combiners(train_data, parameters.copy(), *p2Args)
 
-        parameters = pretrain_all(train_data, parameters.copy(), *p2Args)
+        #parameters = pretrain_all(train_data, parameters.copy(), *p2Args)
 
         #   pickle.dump(parameters, open("parameters", "wb"))
     else:
@@ -148,7 +148,7 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     num_opt_passes = 100
 
     for iter in range(num_opt_passes):
-        grads = lossGrad(train_data, num_batches=trainArgs[2], reg_alpha=.001, num_aggregates=1, param_to_opt=parameters)
+        grads = lossGrad(train_data, num_batches=trainArgs[2], reg_alpha=.001, num_aggregates=1)
         parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=100,callback=dataCallback(train_data, test_data), b1 = 0.5,iter_val=1)
 
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison

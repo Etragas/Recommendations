@@ -133,7 +133,10 @@ def get_pred_for_users(parameters, data, indices=None):
                 #print(v)
                 #print(v.latent)
             # For each index where a rating exists, generate it and append to our user predictions.
-    #build_latents(data,parameters,MAX_RECURSION)
+    print(len(NODE_MAP))
+    print(len(GEN_DEP))
+    #raw_input()
+    build_latents(data,parameters,MAX_RECURSION)
 
         #Append our user-specific results to the full prediction matrix.
     for user_index,movie_indices in indices:
@@ -146,8 +149,8 @@ def get_pred_for_users(parameters, data, indices=None):
     return full_predictions
 
 def build_latents(data, parameters, max_depth):
-    userToMovieNetInputs= {}
-    movieToUserNetInputs = {}
+    userToMovieNetInputs= []
+    movieToUserNetInputs = []
     userToMoviePredTarget = []
     movieToUserPredTarget = []
     rowLatents = parameters[keys_row_latents]
@@ -182,9 +185,9 @@ def build_latents(data, parameters, max_depth):
                     if (node.type == USER):
                         #print(node.latent)
                         #print(rating)
-                        userToMovieNetInputs[(node,rating)] = (np.array(np.concatenate((node.latent,rating.reshape(1)))))
+                        userToMovieNetInputs.append([(node,rating),(np.array(np.concatenate((node.latent,rating.reshape(1)))))])
                     else:
-                        movieToUserNetInputs[(node,rating)] = (np.array(np.concatenate((node.latent,rating.reshape(1)))))
+                        movieToUserNetInputs.append([(node,rating),(np.array(np.concatenate((node.latent,rating.reshape(1)))))])
 
         model_outs = {}
         #print("Generating model outs")
@@ -192,9 +195,15 @@ def build_latents(data, parameters, max_depth):
             #print(userToMovieNetInputs)
             #print(movieToUserNetInputs)
             #raw_input()
-            for k,v in net_queue.iteritems():
-                net_params = movie_to_user_net_parameters if k[0].type == MOVIE else user_to_movie_net_parameters
-                model_outs[k] = neural_net_predict(net_params,v)
+            if (len(net_queue) == 0):
+                continue
+            k,v = zip(*net_queue)
+            net_params = movie_to_user_net_parameters if k[0][0] == MOVIE else user_to_movie_net_parameters
+            #print(len(v),v,"wtf")
+            results = neural_net_predict(net_params,np.array(v))
+            #print(results.shape)
+            for x in range(len(k)):
+                model_outs[k[x]] = results[x,:]
         #print("Source depth is: ",source_depth)
         #print("Model outs len",len(model_outs))
             #print(model_outs.keys())
@@ -227,8 +236,10 @@ def build_latents(data, parameters, max_depth):
 
 def gen_dependencies(data, parameters, current_node):
     #print("gen dep")
+    global TRAININGMODE
     if (current_node.type,current_node.idx,current_node.depth) not in NODE_MAP:
         NODE_MAP[(current_node.type,current_node.idx,current_node.depth)] = current_node
+
     if GEN_DEP.get(current_node.tuple()):
         return
     movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
@@ -240,9 +251,11 @@ def gen_dependencies(data, parameters, current_node):
         return
     #If node is a prototype,
     if current_node.type == USER and current_node.idx < num_user_latents:
+        GEN_DEP[current_node.tuple()] = 1
         current_node.latent = rowLatents[current_node.idx, :]
         return
     if current_node.type == MOVIE and current_node.idx < num_movie_latents:
+        GEN_DEP[current_node.tuple()] = 1
         current_node.latent = colLatents[:, current_node.idx]
         return
     #If we're here, we're going to have to generate stuff.
@@ -263,6 +276,7 @@ def gen_dependencies(data, parameters, current_node):
     for latent_source_idx, rating in zip(items,ratings):
         if TRAININGMODE and evidence_count > evidence_limit:
              break
+        evidence_count+=1
         #If the movie latent is valid, and does not produce a cycle, append it
         child_node_tuple = (child_node_type, latent_source_idx,current_node.depth-1)
         if(child_node_tuple not in NODE_MAP):
@@ -275,6 +289,7 @@ def gen_dependencies(data, parameters, current_node):
         if child_node not in current_node.children:
             current_node.children.append((child_node,rating))
 
+    GEN_DEP[current_node.tuple()] = 1
     return
     # Now have all latents, prepare for concatenations
     # dense_latents = (np.array(dense_latents))
@@ -489,8 +504,15 @@ def neural_net_predict(parameters=None, inputs=None):
 
     :return: normalized class log-probabilities
     """
+    #print(inputs)
+    #print(inputs.shape)
+    #raw_input()
     for W, b in parameters:
         outputs = np.dot(inputs, W) + b
+        # M = inputs.shape[0]
+        # dim_mean = np.sum(outputs,axis=1) / M
+        # dim_variance = np.sum(np.square(outputs - dim_mean))/ M
+        # x_hat = outputs - dim_mean / np.sqrt(dim_variance + .0000001)
         inputs = relu(outputs)
     return outputs
 
@@ -646,9 +668,11 @@ def print_perf(params, iter=0, gradient={}, train = None, test = None):
     #MovieDependenciesMap = sorted(MovieDependenciesMap.iterkeys(), key=lambda tup: tup[0])
 
     print("iter is ", iter)
-    #if (iter%10 != 0):
-    #    return
     print "It took: {} s".format(time.time() - curtime)
+    curtime = time.time()
+    if (iter%10 != 0):
+        return
+
     preds = inference(params, train)
     print("MAE is", mae(gt=train, pred=preds))
     print("RMSE is ", rmse(gt=train, pred=preds))
@@ -665,23 +689,23 @@ def print_perf(params, iter=0, gradient={}, train = None, test = None):
     print "Hitcount is: ", hitcount, sum(hitcount)
     curtime = time.time()
 
-    mse = rmse(gt=train, pred=inference(params, train))
-     #p1 is for graphing pretraining rating nets and canonical latents
-    train_mse.append(mse)
-    train_mse_iters.append(iter)
-
-    plt.scatter(train_mse_iters, train_mse, color='black')
-
-    plt.plot(train_mse_iters, train_mse)
-    plt.title('MovieLens 100K Performance (with pretraining)')
-    plt.xlabel('Iterations')
-    plt.ylabel('RMSE')
-    plt.draw()
-    plt.pause(0.001)
-    if len(train_mse)%10 == 0:
-      #End the plotting with a raw input
-      plt.savefig('finalgraph.png')
-      print("Final Total Performance: ", train_mse)
+    # mse = rmse(gt=train, pred=inference(params, train))
+    #  #p1 is for graphing pretraining rating nets and canonical latents
+    # train_mse.append(mse)
+    # train_mse_iters.append(iter)
+    #
+    # plt.scatter(train_mse_iters, train_mse, color='black')
+    #
+    # plt.plot(train_mse_iters, train_mse)
+    # plt.title('MovieLens 100K Performance (with pretraining)')
+    # plt.xlabel('Iterations')
+    # plt.ylabel('RMSE')
+    # plt.draw()
+    # plt.pause(0.001)
+    # if len(train_mse)%10 == 0:
+    #   #End the plotting with a raw input
+    #   plt.savefig('finalgraph.png')
+    #   print("Final Total Performance: ", train_mse)
 
 
 def get_candidate_latents(all_items, all_ratings, split = None):
