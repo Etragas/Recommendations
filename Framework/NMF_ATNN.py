@@ -276,7 +276,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     return column_latent
 
 
-def neural_net_predict(parameters=None, inputs=None):
+def neural_net_predict(parameters=None, inputs=None, Name =  None):
     """
     Implements a deep neural network for classification.
 

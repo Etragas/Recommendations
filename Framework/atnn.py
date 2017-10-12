@@ -4,14 +4,14 @@ from train import *
 from autograd import core
 print core.__file__
 # Load the data using DataLoader
-full_data = DataLoader().LoadData(file_path="../Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
+#full_data = DataLoader().LoadData(file_path="../Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
 #full_data = DataLoader().LoadData(file_path="../Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
 #full_data = DataLoader().LoadData(file_path="../Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
 full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS, size= (1200,2000))
 print full_data.shape
 print np.mean(np.sum(full_data > 0,axis = 1)) #Check average ratings per user
 # Reduce the matrix to toy size
-#full_data = full_data[:100,:100]
+full_data = full_data[:100,:100]
 rows = [x for x in range((full_data.shape[0])) if full_data[x,:].sum() > 0]
 cols = [x for x in range((full_data.shape[1])) if full_data[:,x].sum() > 0]
 full_data = full_data[rows,:]
@@ -50,4 +50,4 @@ parameters = build_params()
 
 # Train the parameters.  Pretraining the nets and canon latents are optional.
 parameters = train(train_data, test_data, can_idx, train_idx, test_idx, parameters,
-                   p1=True, p1Args=hyperp1, p2=True, p2Args=hyperp2, trainArgs=hypert, use_cache=False)
+                   p1=False, p1Args=hyperp1, p2=False, p2Args=hyperp2, trainArgs=hypert, use_cache=False)
