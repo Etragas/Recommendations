@@ -25,7 +25,7 @@ def pretrain_canon_and_rating(full_data, parameters, step_size, num_epochs, batc
     grads = lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, params_to_opt=[keys_col_latents,keys_row_latents,keys_rating_net], reg_alpha=.001,num_aggregates=1)
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=batches_per_epoch*num_epochs,
-                      callback=dataCallback(train), b1=0.5, iter_val=1)
+                      callback=dataCallback(train), b1=0.5)
     print "training"
     return parameters
 
@@ -54,7 +54,7 @@ def pretrain_combiners(full_data, parameters, step_size, num_epochs, batches_per
     grads = lossGrad(train, num_batches=batches_per_epoch, fixed_params=parameters, params_to_opt=[keys_user_to_movie_net,keys_movie_to_user_net], reg_alpha=.001, num_aggregates=1)
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=num_epochs*batches_per_epoch,b1 = 0.5,
-                      callback=dataCallback(train),iter_val=1)
+                      callback=dataCallback(train))
 
     return parameters
 
@@ -67,7 +67,7 @@ def pretrain_all(full_data, parameters, step_size, num_epochs, batches_per_epoch
     grads = lossGrad(train, num_batches=batches_per_epoch, reg_alpha=.001, num_aggregates=1)
     # Optimize our parameters using adam
     parameters = adam(grads, parameters, step_size=step_size, num_iters=60,b1 = 0.5,
-                      callback=dataCallback(train), iter_val=1)
+                      callback=dataCallback(train))
 
     return parameters
 
@@ -96,7 +96,7 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
             # Perform pretraining on the columnless and rowless nets
             parameters = pretrain_combiners(train_data, parameters.copy(), *p2Args)
 
-        #parameters = pretrain_all(train_data, parameters.copy(), *p2Args)
+        parameters = pretrain_all(train_data, parameters.copy(), *p2Args)
 
         pickle.dump(parameters, open("parameters", "wb"))
     else:
@@ -114,7 +114,7 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
 
     for iter in range(num_opt_passes):
         grads = lossGrad(train_data, num_batches=trainArgs[2], reg_alpha=.001, num_aggregates=1)
-        parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=100,callback=dataCallback(train_data, test_data))
+        parameters = sgd(grads, parameters, step_size=trainArgs[0], num_iters=100,callback=dataCallback(train_data, test_data))
 
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, train_data)

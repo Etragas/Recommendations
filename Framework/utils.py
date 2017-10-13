@@ -5,8 +5,8 @@ num_movie_latents = 10
 movie_latent_size = 80
 num_user_latents = 20
 user_latent_size = 80
-hyp_user_network_sizes = [movie_latent_size + 1, 200, 200, user_latent_size]
-hyp_movie_network_sizes = [user_latent_size + 1, 200, 200, movie_latent_size]
+hyp_user_network_sizes = [movie_latent_size + 1, 200, 200, 200, user_latent_size]
+hyp_movie_network_sizes = [user_latent_size + 1, 200, 200, 200, movie_latent_size]
 rating_network_sizes = [movie_latent_size + user_latent_size, 200, 100, 50, 20, 1]
 scale = .1
 

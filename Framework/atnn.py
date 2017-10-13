@@ -1,6 +1,3 @@
-from DataLoader import *
-from train import *
-from autograd import core
 from autograd import core
 
 from DataLoader import *
@@ -25,8 +22,8 @@ full_data = full_data[:, cols]
 print full_data.shape
 nrows, ncols = full_data.shape
 
-utils.num_user_latents = int(np.ceil(20))
-utils.num_movie_latents = int(np.ceil(20))
+utils.num_user_latents = int(np.ceil(40))
+utils.num_movie_latents = int(np.ceil(40))
 
 print utils.num_user_latents, utils.num_movie_latents
 can_idx = get_canonical_indices(full_data, [utils.num_user_latents, utils.num_movie_latents])
@@ -39,14 +36,14 @@ train_data, test_data = splitData(full_data)
 train_idx = test_idx = np.array([np.array(range(nrows)), np.array(range(ncols))])
 
 # Training Parameters
-step_size = 0.005
+step_size = 0.001
 num_users_per_batch = 20
 batches_per_epoch = int(np.ceil(float(nrows) / num_users_per_batch))
 batches_per_can_epoch = int(np.ceil(float(utils.num_user_latents) / num_users_per_batch))
 
 num_epochs = 40
-hyperp1 = [step_size * 10, 40, batches_per_can_epoch]
-hyperp2 = [step_size * 10, 40, batches_per_can_epoch]
+hyperp1 = [step_size * 10, 10, batches_per_can_epoch]
+hyperp2 = [step_size * 10, 10, batches_per_can_epoch]
 hypert = [step_size, num_epochs, batches_per_epoch]
 
 # Build the dictionary of parameters for the nets, etc.
@@ -54,4 +51,4 @@ parameters = build_params()
 
 # Train the parameters.  Pretraining the nets and canon latents are optional.
 parameters = train(train_data, test_data, can_idx, train_idx, test_idx, parameters,
-                   p1=False, p1Args=hyperp1, p2=False, p2Args=hyperp2, trainArgs=hypert, use_cache=False)
+                   p1=True, p1Args=hyperp1, p2=True, p2Args=hyperp2, trainArgs=hypert, use_cache=False)

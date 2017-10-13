@@ -122,9 +122,9 @@ def recurrent_inference(parameters, data=None, user_index=0, movie_index=0):
         return 2.5
 
 	#Run through the rating net, passing in rating net parameters and the concatenated latents
-    val = neural_net_predict(
+    val = (neural_net_predict(
       parameters=parameters[keys_rating_net],
-      inputs=np.concatenate((userLatent, movieLatent)))
+      inputs=np.concatenate((userLatent, movieLatent))))
 
     return val#np.dot(np.array([1,2,3,4,5]),softmax())
 
@@ -304,7 +304,11 @@ def neural_net_predict(parameters=None, inputs=None, Name =  None):
             dim_variance = np.sum((activations - dim_mean)**2,axis=0)/ N
             x_hat = (((activations - dim_mean) *(1/ np.sqrt(dim_variance + .0000001)))*gamma) + beta
         inputs= x_hat
-    return inputs
+    if inputs.ndim > 1:
+        return x_hat
+    else:
+        return outputs
+    return outputs
 
 
 
