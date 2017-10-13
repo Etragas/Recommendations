@@ -7,7 +7,7 @@ num_user_latents = 20
 user_latent_size = 80
 hyp_user_network_sizes = [movie_latent_size + 1, 200, 200, user_latent_size]
 hyp_movie_network_sizes = [user_latent_size + 1, 200, 200, movie_latent_size]
-rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 5 ,1 ]
+rating_network_sizes = [movie_latent_size + user_latent_size, 200, 100, 50, 20, 1]
 scale = .1
 
 
@@ -16,13 +16,12 @@ def build_params():
     parameters[keys_movie_to_user_net] = init_random_params(scale, hyp_user_network_sizes)  # Neural Net Parameters
     parameters[keys_user_to_movie_net] = (init_random_params(scale, hyp_movie_network_sizes))  # Neural Net Parameters
     parameters[keys_col_latents] = (scale * np.random.rand(movie_latent_size, num_movie_latents))  # Column Latents
-    parameters[keys_row_latents] = (scale * np.random.rand(num_user_latents, user_latent_size))  #Row Latents
+    parameters[keys_row_latents] = (scale * np.random.rand(num_user_latents, user_latent_size))  # Row Latents
 
     parameters[keys_col_latents] = (scale * np.random.rand(movie_latent_size, num_movie_latents))  # Column Latents
-    parameters[keys_row_latents] = (scale * np.random.rand(num_user_latents, user_latent_size))  #Row Latents
+    parameters[keys_row_latents] = (scale * np.random.rand(num_user_latents, user_latent_size))  # Row Latents
 
     parameters[keys_rating_net] = (init_random_params(scale, rating_network_sizes))  # Neural Net Parameters
-    parameters[keys_rating_net][3][0] = np.array([1,2,3,4,5])
     return parameters
 
 
@@ -31,6 +30,8 @@ def init_random_params(scale, layer_sizes, rs=np.random.RandomState(0)):
     """Build a list of (weights, biases) tuples,
        one for each layer in the net."""
     return [[scale * rs.randn(m, n),  # weight matrix
+             scale * rs.randn(n),
+             scale * rs.randn(n),
              scale * rs.randn(n)]  # bias vector
             for m, n in zip(layer_sizes[:-1], layer_sizes[1:])]
 
@@ -72,14 +73,15 @@ def get_top_n(data, n):
 
 
 def splitData(data, train_ratio=.8):
-    np.random.seed(0) #Debugging line
+    np.random.seed(0)  # Debugging line
     data_bool = data > 0
     data_ind = data_bool * (np.random.rand(*data.shape))
     train = data_ind <= train_ratio
     test = data_ind > train_ratio
     train = data * train
     test = data * test
-    return train, test#[row_indices[:row_split], col_indices[:col_split]], [row_indices[row_split:], col_indices[col_split:]]
+    return train, test  # [row_indices[:row_split], col_indices[:col_split]], [row_indices[row_split:], col_indices[col_split:]]
+
 
 def listify(data):
     """
@@ -92,45 +94,49 @@ def listify(data):
     row_first = []
     col_first = []
     for usr_idx in range(row_size):
-        rav = np.ravel(np.nonzero(data[usr_idx,:]))
+        rav = np.ravel(np.nonzero(data[usr_idx, :]))
         # if len(rav) == 0:
         #     continue
         movie_indices = list(rav)
-        ratings = list(data[usr_idx,movie_indices])
-        row_first.append((movie_indices,ratings))
+        ratings = list(data[usr_idx, movie_indices])
+        row_first.append((movie_indices, ratings))
 
     for movie_idx in range(col_size):
-        rav = np.ravel(np.nonzero(data[:,movie_idx]))
+        rav = np.ravel(np.nonzero(data[:, movie_idx]))
         # if len(rav) == 0:
         #     continue
         user_indices = list(rav)
-        ratings = list(data[user_indices,movie_idx])
-        col_first.append((user_indices,ratings))
+        ratings = list(data[user_indices, movie_idx])
+        col_first.append((user_indices, ratings))
     print "done"
-    return {keys_row_first:row_first, keys_col_first: col_first}
+    return {keys_row_first: row_first, keys_col_first: col_first}
+
 
 def getXinCanonical(data, len_can):
     num_here = 0
     for x in range(data.shape[0]):
-        if (data[x,:len_can] > 0).sum() > 0:
-            print x," ",(data[x,:len_can] > 0).sum()
-            num_here +=1
+        if (data[x, :len_can] > 0).sum() > 0:
+            print x, " ", (data[x, :len_can] > 0).sum()
+            num_here += 1
     print "wat, ", num_here
     return num_here
 
-def getNeighbours(full_data,percentiles=[01,.01,.02,.03,.04,.05,.10,.20]):
+
+def getNeighbours(full_data, percentiles=[01, .01, .02, .03, .04, .05, .10, .20]):
     user_results = []
     for percent in percentiles:
         num_canonicals = int(np.ceil(full_data.shape[1] * percent))
-        can_idx = get_canonical_indices(full_data, [num_canonicals, num_canonicals]) #The one we aren't testing doesn't amtter
+        can_idx = get_canonical_indices(full_data,
+                                        [num_canonicals, num_canonicals])  # The one we aren't testing doesn't amtter
 
-        #Resort data so that canonical users and movies are in top left
-        full_data = full_data[:,can_idx[1]]
-        full_data = full_data[can_idx[0],:]
-        user_results.append(getXinCanonical(full_data,num_canonicals)/float(full_data.shape[0]))
-    plt.plot(percentiles,user_results)
+        # Resort data so that canonical users and movies are in top left
+        full_data = full_data[:, can_idx[1]]
+        full_data = full_data[can_idx[0], :]
+        user_results.append(getXinCanonical(full_data, num_canonicals) / float(full_data.shape[0]))
+    plt.plot(percentiles, user_results)
     plt.show()
     return user_results
+
 
 get_items = 0
 get_ratings = 1

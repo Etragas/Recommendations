@@ -83,11 +83,19 @@ def get_pred_for_users(parameters, data, indices=None):
     #Generate predictions over each row
     for user_index,movie_indices in indices:
         user_predictions = []
+        input_vectors = []
         for movie_index in movie_indices:
             # For each index where a rating exists, generate it and append to our user predictions.
             user_predictions.append(recurrent_inference(parameters, data, user_index, movie_index))
+            # ul = getUserLatent(parameters, data, user_index)
+            # ml = getMovieLatent(parameters, data, movie_index)
+            # if (ul is None or ml is None):
+            #
+            # input_vectors.append(np.concatenate((ul, ml)))
 
         #Append our user-specific results to the full prediction matrix.
+        #print([x.shape for x in input_vectors])
+        #full_predictions.append(neural_net_predict(parameters=parameters[keys_rating_net],inputs=np.array(input_vectors)))
         full_predictions.append(np.array(user_predictions).reshape((len(user_predictions))))
 
     return full_predictions
@@ -285,10 +293,19 @@ def neural_net_predict(parameters=None, inputs=None, Name =  None):
 
     :return: normalized class log-probabilities
     """
-    for W, b in parameters:
+    orig = inputs
+    for W, b, gamma, beta in parameters:
         outputs = np.dot(inputs, W) + b
-        inputs = relu(outputs)
-    return outputs
+        activations = relu(outputs)
+        x_hat = activations
+        if inputs.ndim > 1:
+            N, D= inputs.shape
+            dim_mean = np.sum(activations,axis=0) / N
+            dim_variance = np.sum((activations - dim_mean)**2,axis=0)/ N
+            x_hat = (((activations - dim_mean) *(1/ np.sqrt(dim_variance + .0000001)))*gamma) + beta
+        inputs= x_hat
+    return inputs
+
 
 
 def softmax(x):
