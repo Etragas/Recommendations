@@ -1,10 +1,10 @@
 import autograd.numpy as np
 import matplotlib.pyplot as plt
 
-num_movie_latents = 40
-movie_latent_size = 160
-num_user_latents = 40
-user_latent_size = 160
+num_movie_latents = 20
+movie_latent_size = 80
+num_user_latents = 20
+user_latent_size = 80
 hyp_user_network_sizes = [movie_latent_size + 1, 500, 500, 500, user_latent_size]
 hyp_movie_network_sizes = [user_latent_size + 1, 500, 500, 500, movie_latent_size]
 rating_network_sizes = [movie_latent_size + user_latent_size, 500, 500, 250, 50, 1]
@@ -15,11 +15,13 @@ def build_params():
     parameters = {}
     parameters[keys_movie_to_user_net] = init_random_params(scale, hyp_user_network_sizes)  # Neural Net Parameters
     parameters[keys_user_to_movie_net] = (init_random_params(scale, hyp_movie_network_sizes))  # Neural Net Parameters
-    parameters[keys_col_latents] = (scale * np.random.rand(movie_latent_size, num_movie_latents))  # Column Latents
-    parameters[keys_row_latents] = (scale * np.random.rand(num_user_latents, user_latent_size))  # Row Latents
+    # parameters[keys_col_latents] = (scale * np.random.rand(movie_latent_size, num_movie_latents))  # Column Latents
+    # parameters[keys_row_latents] = (scale * np.random.rand(num_user_latents, user_latent_size))  # Row Latents
 
-    parameters[keys_col_latents] = (scale * np.random.rand(movie_latent_size, num_movie_latents))  # Column Latents
-    parameters[keys_row_latents] = (scale * np.random.rand(num_user_latents, user_latent_size))  # Row Latents
+    parameters[keys_col_latents] = (scale*np.random.randn(movie_latent_size, num_movie_latents))  # Column Latents
+    parameters[keys_row_latents] = (scale*np.random.randn(num_user_latents, user_latent_size))  # Row Latents
+    # parameters[keys_col_latents] = np.ones((movie_latent_size, num_movie_latents))  # Column Latents
+    # parameters[keys_row_latents] = np.ones((num_user_latents, user_latent_size))  # Row Latents
 
     parameters[keys_rating_net] = (init_random_params(scale, rating_network_sizes))  # Neural Net Parameters
     return parameters

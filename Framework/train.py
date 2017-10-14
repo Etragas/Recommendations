@@ -111,12 +111,14 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
 
     param_to_opt = [[key for key in parameters]]
     num_opt_passes = 100
+    mvMap = [[],[]]
     param_sets = [[key for key in parameters if key not in [keys_col_latents,keys_row_latents]],[keys_col_latents,keys_row_latents]]
     for count,iter in enumerate(range(num_opt_passes)):
         param_to_opt = param_sets[count%2]
         fixed_params = param_sets[(count+1)%2]
-        grads = lossGrad(train_data, num_batches=trainArgs[2], reg_alpha=.001, num_aggregates=1,fixed_params=parameters,params_to_opt=param_to_opt)
-        parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=10,callback=dataCallback(train_data, test_data))
+        grads = lossGrad(train_data, num_batches=trainArgs[2], reg_alpha=.001, num_aggregates=1)#,fixed_params=parameters,params_to_opt=param_to_opt)
+        parameters, m, v = adam(grads, parameters, step_size=trainArgs[0], num_iters=100,callback=dataCallback(train_data, test_data))
+        mvMap[count % 2] = [m,v]
 
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, train_data)
@@ -129,27 +131,29 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     return parameters
 
 
-#
-# def adam(grad, init_params, callback=None, num_iters=100,
-#          step_size=0.001, b1=0.9, b2=0.999, eps=10**-8, iter_val = 1):
-#     """Adam as described in http://arxiv.org/pdf/1412.6980.pdf.
-#     It's basically RMSprop with momentum and some correction terms."""
-#     flattened_grad, unflatten, x = flatten_func(grad, init_params)
-#     test_x = x + eps
-#     m = np.zeros(len(x))
-#     v = np.zeros(len(x))
-#     for i in range(0,num_iters,iter_val):
-#         g = 0
-#         print "i ,", i
-#         g = flattened_grad(x,i)
-#             #print "g is 0 sum, ", (g == 0).sum()
-#         #g = clip(g,-.2,.2)
-#         #clip
-#         if callback: callback(unflatten(x), i, unflatten(g))
-#
-#         m = (1 - b1) * g      + b1 * m  # First  moment estimate.
-#         v = (1 - b2) * (g**2) + b2 * v  # Second moment estimate.
-#         mhat = m / (1 - b1**(i + 1))    # Bias correction.
-#         vhat = v / (1 - b2**(i + 1))
-#         x = x - step_size*mhat/(np.sqrt(vhat) + eps)
-#     return unflatten(x)
+
+def adam(grad, init_params, callback=None, num_iters=100,
+         step_size=0.001, b1=0.9, b2=0.999, eps=10**-8, mv = []):
+    """Adam as described in http://arxiv.org/pdf/1412.6980.pdf.
+    It's basically RMSprop with momentum and some correction terms."""
+    flattened_grad, unflatten, x = flatten_func(grad, init_params)
+    test_x = x + eps
+    if (mv == []):
+        m = np.zeros(len(x))
+        v = np.zeros(len(x))
+    else:
+        m,v = mv
+    for i in range(0,num_iters):
+        g = 0
+        print "i ,", i
+        g = flattened_grad(x,i)
+        #g = np.clip(g,-1,1)
+        #clip
+        if callback: callback(unflatten(x), i, unflatten(g))
+
+        m = (1 - b1) * g      + b1 * m  # First  moment estimate.
+        v = (1 - b2) * (g**2) + b2 * v  # Second moment estimate.
+        mhat = m / (1 - b1**(i + 1))    # Bias correction.
+        vhat = v / (1 - b2**(i + 1))
+        x = x - step_size*mhat/(np.sqrt(vhat) + eps)
+    return unflatten(x), m , v

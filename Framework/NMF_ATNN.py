@@ -55,6 +55,20 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     #     reg_loss = reg_loss + reg*np.square(flatten(params)[0]).sum() / float(num_proc)
     # # reg_loss = .0001 * canonicals
     reg_loss = reg_alpha * np.square(flatten(parameters)[0]).sum() / float(num_proc)
+    for latents, net_key , target, transpose in [[keys_row_latents,keys_user_to_movie_net,keys_col_latents, 1],[keys_col_latents,keys_movie_to_user_net,keys_row_latents, 0]]:
+        if (transpose):
+            in_latents = (parameters[latents])
+            targets_latents = np.transpose(parameters[target])
+        else:
+            in_latents = np.transpose(parameters[latents])
+            targets_latents = (parameters[target])
+        in_latents_with_ratings = np.concatenate((in_latents, 2.5*np.ones((in_latents.shape[0],1))), axis=1)  # Append ratings to latents
+        out_latents = neural_net_predict(parameters[net_key], (in_latents_with_ratings))  # Feed through NN
+        mean_diff = np.mean(out_latents,axis=0)-np.mean(targets_latents,axis=0)
+        var_diff = np.var(out_latents,axis=0)-np.var(targets_latents,axis=0)
+        reg_loss += .1*np.sum(np.square(mean_diff))
+        reg_loss += .1*np.sum(np.square(var_diff))
+
     return reg_loss + data_loss
 
 
@@ -87,8 +101,12 @@ def get_pred_for_users(parameters, data, indices=None):
         for movie_index in movie_indices:
             # For each index where a rating exists, generate it and append to our user predictions.
             user_predictions.append(recurrent_inference(parameters, data, user_index, movie_index))
-            ul = getUserLatent(parameters, data, user_index)
-            ml = getMovieLatent(parameters, data, movie_index)
+            if (np.random.randint(low=2) >= .5):
+                ul = getUserLatent(parameters, data, user_index)
+                ml = getMovieLatent(parameters, data, movie_index)
+            else:
+                ml = getMovieLatent(parameters, data, movie_index)
+                ul = getUserLatent(parameters, data, user_index)
             if (ul is None or ml is None):
                 concat = np.zeros((user_latent_size + movie_latent_size))
             else:
@@ -100,7 +118,7 @@ def get_pred_for_users(parameters, data, indices=None):
         if len(movie_indices) == 0:
             continue
         full_predictions.append(
-            (neural_net_predict(parameters=parameters[keys_rating_net], inputs=np.array(input_vectors))).reshape(
+            (rating_net_predict(parameters=parameters[keys_rating_net], inputs=np.array(input_vectors))).reshape(
                 (len(input_vectors))))
         # full_predictions.append(np.array(user_predictions).reshape((len(user_predictions))))
 
@@ -122,6 +140,7 @@ def recurrent_inference(parameters, data=None, user_index=0, movie_index=0):
     :return val: The predicted rating value for the specified user and movie
     """
     # Generate user and movie latents
+
     userLatent = getUserLatent(parameters, data, user_index)
     movieLatent = getMovieLatent(parameters, data, movie_index)
 
@@ -303,21 +322,32 @@ def neural_net_predict(parameters=None, inputs=None, Name=None):
 
     :return: normalized class log-probabilities
     """
+    count = 0
     for W, b, gamma, beta in parameters:
-        outputs = np.dot(inputs, W) + b
-        activations = relu(outputs)
-        x_hat = activations
+        activations = np.dot(inputs, W) + b
+        x_hat = relu(activations)
         if inputs.ndim > 1:
             N, D = inputs.shape
             dim_mean = np.sum(activations, axis=0) / N
             dim_variance = np.sum((activations - dim_mean) ** 2, axis=0) / N
             x_hat = (((activations - dim_mean) * (1 / np.sqrt(dim_variance + .0000001))) * gamma) + beta
         inputs = x_hat
-    if outputs.shape[-1] == 1:
-        # print(outputs)
-        return outputs
-    return activations
+        count+=1
+    return activations#(activations-np.mean(activations,axis=0))/ (np.var(activations,axis=0) + + .0000001)
 
+def rating_net_predict(parameters=None, inputs=None, Name=None):
+    count = 0
+    for W, b, gamma, beta in parameters:
+        activations = np.dot(inputs, W) + b
+        x_hat = relu(activations)
+        if inputs.ndim > 1:
+            N, D = inputs.shape
+            dim_mean = np.sum(activations, axis=0) / N
+            dim_variance = np.sum((activations - dim_mean) ** 2, axis=0) / N
+            x_hat = (((activations - dim_mean) * (1 / np.sqrt(dim_variance + .0000001))) * gamma) + beta
+        inputs = x_hat
+        count+=1
+    return activations
 
 def softmax(x):
     """
@@ -391,6 +421,7 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None):
         print "TEST"
         test_idx = get_indices_from_range(range(len(test[keys_row_first])), test[keys_row_first])
         print"Test RMSE is ", rmse(gt=test, pred=inference(params, train, indices=test_idx), indices=test_idx)
+    print(params[keys_row_latents])
     for key in gradient.keys():
         x = gradient[key]
         print key
