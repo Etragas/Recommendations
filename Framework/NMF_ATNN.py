@@ -4,6 +4,7 @@ from threading import Lock
 from autograd import grad
 from autograd.util import flatten
 
+from Framework import utils
 from utils import *
 from sklearn.utils import shuffle
 from MultiCore import disseminate_values
@@ -87,17 +88,23 @@ def get_pred_for_users(parameters, data, indices=None):
         for movie_index in movie_indices:
             # For each index where a rating exists, generate it and append to our user predictions.
             user_predictions.append(recurrent_inference(parameters, data, user_index, movie_index))
-            # ul = getUserLatent(parameters, data, user_index)
-            # ml = getMovieLatent(parameters, data, movie_index)
-            # if (ul is None or ml is None):
-            #
-            # input_vectors.append(np.concatenate((ul, ml)))
-
+            ul = getUserLatent(parameters, data, user_index)
+            ml = getMovieLatent(parameters, data, movie_index)
+            if (ul is None or ml is None):
+                concat = np.zeros((utils.user_latent_size+utils.movie_latent_size))
+            else:
+                concat = np.concatenate((ul, ml))
+            input_vectors.append(concat)
+        #
         #Append our user-specific results to the full prediction matrix.
         #print([x.shape for x in input_vectors])
-        #full_predictions.append(neural_net_predict(parameters=parameters[keys_rating_net],inputs=np.array(input_vectors)))
-        full_predictions.append(np.array(user_predictions).reshape((len(user_predictions))))
+        if len(movie_indices) == 0:
+            continue
+        full_predictions.append((neural_net_predict(parameters=parameters[keys_rating_net],inputs=np.array(input_vectors))).reshape((len(input_vectors))))
+        # full_predictions.append(np.array(user_predictions).reshape((len(user_predictions))))
 
+    # print(len(input_vectors))
+    # print("done")
     return full_predictions
 
 
@@ -293,7 +300,6 @@ def neural_net_predict(parameters=None, inputs=None, Name =  None):
 
     :return: normalized class log-probabilities
     """
-    orig = inputs
     for W, b, gamma, beta in parameters:
         outputs = np.dot(inputs, W) + b
         activations = relu(outputs)
@@ -304,11 +310,10 @@ def neural_net_predict(parameters=None, inputs=None, Name =  None):
             dim_variance = np.sum((activations - dim_mean)**2,axis=0)/ N
             x_hat = (((activations - dim_mean) *(1/ np.sqrt(dim_variance + .0000001)))*gamma) + beta
         inputs= x_hat
-    if inputs.ndim > 1:
-        return x_hat
-    else:
+    if outputs.shape[-1] == 1:
+        #print(outputs)
         return outputs
-    return outputs
+    return activations
 
 
 
@@ -370,7 +375,7 @@ def print_perf(params, iter=0, gradient={}, train = None, test = None):
     #if (iter%10 != 0):
     #    return
     print "It took: {} s".format(time.time() - curtime)
-    print("MAE is", mae(gt=train, pred=inference(params, train)))
+    # print("MAE is", mae(gt=train, pred=inference(params, train)))
     print("RMSE is ", rmse(gt=train, pred=inference(params, train)))
     print("Loss is ", loss(parameters=params, data=train))
     if (test):
@@ -385,23 +390,23 @@ def print_perf(params, iter=0, gradient={}, train = None, test = None):
     print "Hitcount is: ", hitcount, sum(hitcount)
     curtime = time.time()
 
-    mse = rmse(gt=train, pred=inference(params, train))
-     #p1 is for graphing pretraining rating nets and canonical latents
-    train_mse.append(mse)
-    train_mse_iters.append(iter)
-
-    plt.scatter(train_mse_iters, train_mse, color='black')
-
-    plt.plot(train_mse_iters, train_mse)
-    plt.title('MovieLens 100K Performance (with pretraining)')
-    plt.xlabel('Iterations')
-    plt.ylabel('RMSE')
-    plt.draw()
-    plt.pause(0.001)
-    if len(train_mse)%10 == 0:
-      #End the plotting with a raw input
-      plt.savefig('finalgraph.png')
-      print("Final Total Performance: ", train_mse)
+    # mse = rmse(gt=train, pred=inference(params, train))
+    #  #p1 is for graphing pretraining rating nets and canonical latents
+    # train_mse.append(mse)
+    # train_mse_iters.append(iter)
+    #
+    # plt.scatter(train_mse_iters, train_mse, color='black')
+    #
+    # plt.plot(train_mse_iters, train_mse)
+    # plt.title('MovieLens 100K Performance (with pretraining)')
+    # plt.xlabel('Iterations')
+    # plt.ylabel('RMSE')
+    # plt.draw()
+    # plt.pause(0.001)
+    # if len(train_mse)%10 == 0:
+    #   #End the plotting with a raw input
+    #   plt.savefig('finalgraph.png')
+    #   print("Final Total Performance: ", train_mse)
 
 
 def get_candidate_latents(all_items, all_ratings, split = None):
@@ -445,6 +450,8 @@ def rmse(gt,pred, indices = None):
 
     val = raw_idx = 0
     for user_index, movie_indices in indices:
+        if len(movie_indices) == 0:
+            continue
         valid_gt_ratings = []
         used_idx = []
         items, ratings = row_first[user_index][get_items],row_first[user_index][get_ratings]
@@ -456,6 +463,10 @@ def rmse(gt,pred, indices = None):
             raw_input("OH SHIT")
         #valid_gt_ratings = row_first[user_index][get_ratings]
         valid_pred_ratings = pred[raw_idx]
+        #print(valid_gt_ratings,valid_pred_ratings)
+        #print(valid_gt_ratings-valid_pred_ratings)
+        print(valid_pred_ratings)
+        #print(np.square(valid_gt_ratings-valid_pred_ratings)).sum()
         val = val + (np.square(valid_gt_ratings-valid_pred_ratings)).sum()
         raw_idx+=1
 
