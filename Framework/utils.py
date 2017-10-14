@@ -1,10 +1,10 @@
 import autograd.numpy as np
 import matplotlib.pyplot as plt
 
-num_movie_latents = 10
-movie_latent_size = 40
-num_user_latents = 20
-user_latent_size = 40
+num_movie_latents = 40
+movie_latent_size = 160
+num_user_latents = 40
+user_latent_size = 160
 hyp_user_network_sizes = [movie_latent_size + 1, 500, 500, 500, user_latent_size]
 hyp_movie_network_sizes = [user_latent_size + 1, 500, 500, 500, movie_latent_size]
 rating_network_sizes = [movie_latent_size + user_latent_size, 500, 500, 250, 50, 1]
@@ -29,10 +29,10 @@ def build_params():
 def init_random_params(scale, layer_sizes, rs=np.random.RandomState(0)):
     """Build a list of (weights, biases) tuples,
        one for each layer in the net."""
-    return [[scale * rs.uniform(-np.sqrt(12/m+n),np.sqrt(12/m+n),(m,n)),  # weight matrix
-             scale * rs.uniform(-np.sqrt(12/m+n),np.sqrt(12/m+n),n),
-             scale * rs.uniform(-np.sqrt(12/m+n),np.sqrt(12/m+n),n),
-             scale * rs.uniform(-np.sqrt(12/m+n),np.sqrt(12/m+n),n)]  # bias vector
+    return [[scale * rs.uniform(-np.sqrt(12 / m + n), np.sqrt(12 / m + n), (m, n)),  # weight matrix
+             scale * rs.uniform(-np.sqrt(12 / m + n), np.sqrt(12 / m + n), n),
+             scale * rs.uniform(-np.sqrt(12 / m + n), np.sqrt(12 / m + n), n),
+             scale * rs.uniform(-np.sqrt(12 / m + n), np.sqrt(12 / m + n), n)]  # bias vector
             for m, n in zip(layer_sizes[:-1], layer_sizes[1:])]
 
 
