@@ -111,10 +111,12 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
 
     param_to_opt = [[key for key in parameters]]
     num_opt_passes = 100
-
-    for iter in range(num_opt_passes):
-        grads = lossGrad(train_data, num_batches=trainArgs[2], reg_alpha=.001, num_aggregates=1)
-        parameters = sgd(grads, parameters, step_size=trainArgs[0], num_iters=100,callback=dataCallback(train_data, test_data))
+    param_sets = [[key for key in parameters if key not in [keys_col_latents,keys_row_latents]],[keys_col_latents,keys_row_latents]]
+    for count,iter in enumerate(range(num_opt_passes)):
+        param_to_opt = param_sets[count%2]
+        fixed_params = param_sets[(count+1)%2]
+        grads = lossGrad(train_data, num_batches=trainArgs[2], reg_alpha=.001, num_aggregates=1,fixed_params=parameters,params_to_opt=param_to_opt)
+        parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=10,callback=dataCallback(train_data, test_data))
 
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison
     invtrans = getInferredMatrix(parameters, train_data)
