@@ -1,14 +1,14 @@
 import time
 from threading import Lock
 
-from autograd import grad
-from autograd.util import flatten
+from functools import reduce
 
-from utils import *
+
+
+
+from Framework.utils import *
 from sklearn.utils import shuffle
-from MultiCore import disseminate_values
-from autograd.util import flatten_func
-
+import numpy as np
 """
 Initialize all non-mode-specific parameters
 """
@@ -42,7 +42,7 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     predictions = inference(parameters, data=data, indices=indices)
 
     #vector norm (number of elements) TODO: Clarify with Elias why there is a 0 at the end
-    numel = reduce(lambda x,y:x+len(predictions[y]),range(len(predictions)),0)
+    numel = len(predictions.keys())
 
     #Unregularized loss is penalized on vector norms is number of elements times squared error.
     data_loss = numel*np.square(rmse(data,predictions,indices))
@@ -54,7 +54,8 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     # for reg,params in zip([.00001,.0001,.001],[canonicals,combiners,rating_net]):
     #     reg_loss = reg_loss + reg*np.square(flatten(params)[0]).sum() / float(num_proc)
     # # reg_loss = .0001 * canonicals
-    reg_loss = reg_alpha * np.abs(flatten(parameters)[0]).sum() / float(num_proc)
+    #reg_loss = reg_alpha * np.abs(flatten(parameters)[0]).sum() / float(num_proc)
+    reg_loss = 0
     return reg_loss+data_loss
 
 
@@ -70,17 +71,17 @@ def get_pred_for_users(parameters, data, indices=None):
              computes all rating predictions.
     """
 
-    row_size, col_size = data.size()
+    row_size, col_size = data.shape
     print(row_size,col_size)
+    if indices == None:
+        indices = zip(*data.nonzero())
     #Generate predictions over each row
-    for user_index,movie_indices in indices:
-        user_predictions = []
-        for movie_index in movie_indices:
+    full_predictions = {}
+    for user_index,movie_index in indices:
             # For each index where a rating exists, generate it and append to our user predictions.
-            user_predictions.append(recurrent_inference(parameters, data, user_index, movie_index))
+        full_predictions[user_index,movie_index] = recurrent_inference(parameters, data, user_index, movie_index)
 
         #Append our user-specific results to the full prediction matrix.
-        full_predictions.append(np.array(user_predictions).reshape((len(user_predictions))))
 
     return full_predictions
 
@@ -105,12 +106,8 @@ def recurrent_inference(parameters, data=None, user_index=0, movie_index=0):
 	#Default value for the latents is arbitrarily chosen to be 2.5
     if movieLatent is None or userLatent is None:
         return 2.5
-
 	#Run through the rating net, passing in rating net parameters and the concatenated latents
-    val = neural_net_predict(
-      parameters=parameters[keys_rating_net],
-      inputs=np.concatenate((userLatent, movieLatent)))
-
+    val = parameters[keys_rating_net].forward( torch.cat((movieLatent,userLatent),0))
     return val#np.dot(np.array([1,2,3,4,5]),softmax())
 
 
@@ -136,7 +133,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     rowLatents = parameters[keys_row_latents]
 
     #If user is canonical, return their latent immediately and cache it.
-    if user_index < rowLatents.shape[0]:
+    if user_index < rowLatents.size()[0]:
         #USERLATENTCACHE[user_index] = (rowLatents[user_index, :], recursion_depth)
         return rowLatents[user_index, :]
 
@@ -214,7 +211,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     colLatents = parameters[keys_col_latents]
 
     #If movie is canonical, return their latent immediately and cache it.
-    if movie_index < colLatents.shape[1]:
+    if movie_index < colLatents.size()[1]:
         #MOVIELATENTCACHE[movie_index] = (colLatents[:, movie_index], recursion_depth)
         return colLatents[:, movie_index]
 
@@ -299,30 +296,30 @@ def relu(data):
     """
     return data * (data > 0)
 
-
-def lossGrad(data, num_batches=1, fixed_params = None, params_to_opt = None, batch_indices = None, reg_alpha=.01, num_aggregates = 1):
-    if not batch_indices:
-        batch_indices = disseminate_values(shuffle(range(len(data[keys_row_first]))),num_batches)
-    fparams = None
-
-    if fixed_params:
-        fparams = {key:fixed_params[key] if key not in params_to_opt else None for key in list(set(fixed_params.keys())-set(params_to_opt))}
-
-    def training(params,iter, data=None, indices = None,fixed_params = None, param_keys = None):
-        global TRAININGMODE, RATINGLIMIT
-        TRAININGMODE = True
-        print batch_indices[iter%num_batches]
-        indices = get_indices_from_range(batch_indices[iter%num_batches],data[keys_row_first], rating_limit=RATINGLIMIT)
-        #print indices
-        if fixed_params:
-            new_params = {key:fixed_params[key] if key in fixed_params else params[key] for key in params}
-            params = new_params
-
-        loss = standard_loss(params,iter,data=data,indices=indices,num_batches=num_batches, reg_alpha=reg_alpha, num_proc=num_aggregates)
-        TRAININGMODE = False
-        return loss
-
-    return grad(lambda params, iter: training(params, iter,data=data,indices = batch_indices, fixed_params = fparams, param_keys = params_to_opt))
+#
+# def lossGrad(data, num_batches=1, fixed_params = None, params_to_opt = None, batch_indices = None, reg_alpha=.01, num_aggregates = 1):
+#     if not batch_indices:
+#         batch_indices = disseminate_values(shuffle(range(len(data[keys_row_first]))),num_batches)
+#     fparams = None
+#
+#     if fixed_params:
+#         fparams = {key:fixed_params[key] if key not in params_to_opt else None for key in list(set(fixed_params.keys())-set(params_to_opt))}
+#
+#     def training(params,iter, data=None, indices = None,fixed_params = None, param_keys = None):
+#         global TRAININGMODE, RATINGLIMIT
+#         TRAININGMODE = True
+#         print(batch_indices[iter%num_batches])
+#         indices = get_indices_from_range(batch_indices[iter%num_batches],data[keys_row_first], rating_limit=RATINGLIMIT)
+#         #print indices
+#         if fixed_params:
+#             new_params = {key:fixed_params[key] if key in fixed_params else params[key] for key in params}
+#             params = new_params
+#
+#         loss = standard_loss(params,iter,data=data,indices=indices,num_batches=num_batches, reg_alpha=reg_alpha, num_proc=num_aggregates)
+#         TRAININGMODE = False
+#         return loss
+#
+#     return grad(lambda params, iter: training(params, iter,data=data,indices = batch_indices, fixed_params = fparams, param_keys = params_to_opt))
 
 
 def dataCallback(data,test=None):
@@ -341,20 +338,20 @@ def print_perf(params, iter=0, gradient={}, train = None, test = None):
     print("iter is ", iter)
     #if (iter%10 != 0):
     #    return
-    print "It took: {} s".format(time.time() - curtime)
+    print("It took: {} s".format(time.time() - curtime))
     print("MAE is", mae(gt=train, pred=inference(params, train)))
     print("RMSE is ", rmse(gt=train, pred=inference(params, train)))
     print("Loss is ", loss(parameters=params, data=train))
     if (test):
-        print "TEST"
+        print("TEST")
         test_idx = get_indices_from_range(range(len(test[keys_row_first])),test[keys_row_first])
-        print"Test RMSE is ", rmse(gt=test,pred=inference(params,train,indices=test_idx), indices=test_idx)
+        print("Test RMSE is ", rmse(gt=test,pred=inference(params,train,indices=test_idx), indices=test_idx))
     for key in gradient.keys():
         x = gradient[key]
-        print key
-        print np.square(flatten(x)[0]).sum() / flatten(x)[0].size
-        print np.median(abs(flatten(x)[0]))
-    print "Hitcount is: ", hitcount, sum(hitcount)
+        print(key)
+        print(np.square(flatten(x)[0]).sum() / flatten(x)[0].size)
+        print(np.median(abs(flatten(x)[0])))
+    print("Hitcount is: ", hitcount, sum(hitcount))
     curtime = time.time()
 
     mse = rmse(gt=train, pred=inference(params, train))
@@ -398,6 +395,12 @@ def wipe_caches():
 
 
 def rmse(gt,pred, indices = None):
+    diff = 0
+    for key in pred.keys():
+        diff = diff + np.square(gt[key]-pred[key])
+
+    return np.sqrt(diff/ len(pred.keys()))
+
     row_first = gt[keys_row_first]
 
     numel = reduce(lambda x,y:x+len(pred[y]),range(len(pred)),0)
@@ -409,10 +412,10 @@ def rmse(gt,pred, indices = None):
 
 
     if type(indices) is int:
-        print "UH OH"
-        print indices
-        print pred
-        raw_input()
+        print("UH OH")
+        print(indices)
+        print(pred)
+        input("WHY")
         return 0
 
     val = raw_idx = 0
@@ -425,7 +428,7 @@ def rmse(gt,pred, indices = None):
                 used_idx.append(items[idx])
                 valid_gt_ratings.append(ratings[idx])
         if used_idx != list(movie_indices):
-            raw_input("OH SHIT")
+            input("OH SHIT")
         #valid_gt_ratings = row_first[user_index][get_ratings]
         valid_pred_ratings = pred[raw_idx]
         val = val + (np.square(valid_gt_ratings-valid_pred_ratings)).sum()

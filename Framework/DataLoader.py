@@ -33,11 +33,9 @@ class DataLoader:
             if item not in encountered:
                 encountered[item] = idx
                 idx += 1
-            print user
             X[int(user)].append((encountered[item], float(rating)))
         for user_id in range(72000):
             out = ""
-            print user_id
             for rating_info in X[user_id]:
                 movie_id, rating = rating_info
                 out += "{} {} {} \n".format(user_id, movie_id, rating)
@@ -52,7 +50,6 @@ class DataLoader:
         col_count = [0]*col_size
         row_first = [[list(),list()]]*row_size
         col_first = [[list(),list()]]*col_size
-        print "HERE"
         f = open(file_path,'r')
         for elem in f.readlines():
             user, item, rating = [x for x in elem.split(",")]
@@ -63,7 +60,6 @@ class DataLoader:
             row_first[1].append(rating)
             col_first[0].append(user)
             col_first[1].append(rating)
-            print user
 
     def LoadMovieLens(self, file_path, size):
         encountered = {}
@@ -110,10 +106,8 @@ class DataLoader:
         movie_arr = [list() for x in range(18000)]
         fil = 0
         for file in listdir(folder_path):
-            print file
             self.parseNetflixMovieData(join(folder_path, file), user_arr, movie_arr, seen_id, len(seen_id.keys()) + 1)
             fil += 1
-        print len(seen_id.keys())
         # user_first = open(join(out_path,'user_first.txt'),"w+")
         movie_first = open(join(out_path, 'movie_first.txt'), "w+")
         # Print format: user_id, movie_id, rating, original_id
