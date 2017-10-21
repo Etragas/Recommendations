@@ -104,7 +104,7 @@ def recurrent_inference(parameters, data=None, user_index=0, movie_index=0):
     if movieLatent is None or userLatent is None:
         return Variable(torch.FloatTensor([float(2.5)]))
     # Run through the rating net, passing in rating net parameters and the concatenated latents
-    val = parameters[keys_rating_net].forward(torch.cat((movieLatent, userLatent), 0))
+    val = parameters[keys_rating_net].forward((torch.cat((movieLatent, userLatent), 0)))
     return val  # np.dot(np.array([1,2,3,4,5]),softmax())
 
 
@@ -293,7 +293,6 @@ def get_indices_from_range(range, row_first, rating_limit=None):
     # return map(lambda x: (x,row_first[x][get_items])[:rating_limit],range)
     return map(lambda x: (x, np.sort(shuffle(row_first[x][get_items])[:rating_limit])), range)
 
-
 def print_perf(params, iter=0, gradient={}, train=None, test=None):
     """
     Prints the performance of the model
@@ -326,6 +325,9 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None):
         else:
             print("Neural Net Variable Gradient Analytics")
             for param in v.parameters():
+                if param.grad is None:
+                    print("ERROR - GRADIENT MISSING")
+                    continue
                 flattened = param.grad.view(param.grad.nelement())
                 avg_square = torch.sum(torch.pow(param.grad, 2)) / flattened.size()[0]
                 median = torch.median(torch.abs(flattened))

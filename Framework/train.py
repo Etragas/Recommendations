@@ -118,7 +118,7 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
             for param in v.parameters():
                 paramsToOpt.append(param)
 
-    optimizer = optim.Adam(paramsToOpt, lr=.05,weight_decay=.1)
+    optimizer = optim.Adam(paramsToOpt, lr=.05,weight_decay=0)
     callback = dataCallback(train_data, test_data)
     for iter in range(num_opt_passes):
 

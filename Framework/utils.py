@@ -18,34 +18,27 @@ scale = .1
 class ItemGeneratorNet(nn.Module):
     def __init__(self):
         super(ItemGeneratorNet, self).__init__()
-        self.fc1 = nn.Linear(user_latent_size+1, 200)
-        self.bn1 = nn.BatchNorm1d(200,affine=True)
+        self.fc1 = nn.Linear(user_latent_size + 1, 200)
         self.fc2 = nn.Linear(200, 200)
-        self.bn2 = nn.BatchNorm1d(200,affine=True)
         self.fc3 = nn.Linear(200, movie_latent_size)
 
     def forward(self, x):
-        if (x.dim() == 1):
-            x = x.view(-1, x.size()[0])
-        x = self.bn1(F.relu(self.fc1(x)))
-        x = self.bn2(F.relu(self.fc2(x)))
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
+
 
 class UserGeneratorNet(nn.Module):
     def __init__(self):
         super(UserGeneratorNet, self).__init__()
-        self.fc1 = nn.Linear(movie_latent_size+1, 200)
-        self.bn1 = nn.BatchNorm1d(200,affine=True)
+        self.fc1 = nn.Linear(movie_latent_size + 1, 200)
         self.fc2 = nn.Linear(200, 200)
-        self.bn2 = nn.BatchNorm1d(200,affine=True)
         self.fc3 = nn.Linear(200, user_latent_size)
 
     def forward(self, x):
-        if (x.dim() == 1):
-            x = x.view(-1, x.size()[0])
-        x = self.bn1(F.relu(self.fc1(x)))
-        x = self.bn2(F.relu(self.fc2(x)))
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
 
@@ -53,25 +46,18 @@ class RatingGeneratorNet(nn.Module):
     def __init__(self):
         super(RatingGeneratorNet, self).__init__()
         self.fc1 = nn.Linear(user_latent_size + movie_latent_size, 400)
-        self.bn1 = nn.BatchNorm1d(400,affine=True)
         self.fc2 = nn.Linear(400, 200)
-        self.bn2 = nn.BatchNorm1d(200, affine=True)
         self.fc3 = nn.Linear(200, 100)
-        self.bn3 = nn.BatchNorm1d(100, affine=True)
         self.fc4 = nn.Linear(100, 100)
-        self.bn4 = nn.BatchNorm1d(100, affine=True)
         self.fc5 = nn.Linear(100, 50)
-        self.bn5 = nn.BatchNorm1d(50, affine=True)
         self.fc6 = nn.Linear(50, 1)
 
     def forward(self, x):
-        if(x.dim() == 1):
-            x = x.view(-1,x.size()[0])
-        x = self.bn1(F.relu(self.fc1(x)))
-        x = self.bn2(F.relu(self.fc2(x)))
-        x = self.bn3(F.relu(self.fc3(x)))
-        x = self.bn4(F.relu(self.fc4(x)))
-        x = self.bn5(F.relu(self.fc5(x)))
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        x = F.relu(self.fc4(x))
+        x = F.relu(self.fc5(x))
         x = self.fc6(x)
         return x
 
