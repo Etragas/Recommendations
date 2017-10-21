@@ -69,7 +69,7 @@ def get_pred_for_users(parameters, data, indices=None):
 
     row_size, col_size = data.shape
     #print(row_size,col_size)
-    if indices == None:
+    if indices is None:
         indices = shuffle(list(zip(*data.nonzero()))[:1000])
     #Generate predictions over each row
     full_predictions = {}
@@ -98,7 +98,7 @@ def recurrent_inference(parameters, data=None, user_index=0, movie_index=0):
 
 	#Default value for the latents is arbitrarily chosen to be 2.5
     if movieLatent is None or userLatent is None:
-        return 2.5
+        return Variable(torch.FloatTensor([float(2.5)]))
 	#Run through the rating net, passing in rating net parameters and the concatenated latents
     val = parameters[keys_rating_net].forward(torch.cat((movieLatent,userLatent),0))
     return val#np.dot(np.array([1,2,3,4,5]),softmax())
@@ -369,9 +369,12 @@ def wipe_caches():
 
 def rmse(gt,pred, indices = None):
     diff = 0
+    lens = (len(pred.keys()))
+    mean = []
     for key in pred.keys():
+        mean.append(pred[key])
         diff = diff + torch.pow(float(gt[key])-pred[key],2)
-
+    print("Num of items is {} average pred value is {}".format(lens,np.mean(mean)))
     return torch.sqrt((diff/ len(pred.keys())))
 
     row_first = gt[keys_row_first]
