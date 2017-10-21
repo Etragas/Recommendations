@@ -4,11 +4,8 @@ import time
 from functools import reduce
 
 import numpy as np
-from colorama import init, Fore
 from sklearn.utils import shuffle
 from utils import *
-
-init()
 
 """
 Initialize all non-mode-specific parameters
@@ -330,7 +327,7 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None):
         test_rmse_result = rmse(gt=test, pred=inference(params, train, indices=test_indices), indices=test_indices)
         print("Test RMSE is ", (test_rmse_result.data).cpu().numpy()[0])
     for k, v in params.items():
-        print(Fore.GREEN + "Key is: ", k)
+        print("Key is: ", k)
         if type(v) == Variable:
             print("Latent Variable Gradient Analytics")
             flattened = v.grad.view(v.grad.nelement())
