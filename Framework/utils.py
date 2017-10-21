@@ -18,7 +18,7 @@ scale = .1
 class ItemGeneratorNet(nn.Module):
     def __init__(self):
         super(ItemGeneratorNet, self).__init__()
-        self.fc1 = nn.Linear(user_latent_size, 200)
+        self.fc1 = nn.Linear(user_latent_size+1, 200)
         self.fc2 = nn.Linear(200, 200)
         self.fc3 = nn.Linear(200, movie_latent_size)
 
@@ -31,7 +31,7 @@ class ItemGeneratorNet(nn.Module):
 class UserGeneratorNet(nn.Module):
     def __init__(self):
         super(UserGeneratorNet, self).__init__()
-        self.fc1 = nn.Linear(movie_latent_size, 200)
+        self.fc1 = nn.Linear(movie_latent_size+1, 200)
         self.fc2 = nn.Linear(200, 200)
         self.fc3 = nn.Linear(200, user_latent_size)
 
@@ -63,9 +63,9 @@ def build_params(num_user_latents=20,num_movie_latents=20):
     parameters[keys_movie_to_user_net] = UserGeneratorNet()
     parameters[keys_user_to_movie_net] = ItemGeneratorNet()
     parameters[keys_col_latents] = Variable(
-        torch.from_numpy(scale * np.random.rand(movie_latent_size, num_movie_latents)).float())  # Column Latents
+        torch.from_numpy(scale * np.random.rand(movie_latent_size, num_movie_latents)).float(),requires_grad=True)  # Column Latents
     parameters[keys_row_latents] = Variable(
-        torch.from_numpy((scale * np.random.rand(num_user_latents, user_latent_size))).float())  # Row Latents
+        torch.from_numpy((scale * np.random.rand(num_user_latents, user_latent_size))).float(),requires_grad=True)  # Row Latents
     parameters[keys_rating_net] = RatingGeneratorNet()
     return parameters
 

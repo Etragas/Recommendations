@@ -40,13 +40,12 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
 
 		#generate predictions on specified indices with given parameters
     predictions = inference(parameters, data=data, indices=indices)
-
-    #vector norm (number of elements) TODO: Clarify with Elias why there is a 0 at the end
+    global hitcount
+    print(hitcount)
     numel = len(predictions.keys())
 
-    #Unregularized loss is penalized on vector norms is number of elements times squared error.
-    data_loss = numel*np.square(rmse(data,predictions,indices))
-
+    data_loss = numel*torch.pow(rmse(data,predictions,indices),2)
+    print("RMSE is",rmse(data,predictions,indices))
     # canonicals = [parameters[keys_col_latents],parameters[keys_row_latents]]
     combiners = [parameters[keys_movie_to_user_net],parameters[keys_user_to_movie_net]]
     rating_net = parameters[keys_rating_net]
@@ -70,18 +69,17 @@ def get_pred_for_users(parameters, data, indices=None):
     :return: rating predictions for all user/movie combinations specified.  If unspecified,
              computes all rating predictions.
     """
+    diff = 0
+    setup_caches(data)
 
     row_size, col_size = data.shape
-    print(row_size,col_size)
+    #print(row_size,col_size)
     if indices == None:
-        indices = zip(*data.nonzero())
+        indices = list(zip(*data.nonzero()))
     #Generate predictions over each row
     full_predictions = {}
-    for user_index,movie_index in indices:
-            # For each index where a rating exists, generate it and append to our user predictions.
+    for user_index,movie_index in shuffle(indices):
         full_predictions[user_index,movie_index] = recurrent_inference(parameters, data, user_index, movie_index)
-
-        #Append our user-specific results to the full prediction matrix.
 
     return full_predictions
 
@@ -107,7 +105,7 @@ def recurrent_inference(parameters, data=None, user_index=0, movie_index=0):
     if movieLatent is None or userLatent is None:
         return 2.5
 	#Run through the rating net, passing in rating net parameters and the concatenated latents
-    val = parameters[keys_rating_net].forward( torch.cat((movieLatent,userLatent),0))
+    val = parameters[keys_rating_net].forward(torch.cat((movieLatent,userLatent),0))
     return val#np.dot(np.array([1,2,3,4,5]),softmax())
 
 
@@ -138,7 +136,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
         return rowLatents[user_index, :]
 
     #If user latent is cached, return their latent immediately
-    if  USERLATENTCACHE[user_index] is not None :#and USERLATENTCACHE[user_index][1] >= recursion_depth:
+    if  USERLATENTCACHE[user_index] is not None and USERLATENTCACHE[user_index][1] >= recursion_depth:
         hitcount[USERLATENTCACHE[user_index][1]] += 1
         return USERLATENTCACHE[user_index][0]
 
@@ -151,15 +149,17 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     evidence_limit = EVIDENCELIMIT / (2**(MAX_RECURSION - recursion_depth))
     #print evidence_limit
 
-    items, ratings = get_candidate_latents(data[keys_row_first][user_index][get_items], data[keys_row_first][user_index][get_ratings], split=num_movie_latents)
+    # items, ratings = get_candidate_latents(data[keys_row_first][user_index][get_items], data[keys_row_first][user_index][get_ratings], split=num_movie_latents)
 
     #Initialize lists for our dense ratings and latents
-    dense_ratings, dense_latents = [], []
+    dense_ratings, input_latents = [], []
     #update the current caller_id with this user index appended
     internal_caller = [caller_id[0] + [user_index], caller_id[1]]
-
+    # Retrieve latents for every user who watched the movie
+    entries = data[user_index,:].nonzero()[0]
     #Retrieve latents for every movie watched by user
-    for movie_index, rating in zip(items,ratings):
+    for movie_index,rating in zip(entries,data[user_index,entries]):
+
     #When it is training mode we use evidence count.
     #When we go over the evidence limit, we no longer need to look for latents
         if TRAININGMODE and evidence_count > evidence_limit:
@@ -170,21 +170,16 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
             movie_latent = getMovieLatent(parameters, data, movie_index, recursion_depth - 1, caller_id = internal_caller)
 
             if movie_latent is not None:
-                dense_latents.append(movie_latent)  # We got another movie latent
-                dense_ratings.append(rating)  # Add its corresponding rating
+                latentWithRating = torch.cat((movie_latent,Variable(torch.FloatTensor([float(rating)]))),dim=0)
+                input_latents.append(latentWithRating)  # We got another movie latent
                 evidence_count += 1
 
-    if dense_ratings == []:
+    if (input_latents == []):
         return None
-
     # Now have all latents, prepare for concatenations
-    dense_latents = (np.array(dense_latents))
-    dense_ratings = np.transpose(np.array(dense_ratings).reshape((1, len(dense_ratings))))
-
-    latents_with_ratings = np.concatenate((dense_latents, dense_ratings), axis=1)  # Append ratings to latents
-    prediction = neural_net_predict(movie_to_user_net_parameters, (latents_with_ratings))  # Feed through NN
-    row_latent = np.mean(prediction, axis=0)
-    #USERLATENTCACHE[user_index] = (row_latent, recursion_depth)
+    prediction = movie_to_user_net_parameters.forward(torch.stack(input_latents,0))  # Feed through NN
+    row_latent = torch.mean(prediction,dim=0)
+    USERLATENTCACHE[user_index] = (row_latent, recursion_depth)
 
     return row_latent
 
@@ -216,7 +211,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
         return colLatents[:, movie_index]
 
     #If movie latent is cached, return their latent immediately
-    if MOVIELATENTCACHE[movie_index] is not None :#and MOVIELATENTCACHE[movie_index][1] >= recursion_depth:
+    if MOVIELATENTCACHE[movie_index] is not None and MOVIELATENTCACHE[movie_index][1] >= recursion_depth:
         hitcount[MOVIELATENTCACHE[movie_index][1]] += 1
         return MOVIELATENTCACHE[movie_index][0]
 
@@ -229,15 +224,15 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     evidence_count  = 0
     evidence_limit = EVIDENCELIMIT / (2**(MAX_RECURSION - recursion_depth))
     #print evidence_limit
-    items, ratings = get_candidate_latents(data[keys_col_first][movie_index][get_items], data[keys_col_first][movie_index][get_ratings], split = num_user_latents)
+    # items, ratings = get_candidate_latents(data[keys_col_first][movie_index][get_items], data[keys_col_first][movie_index][get_ratings], split = num_user_latents)
 
     #Initialize lists for our dense ratings and latents
-    dense_ratings, dense_latents = [], []
+    dense_ratings, input_latents = [], []
     #update the current caller_id with this movie index appended
     internal_caller = [caller_id[0], caller_id[1] + [movie_index]]
-
     #Retrieve latents for every user who watched the movie
-    for user_index, rating in zip(items,ratings):
+    entries = data[:,movie_index].nonzero()[0]
+    for user_index,rating in zip(entries,data[entries,movie_index]):
         #When it is training mode we use evidence count.
         #When we go over the evidence limit, we no longer need to look for latents
         if TRAININGMODE and evidence_count > evidence_limit:
@@ -247,54 +242,22 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
         if user_index not in internal_caller[0]:
             user_latent = getUserLatent(parameters, data, user_index, recursion_depth - 1, caller_id= internal_caller)
             if user_latent is not None:
-                dense_latents.append(user_latent)
-                dense_ratings.append(rating)
+                latentWithRating = torch.cat((user_latent, Variable(torch.FloatTensor([float(rating)]))), dim=0)
+                input_latents.append(latentWithRating)  # We got another movie latent
                 evidence_count+=1
 
-    if dense_ratings == []:
+    if (input_latents == []):
         return None
-
+    prediction = user_to_movie_net_parameters.forward(torch.stack(input_latents, 0))  # Feed through NN
+    column_latent = torch.mean(prediction, dim=0)
+        # print("Row lat")
+        # # USERLATENTCACHE[user_index] = (row_latent, recursion_depth)
+        #
+        # return row_latent
     #Now we have all latents, prepare for concatenation
-    dense_latents = np.array(dense_latents)
-    dense_ratings = np.transpose(np.array(dense_ratings).reshape((1, len(dense_ratings))))
-
-    latents_with_ratings = np.concatenate((dense_latents, dense_ratings), axis=1)  # Append ratings to latents
-    prediction = neural_net_predict(user_to_movie_net_parameters, latents_with_ratings)  # Feed through NN
-    column_latent = np.mean(prediction, axis=0) #Our movie latent is the average of the neural net outputs.
-    #MOVIELATENTCACHE[movie_index] = (column_latent, recursion_depth) #Cache the movie latent with the current recursion depth
+    MOVIELATENTCACHE[movie_index] = (column_latent, recursion_depth) #Cache the movie latent with the current recursion depth
 
     return column_latent
-
-
-def neural_net_predict(parameters=None, inputs=None):
-    """
-    Implements a deep neural network for classification.
-
-    :param parameters: a list of (weights, bias) typles representing the parameters of the net
-    :param inputs: a (N x D) matrix representing the inputs to the net
-
-    :return: normalized class log-probabilities
-    """
-    for W, b in parameters:
-        outputs = np.dot(inputs, W) + b
-        inputs = relu(outputs)
-    return outputs
-
-
-def softmax(x):
-    """
-    Computes and returns the softmax of x.
-    """
-    e_x = np.exp(x - np.max(x))
-    out = e_x / e_x.sum()
-    return np.array(out)
-
-
-def relu(data):
-    """
-    Computes and returns the relu of data.
-    """
-    return data * (data > 0)
 
 #
 # def lossGrad(data, num_batches=1, fixed_params = None, params_to_opt = None, batch_indices = None, reg_alpha=.01, num_aggregates = 1):
@@ -382,7 +345,7 @@ def get_candidate_latents(all_items, all_ratings, split = None):
 
 def setup_caches(data):
     global NUM_USERS, NUM_MOVIES
-    NUM_USERS, NUM_MOVIES = len(data[keys_row_first]), len(data[keys_col_first])
+    NUM_USERS, NUM_MOVIES = list(map(lambda x:len(x),data.nonzero()))
     wipe_caches()
 
 
@@ -397,9 +360,9 @@ def wipe_caches():
 def rmse(gt,pred, indices = None):
     diff = 0
     for key in pred.keys():
-        diff = diff + np.square(gt[key]-pred[key])
+        diff = diff + torch.pow(float(gt[key])-pred[key],2)
 
-    return np.sqrt(diff/ len(pred.keys()))
+    return torch.sqrt((diff/ len(pred.keys())))
 
     row_first = gt[keys_row_first]
 

@@ -34,10 +34,8 @@ for x in range(100):
         print(data)
         loss = loss+ torch.pow(data-pred[entries],2)
     loss = loss/(numUsers*numItems)
-    print("Loss", loss)
     loss.backward(retain_graph=True)
     learning_rate = 1
-    print("GRAD",U.grad)
     for param in parameters:
 
         param.data.sub_(learning_rate*param.grad.data)

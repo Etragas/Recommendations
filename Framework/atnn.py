@@ -1,13 +1,13 @@
+import numpy as np
 import torch
 import utils
 from DataLoader import *
 from train import *
-from torch.autograd import Variable
-import numpy as np
+
 # Load the data using DataLoader
-#full_data = DataLoader().LoadData(file_path="../Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
-#full_data = DataLoader().LoadData(file_path="../Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
-#full_data = DataLoader().LoadData(file_path="../Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
+# full_data = DataLoader().LoadData(file_path="../Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
+# full_data = DataLoader().LoadData(file_path="../Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
+# full_data = DataLoader().LoadData(file_path="../Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
 from Framework.DataLoader import DataLoader
 from Framework.train import train
 from Framework.utils import build_params, keys_rating_net, keys_row_latents, keys_col_latents, get_canonical_indices, \
@@ -27,8 +27,8 @@ full_data = full_data[:,cols]
 print(full_data.shape)
 nrows, ncols = full_data.shape
 
-num_user_latents = int(np.ceil(full_data.shape[0]))
-num_movie_latents = int(np.ceil(full_data.shape[1]))
+num_user_latents = 20#int(np.ceil(full_data.shape[0]))
+num_movie_latents = 20#int(np.ceil(full_data.shape[1]))
 
 print(utils.num_user_latents, utils.num_movie_latents)
 can_idx = get_canonical_indices(full_data, [utils.num_user_latents, utils.num_movie_latents])
@@ -53,9 +53,11 @@ hypert = [step_size, num_epochs, batches_per_epoch]
 
 # Build the dictionary of parameters for the nets, etc.
 parameters = build_params(num_user_latents,num_movie_latents)
-collatent = torch.index_select(parameters[keys_col_latents],1,torch.LongTensor([0]))
-rowllatent = torch.index_select(parameters[keys_row_latents],0,torch.LongTensor([0]))
-inputlatent = torch.cat((torch.t(collatent),rowllatent),1)
+collatent = parameters[keys_col_latents][:,0]
+rowllatent = parameters[keys_row_latents][0,:]
+print(collatent)
+print(rowllatent)
+inputlatent = torch.cat((collatent,rowllatent),0)
 print(inputlatent)
 y = parameters[keys_rating_net].forward(inputlatent)
 print(y)
