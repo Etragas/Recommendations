@@ -1,7 +1,8 @@
 import time
-from functools import reduce
-
+import pickle
 import numpy as np
+import os
+from functools import reduce
 from sklearn.utils import shuffle
 from utils import *
 
@@ -17,6 +18,9 @@ RATINGLIMIT = 50
 
 train_mse_iters = []
 train_mse = []
+
+filename = "intermediate_trained_parameters.pkl"
+param_dict = {}
 
 
 def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_batches=1, reg_alpha=.01,
@@ -289,8 +293,6 @@ def dataCallback(data, test=None):
     return lambda params, iter, grad: print_perf(params, iter, grad, train=data, test=test)
 
 
-def get_indices_from_range(range, row_first, rating_limit=None):
-    # return map(lambda x: (x,row_first[x][get_items])[:rating_limit],range)
     return map(lambda x: (x, np.sort(shuffle(row_first[x][get_items])[:rating_limit])), range)
 
 
@@ -298,10 +300,18 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None):
     """
     Prints the performance of the model
     """
-    global curtime, hitcount, TRAININGMODE
+    global curtime, hitcount, TRAININGMODE, filename, param_dict
     print("iter is ", iter)
     if (iter % 10 != 0):
         return
+    #pickle our parameters
+    if os.path.exists(filename):
+      with open(filename, 'rb') as rfp: 
+        param_dict = pickle.load(rfp)
+    param_dict[iter] = params
+    with open(filename, 'wb') as wfp:
+      pickle.dump(param_dict, wfp)
+
     print("It took: {} s".format(time.time() - curtime))
     pred = inference(params, data=train, indices=shuffle(list(zip(*train.nonzero())))[:20000])
     mae_result = mae(gt=train, pred=pred)
@@ -316,6 +326,7 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None):
         test_rmse_result = rmse(gt=test, pred=inference(params, train, indices=test_indices), indices=test_indices)
         print("Test RMSE is ", (test_rmse_result.data).cpu().numpy()[0])
     for k, v in params.items():
+        print("Key is: ", k)
         if type(v) == Variable:
             print("Latent Variable Gradient Analytics")
             flattened = v.grad.view(v.grad.nelement())
