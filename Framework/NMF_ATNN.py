@@ -7,13 +7,15 @@ import numpy as np
 from sklearn.utils import shuffle
 from utils import *
 
+from Framework.utils import keys_row_latents, keys_col_latents
+
 """
 Initialize all non-mode-specific parameters
 """
 
 curtime = 0
 MAX_RECURSION = 4
-TRAININGMODE = False
+TRAININGMODE = True
 EVIDENCELIMIT = 80
 RATINGLIMIT = 50
 
@@ -63,7 +65,7 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     return reg_loss + data_loss
 
 
-def get_pred_for_users(parameters, data, indices=None):
+def get_pred_for_users(parameters, data, indices=None, training_mode = False):
     """
     Computes the predictions for the specified users and movie pairs
 
@@ -75,7 +77,7 @@ def get_pred_for_users(parameters, data, indices=None):
              computes all rating predictions.
     """
     diff = 0
-    setup_caches(data)
+    setup_caches(data,parameters)
 
     row_size, col_size = data.shape
     # print(row_size,col_size)
@@ -129,14 +131,14 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     :return: the predicted user latent
     """
 
-    global USERLATENTCACHE, hitcount, USERCACHELOCK, TRAININGMODE, EVIDENCELIMIT, UCANHIT
+    global USERLATENTCACHE, hitcount, USERCACHELOCK, TRAININGMODE, EVIDENCELIMIT, UCANHIT, NUM_USER_LATENTS
 
     # Get our necessary parameters from the parameters dictionary
     movie_to_user_net_parameters = parameters[keys_movie_to_user_net]
     rowLatents = parameters[keys_row_latents]
 
     # If user is canonical, return their latent immediately and cache it.
-    if user_index < rowLatents.size()[0]:
+    if user_index < NUM_USER_LATENTS:
         # USERLATENTCACHE[user_index] = (rowLatents[user_index, :], recursion_depth)
         return rowLatents[user_index, :]
 
@@ -152,16 +154,18 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     # Must generate latent
     evidence_count = 0
     evidence_limit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursion_depth))
-    # print evidence_limit
 
     # items, ratings = get_candidate_latents(data[keys_row_first][user_index][get_items], data[keys_row_first][user_index][get_ratings], split=num_movie_latents)
 
     # Initialize lists for our dense ratings and latents
-    dense_ratings, input_latents = [], []
+    input_latents = []
     # update the current caller_id with this user index appended
     internal_caller = [caller_id[0] + [user_index], caller_id[1]]
     # Retrieve latents for every user who watched the movie
     entries = data[user_index, :].nonzero()[0]
+    can_entries = [x for x in entries if x < NUM_USER_LATENTS]
+    uncan_entries = shuffle(list(set(entries)-set(can_entries)))
+    entries = can_entries+uncan_entries
     # Retrieve latents for every movie watched by user
     for movie_index, rating in zip(entries, data[user_index, entries]):
 
@@ -204,14 +208,14 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     :return: the predicted movie latent
     """
 
-    global MOVIELATENTCACHE, hitcount, MOVIECACHELOCK, TRAININGMODE, EVIDENCELIMIT, MCANHIT
+    global MOVIELATENTCACHE, hitcount, MOVIECACHELOCK, TRAININGMODE, EVIDENCELIMIT, MCANHIT, NUM_MOVIE_LATENTS
 
     # Get our necessary parameters from the parameters dictionary
     user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
     colLatents = parameters[keys_col_latents]
 
     # If movie is canonical, return their latent immediately and cache it.
-    if movie_index < colLatents.size()[1]:
+    if movie_index < NUM_MOVIE_LATENTS:
         # MOVIELATENTCACHE[movie_index] = (colLatents[:, movie_index], recursion_depth)
         return colLatents[:, movie_index]
 
@@ -236,6 +240,10 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     internal_caller = [caller_id[0], caller_id[1] + [movie_index]]
     # Retrieve latents for every user who watched the movie
     entries = data[:, movie_index].nonzero()[0]
+    can_entries = [x for x in entries if x < NUM_MOVIE_LATENTS]
+    uncan_entries = shuffle(list(set(entries) - set(can_entries)))
+    entries = can_entries + uncan_entries
+
     for user_index, rating in zip(entries, data[entries, movie_index]):
         # When it is training mode we use evidence count.
         # When we go over the evidence limit, we no longer need to look for latents
@@ -305,6 +313,7 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None):
     print("iter is ", iter)
     if (iter % 10 != 0):
         return
+    TRAININGMODE = False
     # pickle our parameters
     if os.path.exists(filename):
         with open(filename, 'rb') as rfp:
@@ -348,7 +357,7 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None):
                 print("median is: ", median.data.numpy()[0])
 
     print("Hitcount is: ", hitcount, sum(hitcount))
-
+    TRAININGMODE = True
     curtime = time.time()
     train_mse.append(rmse_result.data.numpy()[0])
     train_mse_iters.append(iter)
@@ -377,9 +386,11 @@ def get_candidate_latents(all_items, all_ratings, split=None):
     return items, ratings
 
 
-def setup_caches(data):
-    global NUM_USERS, NUM_MOVIES
+def setup_caches(data,parameters):
+    global NUM_USERS, NUM_MOVIES, NUM_USER_LATENTS, NUM_MOVIE_LATENTS
     NUM_USERS, NUM_MOVIES = list(map(lambda x: len(x), data.nonzero()))
+    NUM_USER_LATENTS = parameters[keys_row_latents].size()[0]
+    NUM_MOVIE_LATENTS = parameters[keys_col_latents].size()[1]
     wipe_caches()
 
 
