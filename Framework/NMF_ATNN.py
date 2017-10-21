@@ -1,11 +1,12 @@
-import time
-import pickle
-import numpy as np
 import os
+import pickle
+import time
 from functools import reduce
+
+import numpy as np
+from colorama import init, Fore
 from sklearn.utils import shuffle
 from utils import *
-from colorama import init, Fore
 
 init()
 
@@ -82,7 +83,8 @@ def get_pred_for_users(parameters, data, indices=None):
     row_size, col_size = data.shape
     # print(row_size,col_size)
     if indices is None:
-        indices = shuffle(list(zip(*data.nonzero()))[:1000])
+        indices = shuffle(list(zip(*data.nonzero())))[:1000]
+        print("Shuffling")
     # Generate predictions over each row
     full_predictions = {}
     for user_index, movie_index in indices:
@@ -295,8 +297,8 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 def dataCallback(data, test=None):
     return lambda params, iter, grad: print_perf(params, iter, grad, train=data, test=test)
 
-
     return map(lambda x: (x, np.sort(shuffle(row_first[x][get_items])[:rating_limit])), range)
+
 
 def print_perf(params, iter=0, gradient={}, train=None, test=None):
     """
@@ -306,13 +308,13 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None):
     print("iter is ", iter)
     if (iter % 10 != 0):
         return
-    #pickle our parameters
+    # pickle our parameters
     if os.path.exists(filename):
-      with open(filename, 'rb') as rfp: 
-        param_dict = pickle.load(rfp)
+        with open(filename, 'rb') as rfp:
+            param_dict = pickle.load(rfp)
     param_dict[iter] = params
     with open(filename, 'wb') as wfp:
-      pickle.dump(param_dict, wfp)
+        pickle.dump(param_dict, wfp)
 
     print("It took: {} s".format(time.time() - curtime))
     pred = inference(params, data=train, indices=shuffle(list(zip(*train.nonzero())))[:20000])
