@@ -19,7 +19,8 @@ train_mse_iters = []
 train_mse = []
 
 
-def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_batches=1, reg_alpha=.01):
+def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_batches=1, reg_alpha=.01,
+                  predictions=None):
     """
     Compute simplified version of squared loss with penalty on vector norms
 
@@ -37,7 +38,8 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     # Regularization Terms
 
     # generate predictions on specified indices with given parameters
-    predictions = inference(parameters, data=data, indices=indices)
+    if predictions is None:
+        predictions = inference(parameters, data=data, indices=indices)
     global hitcount
     print(hitcount)
     numel = len(predictions.keys())
@@ -252,7 +254,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     # return row_latent
     # Now we have all latents, prepare for concatenation
     MOVIELATENTCACHE[movie_index] = (
-    column_latent, recursion_depth)  # Cache the movie latent with the current recursion depth
+        column_latent, recursion_depth)  # Cache the movie latent with the current recursion depth
 
     return column_latent
 
@@ -298,12 +300,13 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None):
     """
     global curtime, hitcount, TRAININGMODE
     print("iter is ", iter)
-    if (iter%10 != 0):
-       return
+    if (iter % 10 != 0):
+        return
     print("It took: {} s".format(time.time() - curtime))
-    mae_result = mae(gt=train, pred=inference(params, data=train))
-    rmse_result = rmse(gt=train, pred=inference(params, train, indices=zip(*train.nonzero())))
-    loss_result = loss(parameters=params, data=train)
+    pred = inference(params, data=train, indices=shuffle(zip(*train.nonzero()))[:20000])
+    mae_result = mae(gt=train, pred=pred)
+    rmse_result = rmse(gt=train, pred=pred)
+    loss_result = loss(parameters=params, data=train, predictions=pred)
     print("MAE is", mae_result.data.cpu().numpy()[0])
     print("RMSE is ", rmse_result.data.cpu().numpy()[0])
     print("Loss is ", loss_result.data.cpu().numpy()[0])
