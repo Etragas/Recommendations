@@ -303,7 +303,7 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None):
     if (iter % 10 != 0):
         return
     print("It took: {} s".format(time.time() - curtime))
-    pred = inference(params, data=train, indices=shuffle(zip(*train.nonzero()))[:20000])
+    pred = inference(params, data=train, indices=shuffle(list(zip(*train.nonzero())))[:20000])
     mae_result = mae(gt=train, pred=pred)
     rmse_result = rmse(gt=train, pred=pred)
     loss_result = loss(parameters=params, data=train, predictions=pred)
