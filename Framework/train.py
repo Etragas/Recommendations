@@ -68,8 +68,6 @@ import torch.optim as optim
 #                       callback=dataCallback(train), iter_val=1)
 #
 #     return parameters
-from Framework import NMF_ATNN
-
 
 def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, parameters=None, p1=False, p1Args=[.001, 2,1],
           p2=False, p2Args=[.001, 2, 1], trainArgs=[.001, 2, 1], use_cache = False):
