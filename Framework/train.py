@@ -129,7 +129,6 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
 
         loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=.001)
         loss.backward()
-        # callback(parameters,iter,None)
         optimizer.step()  # Does the update
         callback(parameters,iter,None)
         if iter%10 == 0:
