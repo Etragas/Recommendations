@@ -66,7 +66,7 @@ import gc
 #                       callback=dataCallback(train), iter_val=1)
 #
 #     return parameters
-from Framework.NMF_ATNN import standard_loss, keys_col_latents, torch, Variable
+from Framework.NMF_ATNN import standard_loss, keys_col_latents, torch, Variable, dataCallback
 from Framework.utils import keys_rating_net, keys_row_latents
 import torch.optim as optim
 
@@ -119,14 +119,19 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
         else:
             for param in v.parameters():
                 paramsToOpt.append(param)
-    optimizer = optim.Adam(paramsToOpt, lr=0.001)
 
+    optimizer = optim.Adam(paramsToOpt, lr=0.005,weight_decay=.01)
+    callback = dataCallback(train_data, test_data)
     for iter in range(num_opt_passes):
 
         optimizer.zero_grad()  # zero the gradient buffers
+
         loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=.001)
+        # callback(parameters,iter,None)
         loss.backward()
         optimizer.step()  # Does the update
+        loss = standard_loss(parameters, iter, data=test_data, indices=zip(*test_data.nonzero()), reg_alpha=.001)
+
         #
         # print("Loss",loss)
         # print(loss.grad)

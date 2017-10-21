@@ -53,7 +53,7 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     # for reg,params in zip([.00001,.0001,.001],[canonicals,combiners,rating_net]):
     #     reg_loss = reg_loss + reg*np.square(flatten(params)[0]).sum() / float(num_proc)
     # # reg_loss = .0001 * canonicals
-    #reg_loss = reg_alpha * np.abs(flatten(parameters)[0]).sum() / float(num_proc)
+    # reg_loss = reg_alpha * np.abs(flatten(parameters)[0]).sum() / float(num_proc)
     reg_loss = 0
     return reg_loss+data_loss
 
@@ -75,10 +75,10 @@ def get_pred_for_users(parameters, data, indices=None):
     row_size, col_size = data.shape
     #print(row_size,col_size)
     if indices == None:
-        indices = list(zip(*data.nonzero()))
+        indices = shuffle(list(zip(*data.nonzero()))[:1000])
     #Generate predictions over each row
     full_predictions = {}
-    for user_index,movie_index in shuffle(indices):
+    for user_index,movie_index in indices:
         full_predictions[user_index,movie_index] = recurrent_inference(parameters, data, user_index, movie_index)
 
     return full_predictions
@@ -303,7 +303,7 @@ def print_perf(params, iter=0, gradient={}, train = None, test = None):
     #    return
     print("It took: {} s".format(time.time() - curtime))
     print("MAE is", mae(gt=train, pred=inference(params, train)))
-    print("RMSE is ", rmse(gt=train, pred=inference(params, train)))
+    print("RMSE is ", rmse(gt=train, pred=inference(params, train,indices=zip(*train.nonzero()))))
     print("Loss is ", loss(parameters=params, data=train))
     if (test):
         print("TEST")
@@ -401,10 +401,9 @@ def rmse(gt,pred, indices = None):
 
 def mae(gt,pred):
     val = 0
-    row_first = gt[keys_row_first]
-    for i in range(len(pred)):
-        val = val + abs(row_first[i][get_ratings] - pred[i]).sum()
-    val = val / sum([len(row[get_ratings]) for row in row_first])
+    for key in pred.keys():
+        val = val + abs(gt[key] - pred[key])
+    val = val / len(pred.keys())
     return val
 
 def getInferredMatrix(parameters, data):
@@ -420,6 +419,14 @@ def getInferredMatrix(parameters, data):
         ratings_high = data[keys_row_first][i][get_items]
         newarray[i, ratings_high] = inferred[i]
     return newarray
+
+def iterateParams(params):
+    for k,v in parameters.items():
+        if type(v) == Variable:
+            paramsToOpt.append(v)
+        else:
+            for param in v.parameters():
+                paramsToOpt.append(param)
 
 
 
