@@ -2,6 +2,8 @@ import sys
 from NMF_ATNN import *
 import numpy as np
 import gc
+from utils import keys_rating_net, keys_row_latents
+import torch.optim as optim
 # def pretrain_canon_and_rating(full_data, parameters, step_size, num_epochs, batches_per_epoch):
 #     '''
 #     Pretrains the canonical latents and the weights of the combiner net.
@@ -66,9 +68,6 @@ import gc
 #                       callback=dataCallback(train), iter_val=1)
 #
 #     return parameters
-from NMF_ATNN import standard_loss, keys_col_latents, torch, Variable, dataCallback
-from Framework.utils import keys_rating_net, keys_row_latents
-import torch.optim as optim
 
 
 def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, parameters=None, p1=False, p1Args=[.001, 2,1],
