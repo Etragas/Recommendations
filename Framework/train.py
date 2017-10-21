@@ -68,6 +68,7 @@ import torch.optim as optim
 #                       callback=dataCallback(train), iter_val=1)
 #
 #     return parameters
+from Framework import NMF_ATNN
 
 
 def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, parameters=None, p1=False, p1Args=[.001, 2,1],
@@ -119,7 +120,7 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
             for param in v.parameters():
                 paramsToOpt.append(param)
 
-    optimizer = optim.Adam(paramsToOpt, lr=0.003,weight_decay=.01)
+    optimizer = optim.Adam(paramsToOpt, lr=0.003,weight_decay=1)
     callback = dataCallback(train_data, test_data)
     for iter in range(num_opt_passes):
 
@@ -127,9 +128,10 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
         print("Train Performance")
 
         loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=.001)
-        # callback(parameters,iter,None)
         loss.backward()
+        # callback(parameters,iter,None)
         optimizer.step()  # Does the update
+        callback(parameters,iter,None)
         if iter%10 == 0:
             print("Test Performance")
             loss = standard_loss(parameters, iter, data=test_data, indices=zip(*test_data.nonzero()), reg_alpha=.001)
