@@ -27,11 +27,11 @@ full_data = full_data[:, cols]
 print(full_data.shape)
 nrows, ncols = full_data.shape
 
-num_user_latents = 20  # int(np.ceil(full_data.shape[0]))
-num_movie_latents = 20  # int(np.ceil(full_data.shape[1]))
+num_user_latents = 160  # int(np.ceil(full_data.shape[0]))
+num_movie_latents = 80  # int(np.ceil(full_data.shape[1]))
 
-print(utils.num_user_latents, utils.num_movie_latents)
-can_idx = get_canonical_indices(full_data, [utils.num_user_latents, utils.num_movie_latents])
+print(num_user_latents, num_movie_latents)
+can_idx = get_canonical_indices(full_data, [num_user_latents, num_movie_latents])
 
 # Resort data so that canonical users and movies are in top left
 full_data = full_data[:, can_idx[1]]
@@ -43,12 +43,8 @@ train_idx = test_idx = np.array([np.array(range(nrows)), np.array(range(ncols))]
 # Training Parameters
 step_size = 0.001
 num_users_per_batch = 100
-batches_per_epoch = int(np.ceil(float(nrows) / num_users_per_batch))
-batches_per_can_epoch = int(np.ceil(float(utils.num_user_latents) / num_users_per_batch))
 
 num_epochs = 40
-hyperp1 = [step_size * 10, 40, batches_per_can_epoch]
-hyperp2 = [step_size * 10, 40, batches_per_can_epoch]
 # hypert = [step_size, num_epochs, batches_per_epoch]
 hypert = [1, 1, 2]
 
@@ -64,6 +60,6 @@ y = parameters[keys_rating_net].forward(inputlatent)
 print(y)
 # Train the parameters.  Pretraining the nets and canon latents are optional.
 parameters = train(train_data, test_data, can_idx, train_idx, test_idx, parameters,
-                   p1=False, p1Args=hyperp1, p2=False, p2Args=hyperp2, trainArgs=hypert, use_cache=False)
+                   p1=False,  p2=False, trainArgs=hypert, use_cache=False)
 filename = "final_trained_parameters.pkl"
 pickle.dump(parameters, open(filename, 'wb'))
