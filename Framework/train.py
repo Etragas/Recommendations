@@ -4,6 +4,7 @@ import numpy as np
 import gc
 from utils import keys_rating_net, keys_row_latents
 import torch.optim as optim
+
 # def pretrain_canon_and_rating(full_data, parameters, step_size, num_epochs, batches_per_epoch):
 #     '''
 #     Pretrains the canonical latents and the weights of the combiner net.
@@ -118,7 +119,7 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
             for param in v.parameters():
                 paramsToOpt.append(param)
 
-    optimizer = optim.Adam(paramsToOpt, lr=.05,weight_decay=0)
+    optimizer = optim.Adam(paramsToOpt, lr=.001,weight_decay=0.001)
     callback = dataCallback(train_data, test_data)
     for iter in range(num_opt_passes):
 

@@ -48,17 +48,15 @@ class RatingGeneratorNet(nn.Module):
         self.fc1 = nn.Linear(user_latent_size + movie_latent_size, 400)
         self.fc2 = nn.Linear(400, 200)
         self.fc3 = nn.Linear(200, 100)
-        self.fc4 = nn.Linear(100, 100)
-        self.fc5 = nn.Linear(100, 50)
-        self.fc6 = nn.Linear(50, 1)
+        self.fc4 = nn.Linear(100, 50)
+        self.fc5 = nn.Linear(50, 1)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
         x = F.relu(self.fc4(x))
-        x = F.relu(self.fc5(x))
-        x = self.fc6(x)
+        x = self.fc5(x)
         return x
 
 def build_params(num_user_latents=20,num_movie_latents=20):
