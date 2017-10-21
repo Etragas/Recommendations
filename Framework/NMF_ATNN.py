@@ -1,9 +1,9 @@
 import time
-from threading import Lock
 from functools import reduce
-from utils import *
-from sklearn.utils import shuffle
+
 import numpy as np
+from sklearn.utils import shuffle
+from utils import *
 
 """
 Initialize all non-mode-specific parameters
