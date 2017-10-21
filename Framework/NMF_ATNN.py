@@ -40,7 +40,7 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     numel = len(predictions.keys())
 
     data_loss = numel*torch.pow(rmse(data,predictions,indices),2)
-    print("RMSE is",rmse(data,predictions,indices))
+    #print("RMSE is",rmse(data,predictions,indices))
     # canonicals = [parameters[keys_col_latents],parameters[keys_row_latents]]
     combiners = [parameters[keys_movie_to_user_net],parameters[keys_user_to_movie_net]]
     rating_net = parameters[keys_rating_net]
@@ -297,39 +297,54 @@ def print_perf(params, iter=0, gradient={}, train = None, test = None):
     #if (iter%10 != 0):
     #    return
     print("It took: {} s".format(time.time() - curtime))
-    print("MAE is", mae(gt=train, pred=inference(params, train)))
-    print("RMSE is ", rmse(gt=train, pred=inference(params, train,indices=zip(*train.nonzero()))))
-    print("Loss is ", loss(parameters=params, data=train))
-    if (test):
-        print("TEST")
-        test_idx = get_indices_from_range(range(len(test[keys_row_first])),test[keys_row_first])
-        print("Test RMSE is ", rmse(gt=test,pred=inference(params,train,indices=test_idx), indices=test_idx))
-    for key in gradient.keys():
-        x = gradient[key]
-        print(key)
-        print(np.square(flatten(x)[0]).sum() / flatten(x)[0].size)
-        print(np.median(abs(flatten(x)[0])))
+    mae_result = mae(gt=train, pred=inference(params, data=train))
+    rmse_result = rmse(gt=train, pred=inference(params, train,indices=zip(*train.nonzero())))
+    loss_result = loss(parameters=params, data=train)
+    print("MAE is", mae_result.data.cpu().numpy()[0])
+    print("RMSE is ", rmse_result.data.cpu().numpy()[0])
+    print("Loss is ", loss_result.data.cpu().numpy()[0])
+    if (test is not None):
+        print("Printing performance for test:")
+        test_indices = zip(*test.nonzero())
+        test_rmse_result = rmse(gt=test, pred=inference(params, train, indices=test_indices), indices=test_indices)
+        print("Test RMSE is ", (test_rmse_result.data).cpu().numpy()[0])
+    for k,v in params.items():
+        if type(v) == Variable:
+            print("Latent Variable Gradient Analytics")
+            flattened = v.grad.view(v.grad.nelement())
+            avg_square = torch.sum(torch.pow(v.grad, 2)) / flattened.size()[0]
+            median = torch.median(torch.abs(flattened))
+            print("average of squares is: ", avg_square.data.numpy()[0])
+            print("median is: ", median.data.numpy()[0])
+        else:
+            print("Neural Net Variable Gradient Analytics")
+            for param in v.parameters():
+              flattened = param.grad.view(param.grad.nelement())
+              avg_square = torch.sum(torch.pow(param.grad, 2)) / flattened.size()[0]
+              median = torch.median(torch.abs(flattened))
+              print("average of squares is: ", avg_square.data.numpy()[0])
+              print("median is: ", median.data.numpy()[0])
+
     print("Hitcount is: ", hitcount, sum(hitcount))
+
     curtime = time.time()
-
-    mse = rmse(gt=train, pred=inference(params, train))
-     #p1 is for graphing pretraining rating nets and canonical latents
-    train_mse.append(mse)
+    train_mse.append(rmse_result.data.numpy()[0])
     train_mse_iters.append(iter)
-
-    plt.scatter(train_mse_iters, train_mse, color='black')
-
-    plt.plot(train_mse_iters, train_mse)
-    plt.title('MovieLens 100K Performance (with pretraining)')
-    plt.xlabel('Iterations')
-    plt.ylabel('RMSE')
-    plt.draw()
-    plt.pause(0.001)
     if len(train_mse)%10 == 0:
-      #End the plotting with a raw input
-      plt.savefig('finalgraph.png')
-      print("Final Total Performance: ", train_mse)
+      print("Performance Update (every 10 iters): ", train_mse)
 
+    #plt.scatter(train_mse_iters, train_mse, color='black')
+
+    #plt.plot(train_mse_iters, train_mse)
+    #plt.title('MovieLens 100K Performance (with pretraining)')
+    #plt.xlabel('Iterations')
+    #plt.ylabel('RMSE')
+    #plt.draw()
+    #plt.pause(0.001)
+    #if len(train_mse)%10 == 0:
+    #  #End the plotting with a raw input
+    #  plt.savefig('finalgraph.png')
+    #  print("Final Total Performance: ", train_mse)
 
 def get_candidate_latents(all_items, all_ratings, split = None):
     can_items, can_ratings = all_items[:split], all_ratings[:split]
@@ -397,7 +412,7 @@ def rmse(gt,pred, indices = None):
 def mae(gt,pred):
     val = 0
     for key in pred.keys():
-        val = val + abs(gt[key] - pred[key])
+        val = val + torch.abs(pred[key] - gt[key])
     val = val / len(pred.keys())
     return val
 
