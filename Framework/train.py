@@ -66,7 +66,7 @@ import gc
 #                       callback=dataCallback(train), iter_val=1)
 #
 #     return parameters
-from Framework.NMF_ATNN import standard_loss, keys_col_latents, torch, Variable, dataCallback
+from NMF_ATNN import standard_loss, keys_col_latents, torch, Variable, dataCallback
 from Framework.utils import keys_rating_net, keys_row_latents
 import torch.optim as optim
 

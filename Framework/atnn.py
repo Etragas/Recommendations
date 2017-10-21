@@ -8,9 +8,9 @@ from train import *
 # full_data = DataLoader().LoadData(file_path="../Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
 # full_data = DataLoader().LoadData(file_path="../Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
 # full_data = DataLoader().LoadData(file_path="../Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
-from Framework.DataLoader import DataLoader
-from Framework.train import train
-from Framework.utils import build_params, keys_rating_net, keys_row_latents, keys_col_latents, get_canonical_indices, \
+from DataLoader import DataLoader
+from train import train
+from utils import build_params, keys_rating_net, keys_row_latents, keys_col_latents, get_canonical_indices, \
     splitData
 
 full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS, size= (1200,2000))
