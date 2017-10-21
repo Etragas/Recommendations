@@ -298,8 +298,8 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None):
     """
     global curtime, hitcount, TRAININGMODE
     print("iter is ", iter)
-    # if (iter%10 != 0):
-    #    return
+    if (iter%10 != 0):
+       return
     print("It took: {} s".format(time.time() - curtime))
     mae_result = mae(gt=train, pred=inference(params, data=train))
     rmse_result = rmse(gt=train, pred=inference(params, train, indices=zip(*train.nonzero())))
