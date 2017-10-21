@@ -120,17 +120,20 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
             for param in v.parameters():
                 paramsToOpt.append(param)
 
-    optimizer = optim.Adam(paramsToOpt, lr=0.005,weight_decay=.01)
+    optimizer = optim.Adam(paramsToOpt, lr=0.003,weight_decay=.01)
     callback = dataCallback(train_data, test_data)
     for iter in range(num_opt_passes):
 
         optimizer.zero_grad()  # zero the gradient buffers
+        print("Train Performance")
 
         loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=.001)
         # callback(parameters,iter,None)
         loss.backward()
         optimizer.step()  # Does the update
-        loss = standard_loss(parameters, iter, data=test_data, indices=zip(*test_data.nonzero()), reg_alpha=.001)
+        if iter%10 == 0:
+            print("Test Performance")
+            loss = standard_loss(parameters, iter, data=test_data, indices=zip(*test_data.nonzero()), reg_alpha=.001)
 
         #
         # print("Loss",loss)
