@@ -73,7 +73,7 @@ import torch.optim as optim
 #     return parameters
 
 def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, parameters=None, p1=False, p1Args=[.001, 2,1],
-          p2=False, p2Args=[.001, 2, 1], trainArgs=[.001, 2, 1], use_cache = False):
+          p2=False, p2Args=[.001, 2, 1], trainArgs=[.001, 2, 1], use_cache = False, optimizer = None, epoch = 0):
     '''
     Trains ALL THE THINGS.  Also optionally performs pretraining on the canonicals, rating net weights, rowless net weights, and
     columnless weights.  Prints out the train and test results upon terminination.
@@ -115,25 +115,26 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     # cudnn.benchmark = True
     # torch.backends.cudnn.benchmark = True
     print(train_data.shape)
-    paramsToOpt = []
-    for k,v in parameters.items():
-        if type(v) == Variable:
-            paramsToOpt.append(v)
-        else:
-            for param in v.parameters():
-                paramsToOpt.append(param)
+    if optimizer is None:
+        paramsToOpt = []
+        for k,v in parameters.items():
+            if type(v) == Variable:
+                paramsToOpt.append(v)
+            else:
+                for param in v.parameters():
+                    paramsToOpt.append(param)
 
-    optimizer = optim.Adam(paramsToOpt, lr=.0003,weight_decay=0.0001)
+        optimizer = optim.Adam(paramsToOpt, lr=.0001,weight_decay=0.00001)
     callback = dataCallback(train_data, test_data)
     for iter in range(num_opt_passes):
-
+        iter = iter+epoch
         # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
         # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
         # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
         optimizer.zero_grad()  # zero the gradient buffers
-        loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=.001)
+        loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=.1)
         loss.backward()
-        clip_grads(paramsToOpt,clip=1)
+        # clip_grads(paramsToOpt,clip=1)
         optimizer.step()  # Does the update
         callback(parameters,iter,None, optimizer = optimizer)
 

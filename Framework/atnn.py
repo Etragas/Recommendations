@@ -1,10 +1,19 @@
 import pickle
+import string
 
 import numpy as np
 import mkl
 import os
 import subprocess
+import argparse
 
+from sortedcollections import OrderedDict
+
+parser = argparse.ArgumentParser(description='Handle preivous files')
+parser.add_argument('file', metavar='File path', nargs='?',
+                   help='Use  a file for weights')
+args = parser.parse_args()
+print(args.file)
 import numpy as np
 mkl.set_num_threads(4)
 os.environ['OMP_NUM_THREADS'] = '{:d}'.format(4)
@@ -58,13 +67,23 @@ num_users_per_batch = 100
 num_epochs = 40
 # hypert = [step_size, num_epochs, batches_per_epoch]
 hypert = [1, 1, 2]
-
+optimizer = None
+epoch = 0
 # Build the dictionary of parameters for the nets, etc.
-parameters = build_params(num_user_latents, num_movie_latents)
+if args.file:
+    filename = args.file
+    new_state_dict = OrderedDict()
+    state_dict = torch.load(filename)
+    parameters = state_dict['params']
+    optimizer = state_dict['optimizer']
+    epoch = state_dict['epoch']
+    "pre-trained epoch number: {}".format(epoch)
+else:
+    parameters = build_params(num_user_latents, num_movie_latents)
 # y = parameters[keys_rating_net].forward(inputlatent)
 # print(y)
 # Train the parameters.  Pretraining the nets and canon latents are optional.
-parameters = train(train_data, test_data, can_idx, train_idx, test_idx, parameters,
-                   p1=False,  p2=False, trainArgs=hypert, use_cache=False)
+parameters = train(train_data, test_data, can_idx, train_idx, test_idx, parameters=parameters,
+                   p1=False,  p2=False, trainArgs=hypert, use_cache=False, optimizer = optimizer, epoch = epoch)
 filename = "final_trained_parameters.pkl"
 pickle.dump(parameters, open(filename, 'wb'))

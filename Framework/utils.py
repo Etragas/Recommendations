@@ -33,11 +33,11 @@ class GeneratorNet(nn.Module):
         self.fc6 = nn.Linear(1000, latent_size)
 
     def forward(self, x):
-        x = F.relu(self.fc1(x)) #self.bn1(
-        x = F.relu(self.fc2(x)) #self.bn2(
-        x = F.relu(self.fc3(x)) #self.bn3(
-        x = F.relu(self.fc4(x)) #self.bn4(
-        x = F.relu(self.fc5(x)) #self.bn5(
+        x = F.leaky_relu(self.fc1(x)) #self.bn1(
+        x = F.leaky_relu(self.fc2(x)) #self.bn2(
+        x = F.leaky_relu(self.fc3(x)) #self.bn3(
+        x = F.leaky_relu(self.fc4(x)) #self.bn4(
+        x = F.leaky_relu(self.fc5(x)) #self.bn5(
         x = self.fc6(x)
         return x
 
@@ -55,24 +55,15 @@ class RatingGeneratorNet(nn.Module):
         #self.bn4 = torch.nn.BatchNorm1d(2000)
         self.fc5 = nn.Linear(2000, 2000)
         #self.bn5 = torch.nn.BatchNorm1d(2000)
-        self.fc6 = nn.Linear(2000, 1000)
-        #self.bn6 = torch.nn.BatchNorm1d(1000)
-        self.fc7 = nn.Linear(1000, 500)
-        #self.bn7 = torch.nn.BatchNorm1d(500)
-        self.fc8 = nn.Linear(500, 250)
-        #self.bn8 = torch.nn.BatchNorm1d(250)
-        self.fc9 = nn.Linear(250,1)
+        self.fc6 = nn.Linear(2000, 1)
 
     def forward(self, x):
-        x = F.relu(self.fc1(x)) #self.bn1(
-        x = F.relu(self.fc2(x)) #self.bn2(
-        x = F.relu(self.fc3(x)) #self.bn3(
-        x = F.relu(self.fc4(x)) #self.bn4(
-        x = F.relu(self.fc5(x)) #self.bn5(
-        x = F.relu(self.fc6(x)) #self.bn6(
-        x = F.relu(self.fc7(x)) #self.bn7(
-        x = F.relu(self.fc8(x)) #self.bn8(
-        x = self.fc9(x)
+        x = F.leaky_relu(self.fc1(x)) #self.bn1(
+        x = F.leaky_relu(self.fc2(x)) #self.bn2(
+        x = F.leaky_relu(self.fc3(x)) #self.bn3(
+        x = F.leaky_relu(self.fc4(x)) #self.bn4(
+        x = F.leaky_relu(self.fc5(x)) #self.bn5(
+        x = self.fc6(x) #self.bn6(
         return x
 
 def build_params(num_user_latents=20,num_movie_latents=20):
