@@ -64,7 +64,8 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     # rating_net = parameters[keys_rating_net]
     # reg_loss = 0
 
-    reg_loss = reg_alpha*meanDiff(parameters)
+    reg_loss = reg_alpha*momentDiff(parameters,torch.mean)
+    reg_loss += reg_alpha*momentDiff(parameters,torch.var)
     # for reg,params in zip([.00001,.0001,.001],[canonicals,combiners,rating_net]):
     #     reg_loss = reg_loss + reg*np.square(flatten(params)[0]).sum() / float(num_proc)
     # # reg_loss = .0001 * canonicals
@@ -90,7 +91,7 @@ def get_pred_for_users(parameters, data, indices=None, training_mode = False):
     row_size, col_size = data.shape
     # print(row_size,col_size)
     if indices is None:
-        indices = shuffle(list(zip(*data.nonzero())))[:250]
+        indices = shuffle(list(zip(*data.nonzero())))[:300]
         print("Shuffling")
     # Generate predictions over each row
     full_predictions = {}
@@ -360,8 +361,8 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, optimizer=Non
             flattened = v.grad.view(v.grad.nelement())
             avg_square = torch.sum(torch.pow(v.grad, 2)) / flattened.size()[0]
             median = torch.median(torch.abs(flattened))
-            print("average of squares is: ", avg_square.data[0])
-            print("median is: ", median.data[0])
+            print("\t average of squares is: ", avg_square.data[0])
+            print("\t median is: ", median.data[0])
         else:
             print("Neural Net Variable Gradient Analytics")
             for param in v.parameters():
@@ -371,8 +372,8 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, optimizer=Non
                 flattened = param.grad.view(param.grad.nelement())
                 avg_square = torch.sum(torch.pow(param.grad, 2)) / flattened.size()[0]
                 median = torch.median(torch.abs(flattened))
-                print("average of squares is: ", avg_square.data[0])
-                print("median is: ", median.data[0])
+                print("\t average of squares is: ", avg_square.data[0])
+                print("\t median is: ", median.data[0])
 
     print("Hitcount is: ", hitcount, sum(hitcount))
     if (iter % 20 == 0):
@@ -516,21 +517,22 @@ def iterateParams(params):
             for param in v.parameters():
                 paramsToOpt.append(param)
 
-def meanDiff(parameters):
+def momentDiff(parameters,momentFn):
     colLatents = parameters[keys_col_latents]
     rowLatents = parameters[keys_row_latents]
     colLatntWithRating = torch.cat(
         (colLatents, Variable(3.3 * torch.FloatTensor(torch.ones((1, colLatents.size()[1]))).type(dtype))), dim=0)
     rowLatentsWithRating = torch.cat(
         (rowLatents, Variable(3.3 * torch.FloatTensor(torch.ones((rowLatents.size()[0], 1))).type(dtype))), dim=1)
-    averagePredRow = torch.mean(parameters[keys_movie_to_user_net].forward(torch.t(colLatntWithRating)), dim=1)
-    averagePredCol = torch.mean(parameters[keys_user_to_movie_net].forward(rowLatentsWithRating), dim=1)
-    averageRow = torch.mean(rowLatents, dim=1)
-    averageCol = torch.mean(colLatents, dim=0)
+    averagePredRow = momentFn(parameters[keys_movie_to_user_net].forward(torch.t(colLatntWithRating)), dim=1)
+    averagePredCol = momentFn(parameters[keys_user_to_movie_net].forward(rowLatentsWithRating), dim=1)
+    averageRow = momentFn(rowLatents, dim=1)
+    averageCol = momentFn(colLatents, dim=0)
     meanDiffCol = torch.sum(torch.pow(averageCol - averagePredCol, 2))
     meanDiffRow = torch.sum(torch.pow(averageRow - averagePredRow, 2))
     print("Mean Diff Col {} and Mean Diff Row {}".format(meanDiffCol,meanDiffRow))
     meanDiff = (meanDiffCol + meanDiffRow)
+
     return meanDiff
 
 rowLatents = 0
