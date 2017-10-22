@@ -1,4 +1,6 @@
 import sys
+
+from pytorch.tools.setup_helpers import cudnn
 from NMF_ATNN import *
 import numpy as np
 import gc
@@ -110,6 +112,8 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
 
     param_to_opt = [[key for key in parameters]]
     num_opt_passes = 1000
+    # cudnn.benchmark = True
+    # torch.backends.cudnn.benchmark = True
     print(train_data.shape)
     paramsToOpt = []
     for k,v in parameters.items():
@@ -119,20 +123,18 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
             for param in v.parameters():
                 paramsToOpt.append(param)
 
-    optimizer = optim.Adam(paramsToOpt, lr=.001,weight_decay=0.001)
+    optimizer = optim.Adam(paramsToOpt, lr=.001,weight_decay=0.0001)
     callback = dataCallback(train_data, test_data)
     for iter in range(num_opt_passes):
 
+        # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
+        # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
+        # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
         optimizer.zero_grad()  # zero the gradient buffers
-        print("Train Performance")
-
         loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=.001)
         loss.backward()
         optimizer.step()  # Does the update
-        callback(parameters,iter,None)
-        if iter%10 == 0:
-            print("Test Performance")
-            loss = standard_loss(parameters, iter, data=test_data, indices=zip(*test_data.nonzero()), reg_alpha=.001)
+        callback(parameters,iter,None, optimizer = optimizer)
 
         #
         # print("Loss",loss)
