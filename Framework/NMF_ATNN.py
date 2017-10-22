@@ -4,11 +4,14 @@ import time
 from functools import reduce
 
 import numpy as np
+import shutil
 import torch
 from sklearn.utils import shuffle
 from utils import *
+import copy
 
 from utils import keys_row_latents, keys_col_latents
+from multiprocessing import Pool
 
 from utils import keys_rating_net
 
@@ -320,24 +323,22 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 def dataCallback(data, test=None):
     return lambda params, iter, grad, optimizer: print_perf(params, iter, grad, train=data, test=test, optimizer = optimizer)
 
+def writeData(paramsAndIter):
+    params, iteration = paramsAndIter
+    with open(r"Weights/NetWeightsIter{}.pkl".format(iteration), "wb") as output_file:
+        pickle.dump(params, output_file)
+
 
 def print_perf(params, iter=0, gradient={}, train=None, test=None, optimizer=None):
     """
     Prints the performance of the model
     """
-    global curtime, hitcount, TRAININGMODE, filename, param_dict, VOLATILE
+    global curtime, hitcount, TRAININGMODE, filename, param_dict, VOLATILE, BESTPREC
     print("iter is ", iter)
     if (iter % 10 != 0):
         return
     VOLATILE = True
     TRAININGMODE = True
-    # pickle our parameters
-    # if os.path.exists(filename):
-    #     with open(filename, 'rb') as rfp:
-    #         param_dict = pickle.load(rfp)
-    # param_dict[iter] = params
-    # with open(filename+str(iter), 'wb') as wfp:
-    #     pickle.dump(params, wfp)
 
     print("It took: {} s".format(time.time() - curtime))
     pred = inference(params, data=train, indices=shuffle(list(zip(*train.nonzero())))[:5000])
@@ -378,6 +379,21 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, optimizer=Non
                 print("median is: ", median.data[0])
 
     print("Hitcount is: ", hitcount, sum(hitcount))
+    if (iter % 20 == 0):
+        is_best = False
+        if test_rmse_result.data[0] < BESTPREC:
+            BESTPREC = test_rmse_result
+            is_best = True
+        save_checkpoint({
+            'epoch': iter+ 1,
+            'params': params,
+            'best_prec1': test_rmse_result,
+            'optimizer' : optimizer,
+        }, is_best)
+        # fd = os.open("filename", os.O_CREAT | os.O_WRONLY | os.O_NONBLOCK)
+        with open(r"Weights/NetWeightsIter{}.pkl".format(iter), "wb") as output_file:
+            torch.save(params,output_file)
+
     VOLATILE = False
     TRAININGMODE = True
     curtime = time.time()
@@ -407,6 +423,11 @@ def get_candidate_latents(all_items, all_ratings, split=None):
     items, ratings = list(can_items) + list(rec_items), list(can_ratings) + list(rec_ratings)
     return items, ratings
 
+#Stolen from Mamy Ratsimbazafy
+def save_checkpoint(state, is_best, filename='Weights/checkpoint.pth.tar'):
+    torch.save(state, filename)
+    if is_best:
+        shutil.copyfile(filename, 'Weights/model_best.pth.tar')
 
 def setup_caches(data,parameters):
     global NUM_USERS, NUM_MOVIES, NUM_USER_LATENTS, NUM_MOVIE_LATENTS
@@ -515,4 +536,5 @@ USERLATENTCACHE = [None] * NUM_USERS
 MOVIELATENTCACHE = [None] * NUM_MOVIES
 USERLATENTCACHEPRIME = [None] * NUM_USERS
 MOVIELATENTCACHEPRIME = [None] * NUM_MOVIES
+BESTPREC = 100
 VOLATILE = False
