@@ -28,7 +28,7 @@ print("Threads",torch.set_num_threads(4))
 print("Threads",torch.get_num_threads())
 print(np.mean(np.sum(full_data > 0, axis=1)))  # Check average ratings per user
 # Reduce the matrix to toy size
-#full_data = full_data[:100,:100]
+# full_data = full_data[:100,:100]
 rows = [x for x in range((full_data.shape[0])) if full_data[x, :].sum() > 0]
 cols = [x for x in range((full_data.shape[1])) if full_data[:, x].sum() > 0]
 full_data = full_data[rows, :]

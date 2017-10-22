@@ -61,11 +61,7 @@ class RatingGeneratorNet(nn.Module):
         #self.bn7 = torch.nn.BatchNorm1d(500)
         self.fc8 = nn.Linear(500, 250)
         #self.bn8 = torch.nn.BatchNorm1d(250)
-        self.fc9 = nn.Linear(250, 125)
-        #self.bn9 = torch.nn.BatchNorm1d(125)
-        self.fc10 = nn.Linear(125, 50)
-        #self.bn10 = torch.nn.BatchNorm1d(50)
-        self.fc11 = nn.Linear(50, 1)
+        self.fc9 = nn.Linear(250,1)
 
     def forward(self, x):
         x = F.relu(self.fc1(x)) #self.bn1(
@@ -76,9 +72,7 @@ class RatingGeneratorNet(nn.Module):
         x = F.relu(self.fc6(x)) #self.bn6(
         x = F.relu(self.fc7(x)) #self.bn7(
         x = F.relu(self.fc8(x)) #self.bn8(
-        x = F.relu(self.fc9(x)) #self.bn9(
-        x = F.relu(self.fc10(x)) #self.bn10(
-        x = self.fc11(x)
+        x = self.fc9(x)
         return x
 
 def build_params(num_user_latents=20,num_movie_latents=20):
