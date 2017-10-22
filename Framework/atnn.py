@@ -38,8 +38,8 @@ d = np.add(1,2)
 print(full_data.shape)
 nrows, ncols = full_data.shape
 
-num_user_latents = 160  # int(np.ceil(full_data.shape[0]))
-num_movie_latents = 160  # int(np.ceil(full_data.shape[1]))
+num_user_latents = 150  # int(np.ceil(full_data.shape[0]))
+num_movie_latents = 150 # int(np.ceil(full_data.shape[1]))
 
 print(num_user_latents, num_movie_latents)
 can_idx = get_canonical_indices(full_data, [num_user_latents, num_movie_latents])
