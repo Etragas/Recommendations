@@ -133,6 +133,7 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
         optimizer.zero_grad()  # zero the gradient buffers
         loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=.001)
         loss.backward()
+        clip_grads(paramsToOpt,clip=1)
         optimizer.step()  # Does the update
         callback(parameters,iter,None, optimizer = optimizer)
 
@@ -164,7 +165,11 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
 
     return parameters
 
-
+def clip_grads(params,clip=5):
+    for v in params:
+        if (v.grad is None):
+            continue
+        v.grad.data.clamp_(-clip,clip)
 
 # def adam(grad, init_params, callback=None, num_iters=100,
 #          step_size=0.001, b1=0.9, b2=0.999, eps=10**-8, iter_val = 1):

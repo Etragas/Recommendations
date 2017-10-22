@@ -1,0 +1,266 @@
+[33mcommit f299887914747c00bd056f5799634501beb72900[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Thu Apr 6 21:09:39 2017 -0400
+
+    Changed attn
+
+[33mcommit 1fcfde731fe83f08a7b775964022bdc1ea134fc3[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Thu Apr 6 19:29:12 2017 -0400
+
+    Loss is now normalized
+
+[33mcommit 6be4f419d96235d09817beaae19777b8aa2a43b9[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Tue Apr 4 02:15:46 2017 -0400
+
+    Added data preproc
+
+[33mcommit 47e86ea053b121bc32e6290b23b0d2ba5a4af006[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Fri Mar 31 23:28:43 2017 -0400
+
+    Pools no longer respun on each loop, now more stable.
+
+[33mcommit 6ab418f32052a06fee6c22c242e8017f29576a3b[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Fri Mar 31 21:49:41 2017 -0400
+
+    Fixed ridiculous bug
+
+[33mcommit 91e014ced9f1a9492420cdb90c8a75d5716e2fe0[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Fri Mar 31 21:44:02 2017 -0400
+
+    Multiprocessing works
+
+[33mcommit 5e8b558338592af36023bdaa3ea29ef9f062f79d[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Fri Mar 31 17:31:57 2017 -0400
+
+    Multiproc
+
+[33mcommit a6aeb62dac4d55e9fff341a77c416819329e3dfb[m
+Author: Elias Tragas <tragas@cluster1.ais.sandbox>
+Date:   Thu Mar 30 23:57:06 2017 -0400
+
+    changed some hyperparameters
+
+[33mcommit 3c94a2af9ef9668dbe994172acdd8c5ef0a4045b[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Thu Mar 30 23:10:12 2017 -0400
+
+    changed training
+
+[33mcommit 22f5bd8da2ee038eec062fc92c0458907e333645[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Thu Mar 30 22:52:02 2017 -0400
+
+    Cleverness
+
+[33mcommit 46b2f0dad8a23b725fb82fe36abdc334a90f5393[m
+Author: Elias Tragas <tragas@cluster1.ais.sandbox>
+Date:   Thu Mar 30 21:22:28 2017 -0400
+
+    Implemented canonical set v1
+
+[33mcommit 8ce091cde8528ab785a23caab97ece055b8d951f[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Wed Mar 29 21:31:35 2017 -0400
+
+    Real smooth empty list
+
+[33mcommit add40f3f60c87f535e1de2f369ceefa978453bab[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Wed Mar 29 21:30:20 2017 -0400
+
+    Cleaned up code, added caller id as set
+
+[33mcommit b3893a94ed676fbffa737d1dabe15ba289b831bc[m
+Merge: 630c582 d1d22a1
+Author: Elias Tragas <elias.tragas@mail.utoronto.ca>
+Date:   Wed Mar 29 20:07:59 2017 -0400
+
+    Merge pull request #3 from Etragas/baseline_ro
+    
+    Reverted
+
+[33mcommit d1d22a1b0a9a0627b8a1615423a203b6f2f81cc8[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Wed Mar 29 18:04:43 2017 -0400
+
+    Reverted
+
+[33mcommit 630c582db8561aaef6e3e44785d4d51bbfe5d489[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Wed Mar 29 17:55:59 2017 -0400
+
+    Parameters now use dictionary, fancy gradient printing added
+
+[33mcommit 43eb5f2ffe4f413a7cf3c1de19c36d50b8b49e91[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Wed Mar 29 17:46:16 2017 -0400
+
+    Rowless / Columnless v1 working
+
+[33mcommit fd11aa674c85e67f231b67a3d985f48116e2c3c6[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Tue Mar 28 18:34:02 2017 -0400
+
+    Double net implemented
+
+[33mcommit 8247f3faa0a5b13c0e551cec1bd9eab01652b38e[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Tue Mar 28 17:23:14 2017 -0400
+
+    Removed Object oriented design from NMF_ATTN class
+
+[33mcommit fc521908527dd2400a7abd17a7ab4ab709f9161b[m
+Merge: 802d1d8 3caf247
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Tue Mar 28 00:23:11 2017 -0400
+
+    Merge branch 'atnn_fix'
+    Implementations of NMF_ATNN
+
+[33mcommit 802d1d8033296e6514a72fe779a452bb6de2a311[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Tue Mar 28 00:23:01 2017 -0400
+
+    Deleted dir
+
+[33mcommit 3caf2478b7a6e65289f93fe3f552babdf27ea7f0[m
+Merge: 354b5fc 79d3352
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Tue Mar 28 00:19:38 2017 -0400
+
+    Merged with master
+
+[33mcommit 79d335286224e6737763220625eb960435aa5756[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Tue Mar 28 00:16:52 2017 -0400
+
+    Renamed dir
+
+[33mcommit 354b5fc8311ed98a99ba13f8103963bc721aa60c[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Tue Mar 28 00:15:14 2017 -0400
+
+    Reimplemented softmax, cleaned up all code
+
+[33mcommit 500ed4a5536a5b914226aaf3f7a97aa7c0354d69[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Mon Mar 27 22:53:26 2017 -0400
+
+    Model works fully, still cleaning up
+
+[33mcommit 2077f0c08941a7970839387224f3a329261d30a3[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Tue Mar 21 17:00:07 2017 -0400
+
+    Halved time
+
+[33mcommit 63b572530fc2c83328c4fc8d3bdc0682552787a6[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Wed Mar 15 23:58:39 2017 -0400
+
+    More testing, added alternating optimization
+
+[33mcommit 29eb8e5033d20456ba2e8a540da8dc245a8eac29[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Wed Mar 15 02:02:40 2017 -0400
+
+    Increased minor change to code runs otu of box, made inference work with any size input
+
+[33mcommit 68bf38b179879e7b84f84ea55a1e27bbc2dcc538[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Wed Mar 15 01:56:31 2017 -0400
+
+    Debugging atnn slowness
+
+[33mcommit 7f311d5694bfa8eb06c125149eff64d2a5538a5f[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Tue Mar 14 14:53:55 2017 -0400
+
+    Minor changes to NMF_ATNN.py
+
+[33mcommit e6ba018018a42fb077bd16e4db4d20c8697dd6d1[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Tue Mar 14 14:42:34 2017 -0400
+
+    It works, but is a monster, kill it now please
+
+[33mcommit 23fc00e7fe0ebc3d06fb53777677f45ea474a20d[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Tue Mar 14 02:18:48 2017 -0400
+
+    Training sort of
+
+[33mcommit 9e559063708f6162aa7788692990ca8495da978c[m
+Merge: 31e64fb 8ac610b
+Author: Elias Tragas <elias.tragas@mail.utoronto.ca>
+Date:   Tue Mar 14 01:00:15 2017 -0400
+
+    Merge pull request #1 from calvinluo/master
+    
+    added attention rowless neural network
+
+[33mcommit 8ac610b29060d1b6910beb942576c84cd2e2d32b[m
+Author: Calvin Luo <Calvin@Calvins-MacBook-Pro.local>
+Date:   Tue Mar 14 00:58:22 2017 -0400
+
+    added attention rowless neural network
+
+[33mcommit 31e64fbebd5baa64114e32d34f22dcb919f30da3[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Mon Mar 13 23:24:36 2017 -0400
+
+    Generalized loss to arbitrary parameters, NNloss removed due to redundancy
+
+[33mcommit 9424c1dc5fbd0e2370248e000c7b886a7e233242[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Mon Mar 13 21:57:12 2017 -0400
+
+    Test data now works for normal NMF
+
+[33mcommit cff86013e56242a363f86d6485035099b2b2e02c[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Mon Mar 13 21:21:12 2017 -0400
+
+    Added Neural net MF
+
+[33mcommit 67fa43cf4f296c79a0eef9f018344776256893ae[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Tue Mar 7 01:04:15 2017 -0500
+
+    Added support for rowless inference, but is bad
+
+[33mcommit 757945a02aac628da4f2b610edcc6b9ea4ab7279[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Mon Mar 6 23:37:21 2017 -0500
+
+    Working batch learning, cleaned up code with comment
+
+[33mcommit 96f3b1d00d471992b7798ad036200b0f9dc222ab[m
+Author: Ialyos <etragas@gmail.com>
+Date:   Mon Mar 6 19:43:49 2017 -0500
+
+    Added autograd support and nmf impl
+
+[33mcommit 9eb336ace05b781a1e378a5b5453db94802f8ed6[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Sun Mar 5 20:49:04 2017 -0500
+
+    readme v1
+
+[33mcommit 2c1acb75dfa3689e628a9fbb3470a8e9b23d7f05[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Sun Mar 5 20:47:53 2017 -0500
+
+    Added Data folder
+
+[33mcommit ca24d5eaa7a25c7fee7c77e4046ce0a7a4f8457e[m
+Author: Elias Tragas <etragas@hotmail.com>
+Date:   Sun Mar 5 20:46:37 2017 -0500
+
+    First commit

@@ -63,11 +63,12 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     # combiners = [parameters[keys_movie_to_user_net], parameters[keys_user_to_movie_net]]
     # rating_net = parameters[keys_rating_net]
     # reg_loss = 0
+
+    reg_loss = reg_alpha*meanDiff(parameters)
     # for reg,params in zip([.00001,.0001,.001],[canonicals,combiners,rating_net]):
     #     reg_loss = reg_loss + reg*np.square(flatten(params)[0]).sum() / float(num_proc)
     # # reg_loss = .0001 * canonicals
     # reg_loss = reg_alpha * np.abs(flatten(parameters)[0]).sum() / float(num_proc)
-    reg_loss = 0
     return reg_loss + data_loss
 
 
@@ -323,11 +324,6 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 def dataCallback(data, test=None):
     return lambda params, iter, grad, optimizer: print_perf(params, iter, grad, train=data, test=test, optimizer = optimizer)
 
-def writeData(paramsAndIter):
-    params, iteration = paramsAndIter
-    with open(r"Weights/NetWeightsIter{}.pkl".format(iteration), "wb") as output_file:
-        pickle.dump(params, output_file)
-
 
 def print_perf(params, iter=0, gradient={}, train=None, test=None, optimizer=None):
     """
@@ -381,7 +377,7 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, optimizer=Non
     print("Hitcount is: ", hitcount, sum(hitcount))
     if (iter % 20 == 0):
         is_best = False
-        if test_rmse_result.data[0] < BESTPREC:
+        if (test_rmse_result.data[0] < BESTPREC).any():
             BESTPREC = test_rmse_result
             is_best = True
         save_checkpoint({
@@ -390,9 +386,6 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, optimizer=Non
             'best_prec1': test_rmse_result,
             'optimizer' : optimizer,
         }, is_best)
-        # fd = os.open("filename", os.O_CREAT | os.O_WRONLY | os.O_NONBLOCK)
-        with open(r"Weights/NetWeightsIter{}.pkl".format(iter), "wb") as output_file:
-            torch.save(params,output_file)
 
     VOLATILE = False
     TRAININGMODE = True
@@ -424,7 +417,9 @@ def get_candidate_latents(all_items, all_ratings, split=None):
     return items, ratings
 
 #Stolen from Mamy Ratsimbazafy
-def save_checkpoint(state, is_best, filename='Weights/checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, filename='Weights/checkpoint{}.pth.tar'):
+    iter = state["epoch"]
+    filename = filename.format(0)
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, 'Weights/model_best.pth.tar')
@@ -521,6 +516,22 @@ def iterateParams(params):
             for param in v.parameters():
                 paramsToOpt.append(param)
 
+def meanDiff(parameters):
+    colLatents = parameters[keys_col_latents]
+    rowLatents = parameters[keys_row_latents]
+    colLatntWithRating = torch.cat(
+        (colLatents, Variable(3.3 * torch.FloatTensor(torch.ones((1, colLatents.size()[1]))).type(dtype))), dim=0)
+    rowLatentsWithRating = torch.cat(
+        (rowLatents, Variable(3.3 * torch.FloatTensor(torch.ones((rowLatents.size()[0], 1))).type(dtype))), dim=1)
+    averagePredRow = torch.mean(parameters[keys_movie_to_user_net].forward(torch.t(colLatntWithRating)), dim=1)
+    averagePredCol = torch.mean(parameters[keys_user_to_movie_net].forward(rowLatentsWithRating), dim=1)
+    averageRow = torch.mean(rowLatents, dim=1)
+    averageCol = torch.mean(colLatents, dim=0)
+    meanDiffCol = torch.sum(torch.pow(averageCol - averagePredCol, 2))
+    meanDiffRow = torch.sum(torch.pow(averageRow - averagePredRow, 2))
+    print("Mean Diff Col {} and Mean Diff Row {}".format(meanDiffCol,meanDiffRow))
+    meanDiff = (meanDiffCol + meanDiffRow)
+    return meanDiff
 
 rowLatents = 0
 colLatents = 0
@@ -536,5 +547,5 @@ USERLATENTCACHE = [None] * NUM_USERS
 MOVIELATENTCACHE = [None] * NUM_MOVIES
 USERLATENTCACHEPRIME = [None] * NUM_USERS
 MOVIELATENTCACHEPRIME = [None] * NUM_MOVIES
-BESTPREC = 100
+BESTPREC = torch.LongTensor([100]).type(dtype)
 VOLATILE = False
