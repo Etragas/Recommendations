@@ -111,29 +111,37 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     # # Define the loss for our train
 
     param_to_opt = [[key for key in parameters]]
-    num_opt_passes = 1000
+    num_opt_passes = 10000
     # cudnn.benchmark = True
     # torch.backends.cudnn.benchmark = True
     print(train_data.shape)
-    if optimizer is None:
-        paramsToOpt = []
+    if True:
+        paramsToOpt = {}
         for k,v in parameters.items():
             if type(v) == Variable:
-                paramsToOpt.append(v)
+                paramsToOpt[(k,k)] = v
             else:
-                for param in v.parameters():
-                    paramsToOpt.append(param)
-
-        optimizer = optim.Adam(paramsToOpt, lr=.0001,weight_decay=0.00001)
+                for subkey, param in v.named_parameters():
+                    paramsToOpt[(k,subkey)] = param
+        paramList = paramsToOpt.values()
+    if optimizer is None:
+        optimizer = optim.Adam(paramList, lr=.0001,weight_decay=0.00001)
+    print(paramsToOpt)
+    # print(optimizer.__getstate__())
     callback = dataCallback(train_data, test_data)
+    num_accumul = 1
+    maskParams = [[keys_rating_net],[x for x in parameters.keys() if x not in [keys_rating_net]]]
+    print(maskParams)
     for iter in range(num_opt_passes):
         iter = iter+epoch
         # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
         # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
         # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
         optimizer.zero_grad()  # zero the gradient buffers
-        loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=.1)
-        loss.backward()
+        for i in range(num_accumul):
+            loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=.1, num_proc=num_accumul)
+            loss.backward()
+        mask_grad(paramsToOpt,maskParams[iter%2])
         # clip_grads(paramsToOpt,clip=1)
         optimizer.step()  # Does the update
         callback(parameters,iter,None, optimizer = optimizer)
@@ -172,6 +180,14 @@ def clip_grads(params,clip=5):
             continue
         v.grad.data.clamp_(-clip,clip)
 
+def mask_grad(params,keysToMask):
+    for keys, value in params.items():
+        superKey, subKey = keys
+        if superKey in keysToMask:
+            if (value.grad is None):
+                continue
+            value.grad.data.zero_()
+    return
 # def adam(grad, init_params, callback=None, num_iters=100,
 #          step_size=0.001, b1=0.9, b2=0.999, eps=10**-8, iter_val = 1):
 #     """Adam as described in http://arxiv.org/pdf/1412.6980.pdf.
