@@ -1,9 +1,9 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-import numpy as np
 
 movie_latent_size = 160
 user_latent_size = 160
@@ -14,30 +14,31 @@ scale = .1
 
 dtype = torch.FloatTensor
 if (torch.cuda.device_count() > 0):
-    dtype = torch.cuda.FloatTensor # Uncomment this to run on GPU
+    dtype = torch.cuda.FloatTensor  # Uncomment this to run on GPU
 
 
 class GeneratorNet(nn.Module):
-    def __init__(self, latent_size = None):
+    def __init__(self, latent_size=None):
         super(GeneratorNet, self).__init__()
         self.fc1 = nn.Linear(latent_size + 1, 2000)
-        #self.bn1 = torch.nn.BatchNorm1d(2000)
+        # self.bn1 = torch.nn.BatchNorm1d(2000)
         self.fc2 = nn.Linear(2000, 2000)
-        #self.bn2 = torch.nn.BatchNorm1d(2000)
+        # self.bn2 = torch.nn.BatchNorm1d(2000)
         self.fc3 = nn.Linear(2000, 2000)
-        #self.bn3 = torch.nn.BatchNorm1d(2000)
+        # self.bn3 = torch.nn.BatchNorm1d(2000)
         self.fc4 = nn.Linear(2000, 1000)
-        #self.bn4 = torch.nn.BatchNorm1d(1000)
+        # self.bn4 = torch.nn.BatchNorm1d(1000)
         self.fc5 = nn.Linear(1000, 1000)
-        #self.bn5 = torch.nn.BatchNorm1d(1000)
+        # self.bn5 = torch.nn.BatchNorm1d(1000)
         self.fc6 = nn.Linear(1000, latent_size)
+        initParams(self)
 
     def forward(self, x):
-        x = F.leaky_relu(self.fc1(x)) #self.bn1(
-        x = F.leaky_relu(self.fc2(x)) #self.bn2(
-        x = F.leaky_relu(self.fc3(x)) #self.bn3(
-        x = F.leaky_relu(self.fc4(x)) #self.bn4(
-        x = F.leaky_relu(self.fc5(x)) #self.bn5(
+        x = F.leaky_relu(self.fc1(x))  # self.bn1(
+        x = F.leaky_relu(self.fc2(x))  # self.bn2(
+        x = F.leaky_relu(self.fc3(x))  # self.bn3(
+        x = F.leaky_relu(self.fc4(x))  # self.bn4(
+        x = F.leaky_relu(self.fc5(x))  # self.bn5(
         x = self.fc6(x)
         return x
 
@@ -46,36 +47,46 @@ class RatingGeneratorNet(nn.Module):
     def __init__(self):
         super(RatingGeneratorNet, self).__init__()
         self.fc1 = nn.Linear(user_latent_size + movie_latent_size, 4000)
-        #self.bn1 = torch.nn.BatchNorm1d(4000)
+        # self.bn1 = torch.nn.BatchNorm1d(4000)
         self.fc2 = nn.Linear(4000, 2000)
-        #self.bn2 = torch.nn.BatchNorm1d(2000)
+        # self.bn2 = torch.nn.BatchNorm1d(2000)
         self.fc3 = nn.Linear(2000, 2000)
-        #self.bn3 = torch.nn.BatchNorm1d(2000)
+        # self.bn3 = torch.nn.BatchNorm1d(2000)
         self.fc4 = nn.Linear(2000, 2000)
-        #self.bn4 = torch.nn.BatchNorm1d(2000)
+        # self.bn4 = torch.nn.BatchNorm1d(2000)
         self.fc5 = nn.Linear(2000, 2000)
-        #self.bn5 = torch.nn.BatchNorm1d(2000)
+        # self.bn5 = torch.nn.BatchNorm1d(2000)
         self.fc6 = nn.Linear(2000, 1)
+        initParams(self)
 
     def forward(self, x):
-        x = F.leaky_relu(self.fc1(x)) #self.bn1(
-        x = F.leaky_relu(self.fc2(x)) #self.bn2(
-        x = F.leaky_relu(self.fc3(x)) #self.bn3(
-        x = F.leaky_relu(self.fc4(x)) #self.bn4(
-        x = F.leaky_relu(self.fc5(x)) #self.bn5(
-        x = self.fc6(x) #self.bn6(
+        x = F.leaky_relu(self.fc1(x))  # self.bn1(
+        x = F.leaky_relu(self.fc2(x))  # self.bn2(
+        x = F.leaky_relu(self.fc3(x))  # self.bn3(
+        x = F.leaky_relu(self.fc4(x))  # self.bn4(
+        x = F.leaky_relu(self.fc5(x))  # self.bn5(
+        x = self.fc6(x)  # self.bn6(
         return x
 
-def build_params(num_user_latents=20,num_movie_latents=20):
+
+def build_params(num_user_latents=20, num_movie_latents=20):
     parameters = {}
     parameters[keys_movie_to_user_net] = GeneratorNet(latent_size=movie_latent_size).type(dtype)
     parameters[keys_user_to_movie_net] = GeneratorNet(latent_size=user_latent_size).type(dtype)
     parameters[keys_col_latents] = Variable(
-        torch.from_numpy(scale * np.random.rand(movie_latent_size, num_movie_latents)).float().type(dtype),requires_grad=True)  # Column Latents
+        torch.from_numpy(scale * np.random.rand(movie_latent_size, num_movie_latents)).float().type(dtype),
+        requires_grad=True)  # Column Latents
     parameters[keys_row_latents] = Variable(
-        torch.from_numpy((scale * np.random.rand(num_user_latents, user_latent_size))).float().type(dtype),requires_grad=True)  # Row Latents
+        torch.from_numpy((scale * np.random.rand(num_user_latents, user_latent_size))).float().type(dtype),
+        requires_grad=True)  # Row Latents
     parameters[keys_rating_net] = RatingGeneratorNet().type(dtype)
     return parameters
+
+
+def initParams(net):
+    for param in net.parameters():
+        if (param.data.dim() > 1):
+            param.data = torch.nn.init.xavier_uniform(param.data)
 
 
 # Credit to David Duvenaud for sleek init code
