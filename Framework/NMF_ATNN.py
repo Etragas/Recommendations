@@ -70,7 +70,7 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     #     reg_loss = reg_loss + reg*np.square(flatten(params)[0]).sum() / float(num_proc)
     # # reg_loss = .0001 * canonicals
     # reg_loss = reg_alpha * np.abs(flatten(parameters)[0]).sum() / float(num_proc)
-    return reg_loss + data_loss
+    return reg_loss/num_proc+ data_loss
 
 
 def get_pred_for_users(parameters, data, indices=None, training_mode = False):
@@ -91,7 +91,7 @@ def get_pred_for_users(parameters, data, indices=None, training_mode = False):
     row_size, col_size = data.shape
     # print(row_size,col_size)
     if indices is None:
-        indices = shuffle(list(zip(*data.nonzero())))[:300]
+        indices = shuffle(list(zip(*data.nonzero())))[:200]
         print("Shuffling")
     # Generate predictions over each row
     full_predictions = {}
