@@ -136,7 +136,7 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
         # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
         optimizer.zero_grad()  # zero the gradient buffers
         for i in range(num_accumul):
-            loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=.1, num_proc=num_accumul)
+            loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=10, num_proc=num_accumul)
             loss.backward()
         # mask_grad(paramsToOpt, maskParams[iter % 2])
         # clip_grads(paramsToOpt,clip=1)

@@ -34,11 +34,11 @@ class GeneratorNet(nn.Module):
         initParams(self)
 
     def forward(self, x):
-        x = F.leaky_relu(self.fc1(x))  # self.bn1(
-        x = F.leaky_relu(self.fc2(x))  # self.bn2(
-        x = F.leaky_relu(self.fc3(x))  # self.bn3(
-        x = F.leaky_relu(self.fc4(x))  # self.bn4(
-        x = F.leaky_relu(self.fc5(x))  # self.bn5(
+        x = F.relu(self.fc1(x))  # self.bn1(
+        x = F.relu(self.fc2(x))  # self.bn2(
+        x = F.relu(self.fc3(x))  # self.bn3(
+        x = F.relu(self.fc4(x))  # self.bn4(
+        x = F.relu(self.fc5(x))  # self.bn5(
         x = self.fc6(x)
         return x
 
@@ -60,11 +60,11 @@ class RatingGeneratorNet(nn.Module):
         initParams(self)
 
     def forward(self, x):
-        x = F.leaky_relu(self.fc1(x))  # self.bn1(
-        x = F.leaky_relu(self.fc2(x))  # self.bn2(
-        x = F.leaky_relu(self.fc3(x))  # self.bn3(
-        x = F.leaky_relu(self.fc4(x))  # self.bn4(
-        x = F.leaky_relu(self.fc5(x))  # self.bn5(
+        x = F.relu(self.fc1(x))  # self.bn1(
+        x = F.relu(self.fc2(x))  # self.bn2(
+        x = F.relu(self.fc3(x))  # self.bn3(
+        x = F.relu(self.fc4(x))  # self.bn4(
+        x = F.relu(self.fc5(x))  # self.bn5(
         x = self.fc6(x)  # self.bn6(
         return x
 
