@@ -1,11 +1,7 @@
-import sys
-
-from pytorch.tools.setup_helpers import cudnn
-from NMF_ATNN import *
-import numpy as np
-import gc
-from utils import keys_rating_net, keys_row_latents
 import torch.optim as optim
+from NMF_ATNN import *
+from utils import keys_rating_net
+
 
 # def pretrain_canon_and_rating(full_data, parameters, step_size, num_epochs, batches_per_epoch):
 #     '''
@@ -72,8 +68,9 @@ import torch.optim as optim
 #
 #     return parameters
 
-def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, parameters=None, p1=False, p1Args=[.001, 2,1],
-          p2=False, p2Args=[.001, 2, 1], trainArgs=[.001, 2, 1], use_cache = False, optimizer = None, epoch = 0):
+def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, parameters=None, p1=False,
+          p1Args=[.001, 2, 1],
+          p2=False, p2Args=[.001, 2, 1], trainArgs=[.001, 2, 1], use_cache=False, optimizer=None, epoch=0):
     '''
     Trains ALL THE THINGS.  Also optionally performs pretraining on the canonicals, rating net weights, rowless net weights, and
     columnless weights.  Prints out the train and test results upon terminination.
@@ -117,23 +114,23 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     print(train_data.shape)
     if True:
         paramsToOpt = {}
-        for k,v in parameters.items():
+        for k, v in parameters.items():
             if type(v) == Variable:
-                paramsToOpt[(k,k)] = v
+                paramsToOpt[(k, k)] = v
             else:
                 for subkey, param in v.named_parameters():
-                    paramsToOpt[(k,subkey)] = param
+                    paramsToOpt[(k, subkey)] = param
         paramList = paramsToOpt.values()
     if optimizer is None:
-        optimizer = optim.Adam(paramList, lr=.0001,weight_decay=0.00001)
+        optimizer = optim.Adam(paramList, lr=.0001, weight_decay=0.0001)
     print(paramsToOpt)
     # print(optimizer.__getstate__())
     callback = dataCallback(train_data, test_data)
     num_accumul = 1
-    maskParams = [[keys_rating_net],[x for x in parameters.keys() if x not in [keys_rating_net]]]
+    maskParams = [[keys_rating_net], [x for x in parameters.keys() if x not in [keys_rating_net]]]
     print(maskParams)
     for iter in range(num_opt_passes):
-        iter = iter+epoch
+        iter = iter + epoch
         # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
         # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
         # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
@@ -141,10 +138,10 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
         for i in range(num_accumul):
             loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=.1, num_proc=num_accumul)
             loss.backward()
-        mask_grad(paramsToOpt,maskParams[iter%2])
+        mask_grad(paramsToOpt, maskParams[iter % 2])
         # clip_grads(paramsToOpt,clip=1)
         optimizer.step()  # Does the update
-        callback(parameters,iter,None, optimizer = optimizer)
+        callback(parameters, iter, None, optimizer=optimizer)
 
         #
         # print("Loss",loss)
@@ -174,13 +171,15 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
 
     return parameters
 
-def clip_grads(params,clip=5):
+
+def clip_grads(params, clip=5):
     for v in params:
         if (v.grad is None):
             continue
-        v.grad.data.clamp_(-clip,clip)
+        v.grad.data.clamp_(-clip, clip)
 
-def mask_grad(params,keysToMask):
+
+def mask_grad(params, keysToMask):
     for keys, value in params.items():
         superKey, subKey = keys
         if superKey in keysToMask:
@@ -188,6 +187,7 @@ def mask_grad(params,keysToMask):
                 continue
             value.grad.data.zero_()
     return
+
 # def adam(grad, init_params, callback=None, num_iters=100,
 #          step_size=0.001, b1=0.9, b2=0.999, eps=10**-8, iter_val = 1):
 #     """Adam as described in http://arxiv.org/pdf/1412.6980.pdf.
