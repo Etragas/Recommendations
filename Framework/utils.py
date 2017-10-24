@@ -74,10 +74,10 @@ def build_params(num_user_latents=20, num_movie_latents=20):
     parameters[keys_movie_to_user_net] = GeneratorNet(latent_size=movie_latent_size).type(dtype)
     parameters[keys_user_to_movie_net] = GeneratorNet(latent_size=user_latent_size).type(dtype)
     parameters[keys_col_latents] = Variable(
-        torch.from_numpy(scale * np.random.uniform(size=(movie_latent_size, num_movie_latents))).float().type(dtype),
+        torch.from_numpy(scale * np.random.normal(size=(movie_latent_size, num_movie_latents))).float().type(dtype),
         requires_grad=True)  # Column Latents
     parameters[keys_row_latents] = Variable(
-        torch.from_numpy((scale * np.random.uniform(size=(num_user_latents, user_latent_size)))).float().type(dtype),
+        torch.from_numpy((scale * np.random.normal(size=(num_user_latents, user_latent_size)))).float().type(dtype),
         requires_grad=True)  # Row Latents
     parameters[keys_rating_net] = RatingGeneratorNet().type(dtype)
     return parameters
