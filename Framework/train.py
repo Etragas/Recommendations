@@ -1,9 +1,6 @@
-import sys
-from NMF_ATNN import *
-import numpy as np
-import gc
-from utils import keys_rating_net, keys_row_latents
 import torch.optim as optim
+from NMF_ATNN import *
+
 
 # def pretrain_canon_and_rating(full_data, parameters, step_size, num_epochs, batches_per_epoch):
 #     '''
@@ -70,8 +67,9 @@ import torch.optim as optim
 #
 #     return parameters
 
-def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, parameters=None, p1=False, p1Args=[.001, 2,1],
-          p2=False, p2Args=[.001, 2, 1], trainArgs=[.001, 2, 1], use_cache = False):
+def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, parameters=None, p1=False,
+          p1Args=[.001, 2, 1],
+          p2=False, p2Args=[.001, 2, 1], trainArgs=[.001, 2, 1], use_cache=False):
     '''
     Trains ALL THE THINGS.  Also optionally performs pretraining on the canonicals, rating net weights, rowless net weights, and
     columnless weights.  Prints out the train and test results upon terminination.
@@ -112,14 +110,14 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     num_opt_passes = 1000
     print(train_data.shape)
     paramsToOpt = []
-    for k,v in parameters.items():
+    for k, v in parameters.items():
         if type(v) == Variable:
             paramsToOpt.append(v)
         else:
             for param in v.parameters():
                 paramsToOpt.append(param)
 
-    optimizer = optim.Adam(paramsToOpt, lr=.001,weight_decay=0.001)
+    optimizer = optim.Adam(paramsToOpt, lr=.0003, weight_decay=0.0005)
     callback = dataCallback(train_data, test_data)
     for iter in range(num_opt_passes):
 
@@ -129,28 +127,28 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
         loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=.001)
         loss.backward()
         optimizer.step()  # Does the update
-        callback(parameters,iter,None)
-        if iter%10 == 0:
+        callback(parameters, iter, None)
+        if iter % 10 == 0:
             print("Test Performance")
             loss = standard_loss(parameters, iter, data=test_data, indices=zip(*test_data.nonzero()), reg_alpha=.001)
 
-        #
-        # print("Loss",loss)
-        # print(loss.grad)
-        # loss.backward()
-        # learning_rate = .0001
-        # for k,f in parameters.items():
-        #     try:
-        #         f.data.sub_(f.grad.data * learning_rate)
-        #         # f.grad.data.zero_()
-        #     except :
-        #         for param in f.parameters():
-        #             param.data.sub_(learning_rate * param.grad.data)
-        #             param.grad.data.zero_()
-        #         continue
+            #
+            # print("Loss",loss)
+            # print(loss.grad)
+            # loss.backward()
+            # learning_rate = .0001
+            # for k,f in parameters.items():
+            #     try:
+            #         f.data.sub_(f.grad.data * learning_rate)
+            #         # f.grad.data.zero_()
+            #     except :
+            #         for param in f.parameters():
+            #             param.data.sub_(learning_rate * param.grad.data)
+            #             param.grad.data.zero_()
+            #         continue
 
-        # grads = lossGrad(train_data, num_batches=trainArgs[2], reg_alpha=.001, num_aggregates=1)
-        # parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=100,callback=dataCallback(train_data, test_data), b1 = 0.5,iter_val=1    )
+            # grads = lossGrad(train_data, num_batches=trainArgs[2], reg_alpha=.001, num_aggregates=1)
+            # parameters = adam(grads, parameters, step_size=trainArgs[0], num_iters=100,callback=dataCallback(train_data, test_data), b1 = 0.5,iter_val=1    )
 
     # Generate our rating predictions on the train set from the trained parameters and print performance and comparison
     # invtrans = getInferredMatrix(parameters, train_data)
@@ -161,8 +159,6 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     # print "\n".join([str(x) for x in ["Test", print_perf(parameters, train=test_data), test_data, np.round(invtrans)]])
 
     return parameters
-
-
 
 # def adam(grad, init_params, callback=None, num_iters=100,
 #          step_size=0.001, b1=0.9, b2=0.999, eps=10**-8, iter_val = 1):
