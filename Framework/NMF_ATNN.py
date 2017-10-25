@@ -378,8 +378,8 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, optimizer=Non
     print("Hitcount is: ", hitcount, sum(hitcount))
     if (iter % 20 == 0):
         is_best = False
-        if (test_rmse_result.data[0] < BESTPREC).any():
-            BESTPREC = test_rmse_result
+        if (test_rmse_result.data[0] < BESTPREC):
+            BESTPREC = test_rmse_result.data[0]
             is_best = True
         save_checkpoint({
             'epoch': iter+ 1,
@@ -549,5 +549,5 @@ USERLATENTCACHE = [None] * NUM_USERS
 MOVIELATENTCACHE = [None] * NUM_MOVIES
 USERLATENTCACHEPRIME = [None] * NUM_USERS
 MOVIELATENTCACHEPRIME = [None] * NUM_MOVIES
-BESTPREC = torch.LongTensor([100]).type(dtype)
+BESTPREC = 100
 VOLATILE = False
