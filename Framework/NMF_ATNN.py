@@ -54,7 +54,7 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     if predictions is None:
         predictions = inference(parameters, data=data, indices=indices)
     global hitcount
-    print(hitcount)
+    #print(hitcount)
     numel = len(predictions.keys())
 
     data_loss = numel * torch.pow(rmse(data, predictions, indices), 2)
@@ -378,8 +378,8 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, optimizer=Non
     print("Hitcount is: ", hitcount, sum(hitcount))
     if (iter % 20 == 0):
         is_best = False
-        if (test_rmse_result.data[0] < BESTPREC).any():
-            BESTPREC = test_rmse_result
+        if (test_rmse_result.data[0] < BESTPREC):
+            BESTPREC = test_rmse_result.data[0]
             is_best = True
         save_checkpoint({
             'epoch': iter+ 1,
@@ -448,7 +448,7 @@ def rmse(gt, pred, indices=None):
     for key in pred.keys():
         mean.append(pred[key])
         diff = diff + torch.pow(float(gt[key]) - pred[key], 2)
-    print("Num of items is {} average pred value is {}".format(lens, np.mean(mean)))
+    #print("Num of items is {} average pred value is {}".format(lens, np.mean(mean)))
     return torch.sqrt((diff / len(pred.keys())))
 
     row_first = gt[keys_row_first]
@@ -530,7 +530,7 @@ def momentDiff(parameters,momentFn):
     averageCol = momentFn(colLatents, dim=0)
     meanDiffCol = torch.sum(torch.pow(averageCol - averagePredCol, 2))
     meanDiffRow = torch.sum(torch.pow(averageRow - averagePredRow, 2))
-    print("Mean Diff Col {} and Mean Diff Row {}".format(meanDiffCol,meanDiffRow))
+    #print("Mean Diff Col {} and Mean Diff Row {}".format(meanDiffCol,meanDiffRow))
     meanDiff = (meanDiffCol + meanDiffRow)
 
     return meanDiff
@@ -549,5 +549,5 @@ USERLATENTCACHE = [None] * NUM_USERS
 MOVIELATENTCACHE = [None] * NUM_MOVIES
 USERLATENTCACHEPRIME = [None] * NUM_USERS
 MOVIELATENTCACHEPRIME = [None] * NUM_MOVIES
-BESTPREC = torch.LongTensor([100]).type(dtype)
+BESTPREC = 100#torch.LongTensor([100]).type(dtype)
 VOLATILE = False
