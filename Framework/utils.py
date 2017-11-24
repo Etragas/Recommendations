@@ -181,9 +181,6 @@ def getNeighbours(full_data, percentiles=[.01, .01, .02, .03, .04, .05, .10, .20
     plt.show()
     return user_results
 
-
-get_items = 0
-get_ratings = 1
 keys_row_first = "row"
 keys_col_first = "column"
 keys_movie_to_user_net = "MovieToUser"
@@ -191,7 +188,3 @@ keys_user_to_movie_net = "UserToMovie"
 keys_row_latents = "RowLatents"
 keys_col_latents = "ColLatents"
 keys_rating_net = "PredNet"
-keys_movie_to_user_net_prime = "MovieToUserPrime"
-keys_user_to_movie_net_prime = "UserToMoviePrime"
-keys_col_latents_prime = "ColLatentsPrime"
-keys_row_latents_prime = "RowLatentsPrime"
