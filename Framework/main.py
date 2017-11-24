@@ -6,11 +6,11 @@ from DataLoader import *
 from train import *
 from utils import build_params, get_canonical_indices, splitData
 
+# Handle loading in previously trained weights.
 parser = argparse.ArgumentParser(description='Handle previous files')
-parser.add_argument('file', metavar='File path', nargs='?',
-                   help='Use a file for weights')
+parser.add_argument('file', metavar='File path', nargs='?', help='Use a file for weights')
 args = parser.parse_args()
-print("Args File ", args.file)
+print("Args File: ", args.file)
 
 # mkl.set_num_threads(4)
 # os.environ['OMP_NUM_THREADS'] = '{:d}'.format(4)
