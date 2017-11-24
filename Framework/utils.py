@@ -16,40 +16,91 @@ dtype = torch.FloatTensor
 if (torch.cuda.device_count() > 0):
     dtype = torch.cuda.FloatTensor  # Uncomment this to run on GPU
 
+if (dtype == torch.FloatTensor):
+    class GeneratorNet(nn.Module):
+        def __init__(self, latent_size=None):
+            super(GeneratorNet, self).__init__()
+            self.fc1 = nn.Linear(latent_size + 1, 200)
+            # self.bn1 = torch.nn.BatchNorm1d(2000)
+            self.fc2 = nn.Linear(200, 200)
+            # self.bn2 = torch.nn.BatchNorm1d(2000)
+            self.fc3 = nn.Linear(200, latent_size)
+            # self.bn3 = torch.nn.BatchNorm1d(2000)
+            initParams(self)
 
-class GeneratorNet(nn.Module):
-    def __init__(self, latent_size=None):
-        super(GeneratorNet, self).__init__()
-        self.fc1 = nn.Linear(latent_size + 1, 200)
-        # self.bn1 = torch.nn.BatchNorm1d(2000)
-        self.fc2 = nn.Linear(200, 200)
-        # self.bn2 = torch.nn.BatchNorm1d(2000)
-        self.fc3 = nn.Linear(200, latent_size)
-        # self.bn3 = torch.nn.BatchNorm1d(2000)
-        initParams(self)
-
-    def forward(self, x):
-        x = F.relu(self.fc1(x))  # self.bn1(
-        x = F.relu(self.fc2(x))  # self.bn2(
-        x = self.fc3(x)  # self.bn3(
-        return x
+        def forward(self, x):
+            x = F.relu(self.fc1(x))  # self.bn1(
+            x = F.relu(self.fc2(x))  # self.bn2(
+            x = self.fc3(x)  # self.bn3(
+            return x
 
 
-class RatingGeneratorNet(nn.Module):
-    def __init__(self):
-        super(RatingGeneratorNet, self).__init__()
-        self.fc1 = nn.Linear(user_latent_size + movie_latent_size, 400)
-        # self.bn1 = torch.nn.BatchNorm1d(4000)
-        self.fc2 = nn.Linear(400, 200)
-        # self.bn2 = torch.nn.BatchNorm1d(2000
-        self.fc3 = nn.Linear(200, 1)
-        initParams(self)
+    class RatingGeneratorNet(nn.Module):
+        def __init__(self):
+            super(RatingGeneratorNet, self).__init__()
+            self.fc1 = nn.Linear(user_latent_size + movie_latent_size, 400)
+            # self.bn1 = torch.nn.BatchNorm1d(4000)
+            self.fc2 = nn.Linear(400, 200)
+            # self.bn2 = torch.nn.BatchNorm1d(2000
+            self.fc3 = nn.Linear(200, 1)
+            initParams(self)
 
-    def forward(self, x):
-        x = F.relu(self.fc1(x))  # self.bn1(
-        x = F.relu(self.fc2(x))  # self.bn2(
-        x = self.fc3(x)  # self.bn3(
-        return x
+        def forward(self, x):
+            x = F.relu(self.fc1(x))  # self.bn1(
+            x = F.relu(self.fc2(x))  # self.bn2(
+            x = self.fc3(x)  # self.bn3(
+            return x
+else:
+    class GeneratorNet(nn.Module):
+        def __init__(self, latent_size=None):
+            super(GeneratorNet, self).__init__()
+            self.fc1 = nn.Linear(latent_size + 1, 2000)
+            # self.bn1 = torch.nn.BatchNorm1d(2000)
+            self.fc2 = nn.Linear(2000, 2000)
+            # self.bn2 = torch.nn.BatchNorm1d(2000)
+            self.fc3 = nn.Linear(2000, 2000)
+            # self.bn3 = torch.nn.BatchNorm1d(2000)
+            self.fc4 = nn.Linear(2000, 1000)
+            # self.bn4 = torch.nn.BatchNorm1d(1000)
+            self.fc5 = nn.Linear(1000, 1000)
+            # self.bn5 = torch.nn.BatchNorm1d(1000)
+            self.fc6 = nn.Linear(1000, latent_size)
+            initParams(self)
+
+        def forward(self, x):
+            x = F.relu(self.fc1(x))  # self.bn1(
+            x = F.relu(self.fc2(x))  # self.bn2(
+            x = F.relu(self.fc3(x))  # self.bn3(
+            x = F.relu(self.fc4(x))  # self.bn4(
+            x = F.relu(self.fc5(x))  # self.bn5(
+            x = self.fc6(x)
+            return x
+
+
+    class RatingGeneratorNet(nn.Module):
+        def __init__(self):
+            super(RatingGeneratorNet, self).__init__()
+            self.fc1 = nn.Linear(user_latent_size + movie_latent_size, 4000)
+            # self.bn1 = torch.nn.BatchNorm1d(4000)
+            self.fc2 = nn.Linear(4000, 2000)
+            # self.bn2 = torch.nn.BatchNorm1d(2000)
+            self.fc3 = nn.Linear(2000, 2000)
+            # self.bn3 = torch.nn.BatchNorm1d(2000)
+            self.fc4 = nn.Linear(2000, 2000)
+            # self.bn4 = torch.nn.BatchNorm1d(2000)
+            self.fc5 = nn.Linear(2000, 2000)
+            # self.bn5 = torch.nn.BatchNorm1d(2000)
+            self.fc6 = nn.Linear(2000, 1)
+            initParams(self)
+
+        def forward(self, x):
+            x = F.relu(self.fc1(x))  # self.bn1(
+            x = F.relu(self.fc2(x))  # self.bn2(
+            x = F.relu(self.fc3(x))  # self.bn3(
+            x = F.relu(self.fc4(x))  # self.bn4(
+            x = F.relu(self.fc5(x))  # self.bn5(
+            x = self.fc6(x)  # self.bn6(
+            return x
 
 
 def build_params(num_user_latents=20, num_movie_latents=20):
