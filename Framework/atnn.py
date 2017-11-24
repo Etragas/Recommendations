@@ -1,26 +1,19 @@
 import pickle
-import string
-import numpy as np
-import mkl
-import os
-import subprocess
 import argparse
+import numpy as np
 import torch
-import utils
 from DataLoader import *
 from train import *
-from utils import build_params, keys_rating_net, keys_row_latents, keys_col_latents, get_canonical_indices, \
-    splitData
-from sortedcollections import OrderedDict
+from utils import build_params, get_canonical_indices, splitData
 
 parser = argparse.ArgumentParser(description='Handle previous files')
 parser.add_argument('file', metavar='File path', nargs='?',
                    help='Use  a file for weights')
 args = parser.parse_args()
-print(args.file)
+print("Args File ", args.file)
 
-mkl.set_num_threads(4)
-os.environ['OMP_NUM_THREADS'] = '{:d}'.format(4)
+# mkl.set_num_threads(4)
+# os.environ['OMP_NUM_THREADS'] = '{:d}'.format(4)
 
 # Parameters to set
 num_user_canonicals = 150  # int(np.ceil(full_data.shape[0]))
@@ -70,7 +63,6 @@ train_idx = test_idx = np.array([np.array(range(nrows)), np.array(range(ncols))]
 # Otherwise build the dictionary of parameters for our nets and latents.
 if args.file:
     filename = args.file
-    new_state_dict = OrderedDict()
     state_dict = torch.load(filename)
     parameters = state_dict['params']
     optimizer = state_dict['optimizer']

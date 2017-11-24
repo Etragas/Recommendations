@@ -7,8 +7,8 @@ def train(train_data, test_data, parameters=None, optimizer=None, epoch=0):
     Trains ALL THE THINGS.  Also optionally performs pretraining on the canonicals, rating net weights, rowless net weights, and
     columnless weights.  Prints out the train and test results upon terminination.
 
-    :param train_data: the train dataset, which we need to calculate the train loss. 
-    :param test_data: the test dataset, which we need to calculate the test loss. 
+    :param train_data: the train dataset, which we need to calculate the train loss.
+    :param test_data: the test dataset, which we need to calculate the test loss.
     :param parameters: the initial parameter configuration.
     :param optimizer: the optionally passed in optimizer, defaults to Adam if not set.
     :param epoch: the current epoch.
@@ -30,8 +30,7 @@ def train(train_data, test_data, parameters=None, optimizer=None, epoch=0):
     paramList = paramsToOpt.values()
 
     if optimizer is None:
-        optimizer = optim.Adam(paramList, lr=.0001, weight_decay=0.0001)
-
+        optimizer = optim.Adam(paramList, lr=.0001, weight_decay=0.0000)
     print(paramsToOpt)
     # print(optimizer.__getstate__())
     callback = dataCallback(train_data, test_data)
@@ -43,7 +42,9 @@ def train(train_data, test_data, parameters=None, optimizer=None, epoch=0):
         # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
         optimizer.zero_grad()  # zero the gradient buffers
         for i in range(num_accumul):
-            loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=10, num_proc=num_accumul)
+            data_loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=.00001, num_proc=num_accumul)
+            reg_loss = regularization_loss(parameters,paramsToOpt)
+            loss = data_loss+reg_loss
             loss.backward()
         # mask_grad(paramsToOpt, maskParams[iter % 2])
         # clip_grads(paramsToOpt,clip=1)

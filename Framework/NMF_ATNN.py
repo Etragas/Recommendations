@@ -7,6 +7,7 @@ import numpy as np
 import shutil
 import torch
 from sklearn.utils import shuffle
+from torch.autograd import Variable
 from utils import *
 import copy
 
@@ -58,20 +59,13 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
     numel = len(predictions.keys())
 
     data_loss = numel * torch.pow(rmse(data, predictions, indices), 2)
-    # print("RMSE is",rmse(data,predictions,indices))
-    # canonicals = [parameters[keys_col_latents],parameters[keys_row_latents]]
-    # combiners = [parameters[keys_movie_to_user_net], parameters[keys_user_to_movie_net]]
-    # rating_net = parameters[keys_rating_net]
-    # reg_loss = 0
+    return data_loss
 
-    reg_loss = reg_alpha*momentDiff(parameters,torch.mean)
-    reg_loss += reg_alpha*momentDiff(parameters,torch.var)
-    # for reg,params in zip([.00001,.0001,.001],[canonicals,combiners,rating_net]):
-    #     reg_loss = reg_loss + reg*np.square(flatten(params)[0]).sum() / float(num_proc)
-    # # reg_loss = .0001 * canonicals
-    # reg_loss = reg_alpha * np.abs(flatten(parameters)[0]).sum() / float(num_proc)
-    return reg_loss/num_proc+ data_loss
-
+def regularization_loss(parameters=None,paramsToOpt=None, reg_alpha=.01):
+    reg_loss = reg_alpha * momentDiff(parameters, torch.mean)
+    reg_loss += reg_alpha * momentDiff(parameters, torch.var)
+    reg_loss += reg_alpha * computeWeightLoss(parameters)
+    return reg_loss
 
 def get_pred_for_users(parameters, data, indices=None, training_mode = False):
     """
@@ -91,7 +85,7 @@ def get_pred_for_users(parameters, data, indices=None, training_mode = False):
     row_size, col_size = data.shape
     # print(row_size,col_size)
     if indices is None:
-        indices = shuffle(list(zip(*data.nonzero())))[:200]
+        indices = shuffle(list(zip(*data.nonzero())))[:2000]
         print("Shuffling")
     # Generate predictions over each row
     full_predictions = {}
@@ -162,7 +156,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
 
     # If user is canonical, return their latent immediately and cache it.
     if user_index < NUM_USER_LATENTS:
-        # USERLATENTCACHE[user_index] = (rowLatents[user_index, :], recursion_depth)
+        USERLATENTCACHE[user_index] = (rowLatents[user_index, :], 1)
         return rowLatents[user_index, :]
 
     # If user latent is cached, return their latent immediately
@@ -239,7 +233,7 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
     # If movie is canonical, return their latent immediately and cache it.
     if movie_index < NUM_MOVIE_LATENTS:
-        # MOVIELATENTCACHE[movie_index] = (colLatents[:, movie_index], recursion_depth)
+        MOVIELATENTCACHE[movie_index] = (colLatents[:, movie_index], 1)
         return colLatents[:, movie_index]
 
     # If movie latent is cached, return their latent immediately
@@ -378,8 +372,8 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, optimizer=Non
     print("Hitcount is: ", hitcount, sum(hitcount))
     if (iter % 20 == 0):
         is_best = False
-        if (test_rmse_result.data[0] < BESTPREC).any():
-            BESTPREC = test_rmse_result
+        if (test_rmse_result.data[0] < BESTPREC):
+            BESTPREC = test_rmse_result.data[0]
             is_best = True
         save_checkpoint({
             'epoch': iter+ 1,
@@ -408,14 +402,6 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, optimizer=Non
         #  #End the plotting with a raw input
         #  plt.savefig('finalgraph.png')
         #  print("Final Total Performance: ", train_mse)
-
-
-def get_candidate_latents(all_items, all_ratings, split=None):
-    can_items, can_ratings = all_items[:split], all_ratings[:split]
-    rec_items, rec_ratings = all_items[split:], all_ratings[split:]
-    rec_items, rec_ratings = shuffle(rec_items, rec_ratings)
-    items, ratings = list(can_items) + list(rec_items), list(can_ratings) + list(rec_ratings)
-    return items, ratings
 
 #Stolen from Mamy Ratsimbazafy
 def save_checkpoint(state, is_best, filename='Weights/checkpoint{}.pth.tar'):
@@ -493,21 +479,27 @@ def mae(gt, pred):
     val = val / len(pred.keys())
     return val
 
-
-def getInferredMatrix(parameters, data):
-    """
-    Uses the network's predictions to generate a full matrix for comparison.
-    """
-    row_len, col_len = len(data[keys_row_first]), len(data[keys_col_first])
-    inferred = inference(parameters, data=data, indices=range(row_len))
-    # inferred = inference(parameters, data=data, indices = get_indices_from_range(range(row_len),data[keys_row_first]))
-    newarray = np.zeros((len(data[keys_row_first]), len(data[keys_col_first])))
-
-    for i in range(row_len):
-        ratings_high = data[keys_row_first][i][get_items]
-        newarray[i, ratings_high] = inferred[i]
-    return newarray
-
+def computeWeightLoss(parameters):
+    global USERLATENTCACHE, MOVIELATENTCACHE
+    regLoss = 0
+    print("Reg loss")
+    for k, v in parameters.items():
+        if type(v) == Variable:
+            print(k,v.size())
+            if k == keys_row_latents:
+                regLoss += torch.sum(torch.pow(v.data,2))
+                useMask = [1 if x is not None else 0 for x in USERLATENTCACHE[:v.size()[0]]]
+                print(useMask)
+                print(np.sum(useMask))
+            else:
+                useMask = [1 if x is not None else 0 for x in MOVIELATENTCACHE[:v.size()[1]]]
+                print(useMask)
+                print(np.sum(useMask))
+                regLoss += torch.sum(torch.pow(v.data,2))
+        else:
+            for subkey, param in v.named_parameters():
+                regLoss += torch.sum(torch.pow(param.data,2))
+    return regLoss
 
 def iterateParams(params):
     for k, v in parameters.items():
@@ -549,5 +541,5 @@ USERLATENTCACHE = [None] * NUM_USERS
 MOVIELATENTCACHE = [None] * NUM_MOVIES
 USERLATENTCACHEPRIME = [None] * NUM_USERS
 MOVIELATENTCACHEPRIME = [None] * NUM_MOVIES
-BESTPREC = torch.LongTensor([100]).type(dtype)
+BESTPREC = 100
 VOLATILE = False
