@@ -1,13 +1,8 @@
-import pickle
-import string
-
-import numpy as np
-import mkl
-import os
-import subprocess
 import argparse
+import os
+import pickle
 
-from sortedcollections import OrderedDict
+import mkl
 
 parser = argparse.ArgumentParser(description='Handle preivous files')
 parser.add_argument('file', metavar='File path', nargs='?',
@@ -15,14 +10,13 @@ parser.add_argument('file', metavar='File path', nargs='?',
 args = parser.parse_args()
 print(args.file)
 import numpy as np
-mkl.set_num_threads(4)
-os.environ['OMP_NUM_THREADS'] = '{:d}'.format(4)
+# mkl.set_num_threads(4)
+# os.environ['OMP_NUM_THREADS'] = '{:d}'.format(4)
 
 import torch
-import utils
 from DataLoader import *
 from train import *
-from utils import build_params, keys_rating_net, keys_row_latents, keys_col_latents, get_canonical_indices, \
+from utils import build_params, get_canonical_indices, \
     splitData
 
 # Load the data using DataLoader
@@ -33,11 +27,16 @@ from utils import build_params, keys_rating_net, keys_row_latents, keys_col_late
 full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS, size=(1200, 2000))
 print(full_data.shape)
 
-print("Threads",torch.set_num_threads(4))
+# print("Threads",torch.set_num_threads(4))
 print("Threads",torch.get_num_threads())
 print(np.mean(np.sum(full_data > 0, axis=1)))  # Check average ratings per user
-# Reduce the matrix to toy size
+#Reduce the matrix to toy size
+num_user_latents = 150  # int(np.ceil(full_data.shape[0]))
+num_movie_latents = 150 # int(np.ceil(full_data.shape[1]))
+
 # full_data = full_data[:100,:100]
+# num_user_latents = 20  # int(np.ceil(full_data.shape[0]))
+# num_movie_latents = 20 # int(np.ceil(full_data.shape[1]))
 rows = [x for x in range((full_data.shape[0])) if full_data[x, :].sum() > 0]
 cols = [x for x in range((full_data.shape[1])) if full_data[:, x].sum() > 0]
 full_data = full_data[rows, :]
@@ -47,8 +46,6 @@ d = np.add(1,2)
 print(full_data.shape)
 nrows, ncols = full_data.shape
 
-num_user_latents = 150  # int(np.ceil(full_data.shape[0]))
-num_movie_latents = 150 # int(np.ceil(full_data.shape[1]))
 
 print(num_user_latents, num_movie_latents)
 can_idx = get_canonical_indices(full_data, [num_user_latents, num_movie_latents])
@@ -72,7 +69,6 @@ epoch = 0
 # Build the dictionary of parameters for the nets, etc.
 if args.file:
     filename = args.file
-    new_state_dict = OrderedDict()
     state_dict = torch.load(filename)
     parameters = state_dict['params']
     optimizer = state_dict['optimizer']

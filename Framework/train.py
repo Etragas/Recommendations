@@ -122,7 +122,7 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
                     paramsToOpt[(k, subkey)] = param
         paramList = paramsToOpt.values()
     if optimizer is None:
-        optimizer = optim.Adam(paramList, lr=.0001, weight_decay=0.0001)
+        optimizer = optim.Adam(paramList, lr=.0001, weight_decay=0.0000)
     print(paramsToOpt)
     # print(optimizer.__getstate__())
     callback = dataCallback(train_data, test_data)
@@ -131,12 +131,11 @@ def train(train_data, test_data, can_idx=None, train_idx=None, test_idx=None, pa
     print(maskParams)
     for iter in range(num_opt_passes):
         iter = iter + epoch
-        # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
-        # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
-        # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
         optimizer.zero_grad()  # zero the gradient buffers
         for i in range(num_accumul):
-            loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=10, num_proc=num_accumul)
+            data_loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=.00001, num_proc=num_accumul)
+            reg_loss = regularization_loss(parameters,paramsToOpt)
+            loss = data_loss+reg_loss
             loss.backward()
         # mask_grad(paramsToOpt, maskParams[iter % 2])
         # clip_grads(paramsToOpt,clip=1)
