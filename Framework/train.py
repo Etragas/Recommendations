@@ -1,5 +1,5 @@
 import torch.optim as optim
-from NMF_ATNN import *
+from model import *
 from utils import keys_rating_net
 
 def train(train_data, test_data, parameters=None, optimizer=None, epoch=0):
@@ -51,8 +51,8 @@ def train(train_data, test_data, parameters=None, optimizer=None, epoch=0):
         # pred = inference(parameters, data=train_data, indices=shuffle(list(zip(*train_data.nonzero())))[:100])
         optimizer.zero_grad()  # zero the gradient buffers
         for i in range(num_accumul):
-            data_loss = standard_loss(parameters, iter, data=train_data, indices=None, reg_alpha=.00001, num_proc=num_accumul)
-            reg_loss = regularization_loss(parameters, paramsToOpt)
+            data_loss = standard_loss(parameters, data=train_data, indices=None, num_proc=num_accumul)
+            reg_loss = regularization_loss(parameters, paramsToOpt, reg_alpha=0.00001)
             loss = data_loss + reg_loss
             loss.backward()
         # mask_grad(paramsToOpt, maskParams[iter % 2])
