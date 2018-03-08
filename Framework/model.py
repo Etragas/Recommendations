@@ -388,7 +388,7 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, optimizer=Non
                 print("\t median is: ", median.data[0])
 
     print("Hitcount is: ", hitcount, sum(hitcount))
-    print("Number of movies per distance", {key: len(value) for (key, value) in user_distances.items()})
+    print("Number of users per distance", {key: len(value) for (key, value) in user_distances.items()})
     print("User average distance to prototypes: ", sum(x for x in USERDISTANCECACHE if x is not None) / (1.0 * sum(x is not None for x in USERDISTANCECACHE)))
     print("Number of movies per distance: ", {key: len(value) for (key, value) in movie_distances.items()})
     print("Movie average distance to prototypes: ", sum(x for x in MOVIEDISTANCECACHE if x is not None) / (1.0 * sum(x is not None for x in MOVIEDISTANCECACHE)))
