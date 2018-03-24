@@ -1,14 +1,11 @@
-import pickle
-import numpy as np
 import shutil
-import torch
 import time
 
-from functools import reduce
+import numpy as np
+import torch
 from sklearn.utils import shuffle
 from torch.autograd import Variable
 from utils import *
-
 
 """
 Initialize all non-mode-specific parameters
@@ -28,6 +25,7 @@ param_dict = {}
 
 user_distances = {}
 movie_distances = {}
+
 
 def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_batches=1, predictions=None):
     """
@@ -56,6 +54,7 @@ def standard_loss(parameters, iter=0, data=None, indices=None, num_proc=1, num_b
 
     return data_loss
 
+
 def regularization_loss(parameters=None, paramsToOpt=None, reg_alpha=.01):
     """
     Computes the regularization loss, penalizing vector norms
@@ -72,6 +71,7 @@ def regularization_loss(parameters=None, paramsToOpt=None, reg_alpha=.01):
 
     return reg_loss
 
+
 def get_predictions(parameters, data, indices=None):
     """
     Computes the predictions for the specified users and movie pairs
@@ -85,14 +85,14 @@ def get_predictions(parameters, data, indices=None):
     """
     global VOLATILE
     full_predictions = {}
-    fail_keys = [] # Stores invalid pairs of user and movie latents
-    good_keys = [] # Stores valid pairs of user and movie latents
-    input_vectors = [] # Stores concatenated user and movie latents as input to the rating net
+    fail_keys = []  # Stores invalid pairs of user and movie latents
+    good_keys = []  # Stores valid pairs of user and movie latents
+    input_vectors = []  # Stores concatenated user and movie latents as input to the rating net
 
-    setup_caches(data,parameters)
+    setup_caches(data, parameters)
     for i in range(MAX_RECURSION + 1):
-        user_distances[i] = set() 
-        movie_distances[i] = set() 
+        user_distances[i] = set()
+        movie_distances[i] = set()
 
     if indices is None:
         indices = shuffle(list(zip(*data.nonzero())))[:]
@@ -114,7 +114,8 @@ def get_predictions(parameters, data, indices=None):
     for idx, key in enumerate(good_keys):
         full_predictions[key] = predictions[idx]
     for key in fail_keys:
-        full_predictions[key] = Variable(torch.FloatTensor([float(3.5)]),volatile=VOLATILE).type(dtype) # Assign an average rating
+        full_predictions[key] = Variable(torch.FloatTensor([float(3.5)]), volatile=VOLATILE).type(
+            dtype)  # Assign an average rating
 
     return full_predictions
 
@@ -137,7 +138,7 @@ def perform_inference(parameters, data=None, user_index=0, movie_index=0):
 
     # Default value for the latents is arbitrarily chosen to be 3.5
     if movieLatent is None or userLatent is None:
-        return Variable(torch.FloatTensor([float(3.5)]),volatile=VOLATILE).type(dtype)
+        return Variable(torch.FloatTensor([float(3.5)]), volatile=VOLATILE).type(dtype)
     # Run through the rating net, passing in rating net parameters and the concatenated latents
     val = parameters[keys_rating_net].forward((torch.cat((movieLatent, userLatent), 0)))
     return val  # np.dot(np.array([1,2,3,4,5]),softmax())
@@ -194,8 +195,8 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     # Retrieve latents for every user who watched the movie
     entries = data[user_index, :].nonzero()[0]
     can_entries = [x for x in entries if x < NUM_USER_LATENTS]
-    uncan_entries = shuffle(list(set(entries)-set(can_entries)))
-    entries = can_entries+uncan_entries
+    uncan_entries = shuffle(list(set(entries) - set(can_entries)))
+    entries = can_entries + uncan_entries
     # Retrieve latents for every movie watched by user
     for movie_index, rating in zip(entries, data[user_index, entries]):
 
@@ -206,10 +207,12 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
 
             # If the movie latent is valid, and does not produce a cycle, append it
         if movie_index not in internal_caller[1]:
-            movie_latent, curr_depth = getMovieLatent(parameters, data, movie_index, recursion_depth - 1, caller_id=internal_caller)
+            movie_latent, curr_depth = getMovieLatent(parameters, data, movie_index, recursion_depth - 1,
+                                                      caller_id=internal_caller)
 
             if movie_latent is not None:
-                latentWithRating = torch.cat((movie_latent, Variable(torch.FloatTensor([float(rating)]).type(dtype),volatile = VOLATILE)), dim=0)
+                latentWithRating = torch.cat(
+                    (movie_latent, Variable(torch.FloatTensor([float(rating)]).type(dtype), volatile=VOLATILE)), dim=0)
                 input_latents.append(latentWithRating)  # We got another movie latent
                 evidence_count += 1
                 dist = min(dist, curr_depth)
@@ -232,7 +235,7 @@ def getUserLatent(parameters, data, user_index, recursion_depth=MAX_RECURSION, c
     return row_latent, USERDISTANCECACHE[user_index]
 
 
-def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION, caller_id=[[], []], curr_dist = 0):
+def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION, caller_id=[[], []], curr_dist=0):
     """
     Generate or retrieve the movie latent.
     If it is a canonical, we retrieve it.
@@ -294,9 +297,11 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
         # If the user latent is valid, and does not produce a cycle, append it
         if user_index not in internal_caller[0]:
-            user_latent, curr_depth = getUserLatent(parameters, data, user_index, recursion_depth - 1, caller_id=internal_caller)
+            user_latent, curr_depth = getUserLatent(parameters, data, user_index, recursion_depth - 1,
+                                                    caller_id=internal_caller)
             if user_latent is not None:
-                latentWithRating = torch.cat((user_latent, Variable(torch.FloatTensor([float(rating)]).type(dtype),volatile = VOLATILE)), dim=0)
+                latentWithRating = torch.cat(
+                    (user_latent, Variable(torch.FloatTensor([float(rating)]).type(dtype), volatile=VOLATILE)), dim=0)
                 input_latents.append(latentWithRating)  # We got another movie latent
                 evidence_count += 1
                 dist = min(dist, curr_depth)
@@ -310,7 +315,8 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
     #
     # return row_latent
     # Now we have all latents, prepare for concatenation
-    MOVIELATENTCACHE[movie_index] = (column_latent, recursion_depth)  # Cache the movie latent with the current recursion depth
+    MOVIELATENTCACHE[movie_index] = (
+    column_latent, recursion_depth)  # Cache the movie latent with the current recursion depth
     # movie_distances[recursion_depth].add(movie_index)
     if MOVIEDISTANCECACHE[movie_index] is not None:
         movie_distances[MOVIEDISTANCECACHE[movie_index]].remove(movie_index)
@@ -323,7 +329,8 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
 
 def dataCallback(data, test=None):
-    return lambda params, iter, grad, optimizer: print_perf(params, iter, grad, train=data, test=test, optimizer = optimizer)
+    return lambda params, iter, grad, optimizer: print_perf(params, iter, grad, train=data, test=test,
+                                                            optimizer=optimizer)
 
 
 def print_perf(params, iter=0, gradient={}, train=None, test=None, optimizer=None):
@@ -389,19 +396,21 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, optimizer=Non
 
     print("Hitcount is: ", hitcount, sum(hitcount))
     print("Number of users per distance", {key: len(value) for (key, value) in user_distances.items()})
-    print("User average distance to prototypes: ", sum(x for x in USERDISTANCECACHE if x is not None) / (1.0 * sum(x is not None for x in USERDISTANCECACHE)))
+    print("User average distance to prototypes: ",
+          np.mean(list(map(lambda keyValue: len(keyValue[1]) * keyValue[0], user_distances.items()))))
     print("Number of movies per distance: ", {key: len(value) for (key, value) in movie_distances.items()})
-    print("Movie average distance to prototypes: ", sum(x for x in MOVIEDISTANCECACHE if x is not None) / (1.0 * sum(x is not None for x in MOVIEDISTANCECACHE)))
+    print("Movie average distance to prototypes: ",
+          np.mean(list(map(lambda keyValue: len(keyValue[1]) * keyValue[0], movie_distances.items()))))
     if (iter % 20 == 0):
         is_best = False
         if (test_rmse_result.data[0] < BESTPREC):
             BESTPREC = test_rmse_result.data[0]
             is_best = True
         save_checkpoint({
-            'epoch': iter+ 1,
+            'epoch': iter + 1,
             'params': params,
             'best_prec1': test_rmse_result,
-            'optimizer' : optimizer,
+            'optimizer': optimizer,
         }, is_best)
 
     VOLATILE = False
@@ -412,20 +421,21 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, optimizer=Non
     # if len(train_mse) % 10 == 0:
     #     print("Performance Update (every 10 iters): ", train_mse)
 
-        # plt.scatter(train_mse_iters, train_mse, color='black')
+    # plt.scatter(train_mse_iters, train_mse, color='black')
 
-        # plt.plot(train_mse_iters, train_mse)
-        # plt.title('MovieLens 100K Performance (with pretraining)')
-        # plt.xlabel('Iterations')
-        # plt.ylabel('RMSE')
-        # plt.draw()
-        # plt.pause(0.001)
-        # if len(train_mse)%10 == 0:
-        #  #End the plotting with a raw input
-        #  plt.savefig('finalgraph.png')
-        #  print("Final Total Performance: ", train_mse)
+    # plt.plot(train_mse_iters, train_mse)
+    # plt.title('MovieLens 100K Performance (with pretraining)')
+    # plt.xlabel('Iterations')
+    # plt.ylabel('RMSE')
+    # plt.draw()
+    # plt.pause(0.001)
+    # if len(train_mse)%10 == 0:
+    #  #End the plotting with a raw input
+    #  plt.savefig('finalgraph.png')
+    #  print("Final Total Performance: ", train_mse)
 
-#Stolen from Mamy Ratsimbazafy
+
+# Stolen from Mamy Ratsimbazafy
 def save_checkpoint(state, is_best, filename='Weights/checkpoint{}.pth.tar'):
     """
     For the best results currently achieved, save the epoch, parameters,
@@ -436,11 +446,12 @@ def save_checkpoint(state, is_best, filename='Weights/checkpoint{}.pth.tar'):
     :param filename: the name of the file we store our checkpoint in
     """
     filename = filename.format(0)
-    torch.save(state, filename) # TODO: Clarify whether or not this should go inside the if statement
+    torch.save(state, filename)  # TODO: Clarify whether or not this should go inside the if statement
     if is_best:
         shutil.copyfile(filename, 'Weights/model_best.pth.tar')
 
-def setup_caches(data,parameters):
+
+def setup_caches(data, parameters):
     """
     Initializes model attributes and the cache for user and movie latents
 
@@ -448,7 +459,7 @@ def setup_caches(data,parameters):
     :param parameters: the dictionary of parameters of our model
     """
     global NUM_USERS, NUM_MOVIES, NUM_USER_LATENTS, NUM_MOVIE_LATENTS
-    #NUM_USERS, NUM_MOVIES = list(map(lambda x: len(set(x)), data.nonzero()))
+    # NUM_USERS, NUM_MOVIES = list(map(lambda x: len(set(x)), data.nonzero()))
     NUM_USERS, NUM_MOVIES = data.shape
     NUM_USER_LATENTS = parameters[keys_row_latents].size()[0]
     NUM_MOVIE_LATENTS = parameters[keys_col_latents].size()[1]
@@ -486,6 +497,7 @@ def rmse(gt, pred):
     print("Num of items is {} average pred value is {}".format(lens, np.mean(mean)))
     return torch.sqrt((diff / len(pred.keys())))
 
+
 def mae(gt, pred):
     """
     Computes the mean absolute error given a ground truth and prediction
@@ -501,6 +513,7 @@ def mae(gt, pred):
     val = val / len(pred.keys())
     return val
 
+
 def computeWeightLoss(parameters):
     global USERLATENTCACHE, MOVIELATENTCACHE
     regLoss = 0
@@ -509,7 +522,7 @@ def computeWeightLoss(parameters):
         if type(v) == Variable:
             print("Key is: ", k, "Value is: ", v.size())
             if k == keys_row_latents:
-                regLoss += torch.sum(torch.pow(v.data,2))
+                regLoss += torch.sum(torch.pow(v.data, 2))
                 useMask = [1 if x is not None else 0 for x in USERLATENTCACHE[:v.size()[0]]]
                 print(useMask)
                 print(np.sum(useMask))
@@ -517,13 +530,14 @@ def computeWeightLoss(parameters):
                 useMask = [1 if x is not None else 0 for x in MOVIELATENTCACHE[:v.size()[1]]]
                 print(useMask)
                 print(np.sum(useMask))
-                regLoss += torch.sum(torch.pow(v.data,2))
+                regLoss += torch.sum(torch.pow(v.data, 2))
         else:
             for subkey, param in v.named_parameters():
-                regLoss += torch.sum(torch.pow(param.data,2))
+                regLoss += torch.sum(torch.pow(param.data, 2))
     return regLoss
 
-def momentDiff(parameters,momentFn):
+
+def momentDiff(parameters, momentFn):
     colLatents = parameters[keys_col_latents]
     rowLatents = parameters[keys_row_latents]
     colLatntWithRating = torch.cat(
@@ -536,10 +550,11 @@ def momentDiff(parameters,momentFn):
     averageCol = momentFn(colLatents, dim=0)
     meanDiffCol = torch.sum(torch.pow(averageCol - averagePredCol, 2))
     meanDiffRow = torch.sum(torch.pow(averageRow - averagePredRow, 2))
-    print("Mean Diff Col {} and Mean Diff Row {}".format(meanDiffCol,meanDiffRow))
+    print("Mean Diff Col {} and Mean Diff Row {}".format(meanDiffCol, meanDiffRow))
     meanDiff = (meanDiffCol + meanDiffRow)
 
     return meanDiff
+
 
 rowLatents = 0
 colLatents = 0
