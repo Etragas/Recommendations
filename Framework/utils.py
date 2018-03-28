@@ -3,10 +3,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from sklearn.utils import shuffle
 from torch.autograd import Variable
 
-movie_latent_size = 160
-user_latent_size = 160
+movie_latent_size = 100
+user_latent_size = 100
 hyp_user_network_sizes = [movie_latent_size + 1, 200, 200, user_latent_size]
 hyp_movie_network_sizes = [user_latent_size + 1, 200, 200, movie_latent_size]
 rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 200, 1]
@@ -16,6 +17,7 @@ dtype = torch.FloatTensor
 if (torch.cuda.device_count() > 0):
     dtype = torch.cuda.FloatTensor  # Uncomment this to run on GPU
 
+# The if statement checks if the code is running on gpu or cpu
 if (dtype == torch.FloatTensor):
     class GeneratorNet(nn.Module):
         def __init__(self, latent_size=None):
@@ -38,11 +40,11 @@ if (dtype == torch.FloatTensor):
     class RatingGeneratorNet(nn.Module):
         def __init__(self):
             super(RatingGeneratorNet, self).__init__()
-            self.fc1 = nn.Linear(user_latent_size + movie_latent_size, 400)
+            self.fc1 = nn.Linear(user_latent_size + movie_latent_size, 50)
             # self.bn1 = torch.nn.BatchNorm1d(4000)
-            self.fc2 = nn.Linear(400, 200)
+            self.fc2 = nn.Linear(50, 50)
             # self.bn2 = torch.nn.BatchNorm1d(2000
-            self.fc3 = nn.Linear(200, 1)
+            self.fc3 = nn.Linear(50, 1)
             initParams(self)
 
         def forward(self, x):
@@ -147,6 +149,12 @@ def get_canonical_indices(data, latent_sizes):
     return np.array(user_indices), np.array(movie_indices)
 
 
+def prioritizePrototypeRatings(entries, prototypeThreshold=0):
+    can_entries = [x for x in entries if x < prototypeThreshold]
+    uncan_entries = shuffle(list(set(entries) - set(can_entries)))
+    return can_entries + uncan_entries
+
+
 def fill_in_gaps(canonical_indices, new_indices, full_data):
     can_sizes = map(lambda x: x.size, canonical_indices)
     # Sort the indices before.
@@ -179,33 +187,12 @@ def splitData(data, train_ratio=.8):
     return train, test  # [row_indices[:row_split], col_indices[:col_split]], [row_indices[row_split:], col_indices[col_split:]]
 
 
-def listify(data):
-    """
-    Returns a dict of two lists, one row-first the other column-first.
-    Each of the two lists contains a tuple of lists, where tuple[0] is the indices of the rated movies and tuple[1] the ratings.
-    :param data:
-    :return:
-    """
-    row_size, col_size = data.shape
-    row_first = []
-    col_first = []
-    for usr_idx in range(row_size):
-        rav = np.ravel(np.nonzero(data[usr_idx, :]))
-        # if len(rav) == 0:
-        #     continue
-        movie_indices = list(rav)
-        ratings = list(data[usr_idx, movie_indices])
-        row_first.append((movie_indices, ratings))
-
-    for movie_idx in range(col_size):
-        rav = np.ravel(np.nonzero(data[:, movie_idx]))
-        # if len(rav) == 0:
-        #     continue
-        user_indices = list(rav)
-        ratings = list(data[user_indices, movie_idx])
-        col_first.append((user_indices, ratings))
-    print("done")
-    return {keys_row_first: row_first, keys_col_first: col_first}
+def stripEmptyRowAndCols(matrix):
+    rows = [x for x in range((matrix.shape[0])) if matrix[x, :].sum() > 0]
+    cols = [x for x in range((matrix.shape[1])) if matrix[:, x].sum() > 0]
+    matrix = matrix[rows, :]
+    matrix = matrix[:, cols]
+    return matrix
 
 
 def getXinCanonical(data, len_can):
@@ -231,6 +218,7 @@ def getNeighbours(full_data, percentiles=[.01, .01, .02, .03, .04, .05, .10, .20
     plt.plot(percentiles, user_results)
     plt.show()
     return user_results
+
 
 keys_row_first = "row"
 keys_col_first = "column"
