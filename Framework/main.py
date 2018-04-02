@@ -7,6 +7,7 @@ from DataLoader import *
 from scipy.sparse import dok_matrix
 from train import *
 
+from Framework.DataLoader import DataLoader
 from Framework.utils import stripEmptyRowAndCols, get_canonical_indices, splitData
 
 
@@ -30,9 +31,10 @@ if __name__ == "__main__":
     # Load the data using DataLoader
     # full_data = DataLoader().LoadData(file_path="../Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
     # full_data = DataLoader().LoadData(file_path="../Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
-    # full_data = DataLoader().LoadData(file_path="../Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
-    full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS,
-                                      size=(1200, 2000))
+    # DataLoader().fixMovelens100m('../Data/ml-1m/ratings.dat')
+    full_data = DataLoader().LoadData(file_path="../Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
+    # full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS,
+    #                                   size=(1200, 2000))
 
     # Reduce the matrix to toy size
     # full_data = full_data[:100,:100]
@@ -53,7 +55,6 @@ if __name__ == "__main__":
     # Resort data so that canonical users and movies are in top left
     full_data = full_data[:, can_idx[1]]
     full_data = full_data[can_idx[0], :]
-    full_data = dok_matrix(full_data)
     print(full_data)
     # Split full dataset into train and test sets.
     train_data, test_data = splitData(full_data, train_ratio=.9)

@@ -38,7 +38,7 @@ def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000,
         data_loss = standard_loss(parameters, data=train_data, indices=None, predictions=predictions)
         reg_loss = regularization_loss(parameters, paramsToOptDict, reg_alpha=0.00001)
         loss = data_loss + reg_loss
-        # loss.backward()
+        loss.backward()
         if alternatingOptimization:
             mask_grad(paramsToOptDict, maskParams[iter % 2])
         if gradientClipping:

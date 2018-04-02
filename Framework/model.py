@@ -65,9 +65,10 @@ def get_predictions(parameters, data, indices=None):
             full_predictions[key] = Variable(torch.FloatTensor([float(3.4)]), volatile=VOLATILE).type(
                 dtype)  # Assign an average rating
         else:
-            full_predictions[key] =             full_predictions[key] = Variable(torch.FloatTensor([float(3.4)]), volatile=VOLATILE).type(
-                dtype)  # Assign an average rating
-#parameters[keys_rating_net].forward(torch.cat((userLatent,itemLatent),0))# torch.dot(userLatent, itemLatent)
+            full_predictions[key] = parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0))
+            # full_predictions[key] = Variable(torch.FloatTensor([float(3.4)]), volatile=VOLATILE).type(
+            #   dtype)  # Assign an average rating
+    ## torch.dot(userLatent, itemLatent)
 
     return full_predictions
 
@@ -117,7 +118,7 @@ def getUserLatent(parameters, data, user_index, recursionStepsRemaining=MAX_RECU
     callier_id_with_self = [caller_id[0] + [user_index], caller_id[1]]
     # Retrieve latents for every user who watched the movie
 
-    columns = prioritizePrototypeRatings(entries = data[user_index, :].nonzero()[0], prototypeThreshold=numUserLatents)
+    columns = prioritizePrototypeRatings(entries=data[user_index, :].nonzero()[0], prototypeThreshold=numUserLatents)
 
     # Retrieve latents for every movie watched by user
     evidence_count = 0
@@ -303,7 +304,7 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, userDistances
     print("Loss is ", loss_result.data[0])
     if (test is not None):
         print("Printing performance for test:")
-        test_indices = shuffle(list(zip(*test.nonzero())))[:500]
+        test_indices = shuffle(list(zip(*test.nonzero())))[:5000]
         test_pred = get_predictions(params, train, indices=test_indices)
         test_rmse_result = rmse(gt=test, pred=test_pred)
         print("Test RMSE is ", (test_rmse_result.data)[0])
