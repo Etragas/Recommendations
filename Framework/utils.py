@@ -40,9 +40,9 @@ if (dtype == torch.FloatTensor):
     class RatingGeneratorNet(nn.Module):
         def __init__(self):
             super(RatingGeneratorNet, self).__init__()
-            self.fc1 = nn.Linear(user_latent_size + movie_latent_size, 200)
+            self.fc1 = nn.Linear(user_latent_size + movie_latent_size, 400)
             # self.bn1 = torch.nn.BatchNorm1d(4000)
-            self.fc2 = nn.Linear(200, 200)
+            self.fc2 = nn.Linear(400, 200)
             # self.bn2 = torch.nn.BatchNorm1d(2000
             self.fc3 = nn.Linear(200, 1)
             initParams(self)
