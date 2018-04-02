@@ -3,7 +3,7 @@ import torch
 from torch.autograd import Variable
 from utils import *
 
-from Framework.utils import keys_col_latents, keys_row_latents, keys_movie_to_user_net, keys_user_to_movie_net
+from src.utils import keys_col_latents, keys_row_latents, keys_movie_to_user_net, keys_user_to_movie_net
 
 
 def standard_loss(parameters, data=None, indices=None, predictions={}):

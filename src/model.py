@@ -6,8 +6,8 @@ from sklearn.utils import shuffle
 from torch.autograd import Variable
 from utils import *
 
-from Framework.losses import rmse, mae, standard_loss, regularization_loss
-from Framework.utils import keys_row_latents, keys_movie_to_user_net, keys_col_latents, keys_user_to_movie_net, \
+from src.losses import rmse, mae, standard_loss, regularization_loss
+from src.utils import keys_row_latents, keys_movie_to_user_net, keys_col_latents, keys_user_to_movie_net, \
     shuffleNonPrototypeEntries, keys_rating_net
 
 """

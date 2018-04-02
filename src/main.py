@@ -7,8 +7,8 @@ from DataLoader import *
 from scipy.sparse import dok_matrix
 from train import *
 
-from Framework.DataLoader import DataLoader
-from Framework.utils import stripEmptyRowAndCols, get_canonical_indices, splitData
+from src.DataLoader import DataLoader
+from src.utils import stripEmptyRowAndCols, get_canonical_indices, splitData
 
 
 def parseArgs():
@@ -29,11 +29,11 @@ if __name__ == "__main__":
     epoch = 0
 
     # Load the data using DataLoader
-    # full_data = DataLoader().LoadData(file_path="../Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
-    # full_data = DataLoader().LoadData(file_path="../Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
+    # full_data = DataLoader().LoadData(file_path="Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
+    # full_data = DataLoader().LoadData(file_path="Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
     # DataLoader().fixMovelens100m('../Data/ml-1m/ratings.dat')
-    # full_data = DataLoader().LoadData(file_path="../Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
-    full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS,
+    # full_data = DataLoader().LoadData(file_path="Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
+    full_data = DataLoader().LoadData(file_path="Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS,
                                        size=(1200, 2000))
 
     # Reduce the matrix to toy size

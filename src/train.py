@@ -2,8 +2,8 @@ import torch.optim as optim
 from model import *
 from utils import keys_rating_net
 
-from Framework.losses import standard_loss, regularization_loss
-from Framework.model import get_predictions
+from src.losses import standard_loss, regularization_loss
+from src.model import get_predictions
 
 
 def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000, initialIteration=0,
