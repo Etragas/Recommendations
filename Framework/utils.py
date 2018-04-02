@@ -6,8 +6,8 @@ import torch.nn.functional as F
 from sklearn.utils import shuffle
 from torch.autograd import Variable
 
-movie_latent_size = 100
-user_latent_size = 100
+movie_latent_size = 120
+user_latent_size = 120
 hyp_user_network_sizes = [movie_latent_size + 1, 200, 200, user_latent_size]
 hyp_movie_network_sizes = [user_latent_size + 1, 200, 200, movie_latent_size]
 rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 200, 1]
@@ -149,7 +149,7 @@ def get_canonical_indices(data, latent_sizes):
     return np.array(user_indices), np.array(movie_indices)
 
 
-def prioritizePrototypeRatings(entries, prototypeThreshold=0):
+def shuffleNonPrototypeEntries(entries, prototypeThreshold=0):
     can_entries = [x for x in entries if x < prototypeThreshold]
     uncan_entries = shuffle(list(set(entries) - set(can_entries)))
     return can_entries + uncan_entries

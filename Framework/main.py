@@ -23,8 +23,8 @@ def parseArgs():
 if __name__ == "__main__":
 
     args = parseArgs()
-    numUserProto = 50
-    numItemProto = 50
+    numUserProto = 25
+    numItemProto = 25
     optimizer = None
     epoch = 0
 
@@ -32,9 +32,9 @@ if __name__ == "__main__":
     # full_data = DataLoader().LoadData(file_path="../Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
     # full_data = DataLoader().LoadData(file_path="../Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
     # DataLoader().fixMovelens100m('../Data/ml-1m/ratings.dat')
-    full_data = DataLoader().LoadData(file_path="../Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
-    # full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS,
-    #                                   size=(1200, 2000))
+    # full_data = DataLoader().LoadData(file_path="../Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
+    full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS,
+                                       size=(1200, 2000))
 
     # Reduce the matrix to toy size
     # full_data = full_data[:100,:100]

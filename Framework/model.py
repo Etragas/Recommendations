@@ -8,7 +8,7 @@ from utils import *
 
 from Framework.losses import rmse, mae, standard_loss, regularization_loss
 from Framework.utils import keys_row_latents, keys_movie_to_user_net, keys_col_latents, keys_user_to_movie_net, \
-    prioritizePrototypeRatings, keys_rating_net
+    shuffleNonPrototypeEntries, keys_rating_net
 
 """
 Initialize all non-mode-specific parameters
@@ -16,8 +16,8 @@ Initialize all non-mode-specific parameters
 
 curtime = time.time()
 MAX_RECURSION = 4
-TRAININGMODE = True
-EVIDENCELIMIT = 40
+trainingMode = True
+evidenceLimit = 40
 
 train_mse_iters = []
 train_mse = []
@@ -33,7 +33,7 @@ colLatents = 0
 
 hitcount = [0] * (MAX_RECURSION + 1)
 NUM_USERS, NUM_MOVIES = 0, 0
-USERLATENTCACHE, MOVIELATENTCACHE = [None] * NUM_USERS, [None] * NUM_MOVIES
+userLatentCache, itemLatentCache = [None] * NUM_USERS, [None] * NUM_MOVIES
 VOLATILE = False
 BESTPREC = 0
 
@@ -59,8 +59,8 @@ def get_predictions(parameters, data, indices=None):
 
     for userIdx, itemIdx in indices:
         key = (userIdx, itemIdx)
-        itemLatent = getMovieLatent(parameters, data, itemIdx)[0]
-        userLatent = getUserLatent(parameters, data, userIdx)[0]
+        itemLatent = getItemEmbedding(parameters, data, itemIdx)[0]
+        userLatent = getUserEmbedding(parameters, data, userIdx)[0]
         if (userLatent is None or itemLatent is None):
             full_predictions[key] = Variable(torch.FloatTensor([float(3.4)]), volatile=VOLATILE).type(
                 dtype)  # Assign an average rating
@@ -73,7 +73,8 @@ def get_predictions(parameters, data, indices=None):
     return full_predictions
 
 
-def getUserLatent(parameters, data, user_index, recursionStepsRemaining=MAX_RECURSION, caller_id=[[], []], curr_dist=0):
+def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECURSION, caller_id=[[], []],
+                     dist=MAX_RECURSION + 1):
     """
     Generate or retrieve the user latent.
     If it is a canonical, we retrieve it.
@@ -81,30 +82,28 @@ def getUserLatent(parameters, data, user_index, recursionStepsRemaining=MAX_RECU
 
     :param parameters: dictionary of all the parameters in our model
     :param data: The dataset
-    :param user_index: index of the user for which we want to generate a latent
+    :param userIdx: index of the user for which we want to generate a latent
     :param recursionStepsRemaining: the max recursion depth which we can generate latents from.
     :param caller_id: All the [user, movie] ancestors logged, which we check to avoid cycles
 
     :return: the predicted user latent
     """
 
-    global USERLATENTCACHE, hitcount, USERCACHELOCK, TRAININGMODE, EVIDENCELIMIT, UCANHIT, numUserLatents, VOLATILE, USERDISTANCECACHE
+    global userLatentCache, hitcount, trainingMode, evidenceLimit, numUserEmbeddings, VOLATILE, userDistanceCache
 
     # Get our necessary parameters from the parameters dictionary
     movie_to_user_net = parameters[keys_movie_to_user_net]
 
-    dist = MAX_RECURSION + 1
-
     # If user is canonical, return their latent immediately and cache it.
-    if user_index < numUserLatents:
+    if userIdx < numUserEmbeddings:
         rowLatents = parameters[keys_row_latents]
-        userDistances[0].add(user_index)
-        return rowLatents[user_index, :], 0
+        userDistances[0].add(userIdx)
+        return rowLatents[userIdx, :], 0
 
-    # If user latent is cached, return their latent immediately
-    if USERLATENTCACHE[user_index] is not None and USERLATENTCACHE[user_index][1] >= recursionStepsRemaining:
-        hitcount[USERLATENTCACHE[user_index][1]] += 1
-        return USERLATENTCACHE[user_index][0], USERDISTANCECACHE[user_index]
+    # If user latent is cached at a height greater than or equal to current, return their latent immediately
+    if userLatentCache[userIdx] is not None and userLatentCache[userIdx][1] >= recursionStepsRemaining:
+        hitcount[userLatentCache[userIdx][1]] += 1
+        return userLatentCache[userIdx][0], userDistanceCache[userIdx]
 
     # If we reached our recursion depth, return None
     if recursionStepsRemaining < 1:
@@ -113,55 +112,57 @@ def getUserLatent(parameters, data, user_index, recursionStepsRemaining=MAX_RECU
     # Must generate latent
 
     # Initialize lists for our dense ratings and latents
-    input_latents = []
+    itemEmbbeddings = []
     # update the current caller_id with this user index appended
-    callier_id_with_self = [caller_id[0] + [user_index], caller_id[1]]
+    callier_id_with_self = [caller_id[0] + [userIdx], caller_id[1]]
     # Retrieve latents for every user who watched the movie
-
-    columns = prioritizePrototypeRatings(entries=data[user_index, :].nonzero()[0], prototypeThreshold=numUserLatents)
+    nonZeroColumns = data[userIdx, :].nonzero()[0]
+    itemColumns = shuffleNonPrototypeEntries(entries=nonZeroColumns, prototypeThreshold=numUserEmbeddings)
 
     # Retrieve latents for every movie watched by user
-    evidence_count = 0
-    evidence_limit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursionStepsRemaining))
+    evidenceCount = 0
+    evidenceLimit = evidenceLimit / (2 ** (MAX_RECURSION - recursionStepsRemaining))
 
-    for itemIdx, rating in zip(columns, data[user_index, columns]):
-
+    for itemIdx in itemColumns:
+        itemRating = data[userIdx, itemIdx]
         # When it is training mode we use evidence count.
         # When we go over the evidence limit, we no longer need to look for latents
-        if TRAININGMODE and evidence_count > evidence_limit:
+        if trainingMode and evidenceCount > evidenceLimit:
             break
 
             # If the item latent is valid, and does not produce a cycle, append it
         if itemIdx not in callier_id_with_self[1]:
-            movie_latent, curr_depth = getMovieLatent(parameters, data, itemIdx, recursionStepsRemaining - 1,
-                                                      caller_id=callier_id_with_self)
+            movie_latent, curr_depth = getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining - 1,
+                                                        caller_id=callier_id_with_self)
 
             if movie_latent is not None:
                 latentWithRating = torch.cat(
-                    (movie_latent, Variable(torch.FloatTensor([float(rating)]).type(dtype), volatile=VOLATILE)), dim=0)
-                input_latents.append(latentWithRating)  # We got another movie latent
-                evidence_count += 1
+                    (movie_latent, Variable(torch.FloatTensor([float(itemRating)]).type(dtype), volatile=VOLATILE)),
+                    dim=0)
+                itemEmbbeddings.append(latentWithRating)  # We got another movie latent
+                evidenceCount += 1
                 dist = min(dist, curr_depth)
 
-    if (len(input_latents) < 2):
+    if (len(itemEmbbeddings) < 2):
         return None, MAX_RECURSION
     # Now have all latents, prepare for concatenations
-    embeddingConversions = movie_to_user_net.forward(torch.stack(input_latents, 0))  # Feed through NN
+    embeddingConversions = movie_to_user_net.forward(torch.stack(itemEmbbeddings, 0))  # Feed through NN
     row_latent = torch.mean(embeddingConversions, dim=0)
-    USERLATENTCACHE[user_index] = (row_latent, recursionStepsRemaining)
+    userLatentCache[userIdx] = (row_latent, recursionStepsRemaining)
     # print "user: ", user_index, " has depth: ", recursion_depth, "and caller id: ", internal_caller, " and all callers are: ", zip(entries, data[user_index, entries]), " and ", data[user_index, :], " and dist is: ", dist + 1
-    if USERDISTANCECACHE[user_index] is not None:
-        userDistances[USERDISTANCECACHE[user_index]].remove(user_index)
-        USERDISTANCECACHE[user_index] = min(dist + 1, USERDISTANCECACHE[user_index])
-        userDistances[USERDISTANCECACHE[user_index]].add(user_index)
+    if userDistanceCache[userIdx] is not None:
+        userDistances[userDistanceCache[userIdx]].remove(userIdx)
+        userDistanceCache[userIdx] = min(dist + 1, userDistanceCache[userIdx])
+        userDistances[userDistanceCache[userIdx]].add(userIdx)
     else:
-        userDistances[dist + 1].add(user_index)
-        USERDISTANCECACHE[user_index] = dist + 1
+        userDistances[dist + 1].add(userIdx)
+        userDistanceCache[userIdx] = dist + 1
 
-    return row_latent, USERDISTANCECACHE[user_index]
+    return row_latent, userDistanceCache[userIdx]
 
 
-def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION, caller_id=[[], []], curr_dist=0):
+def getItemEmbedding(parameters, data, itemIdx, recursion_depth=MAX_RECURSION, caller_id=[[], []],
+                     dist=MAX_RECURSION + 1):
     """
     Generate or retrieve the movie latent.
     If it is a canonical, we retrieve it.
@@ -169,89 +170,83 @@ def getMovieLatent(parameters, data, movie_index, recursion_depth=MAX_RECURSION,
 
     :param parameters: dictionary of all the parameters in our model
     :param data: The dataset
-    :param movie_index: index of the movie for which we want to generate a latent
+    :param itemIdx: index of the movie for which we want to generate a latent
     :param recursion_depth: the max recursion depth which we can generate latents from.
     :param caller_id: All the [user, movie] ancestors logged, which we check to avoid cycles
 
     :return: the predicted movie latent
     """
 
-    global MOVIELATENTCACHE, hitcount, MOVIECACHELOCK, TRAININGMODE, EVIDENCELIMIT, MCANHIT, NUM_MOVIE_LATENTS, MOVIEDISTANCECACHE
+    global itemLatentCache, hitcount, trainingMode, evidenceLimit, numItemEmbeddings, itemDistanceCache
 
     # Get our necessary parameters from the parameters dictionary
     user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
     colLatents = parameters[keys_col_latents]
 
-    dist = MAX_RECURSION + 1
-
     # If movie is canonical, return their latent immediately and cache it.
-    if movie_index < NUM_MOVIE_LATENTS:
-        MOVIELATENTCACHE[movie_index] = (colLatents[:, movie_index], 1)
-        itemDistances[0].add(movie_index)
-        return colLatents[:, movie_index], 0
+    if itemIdx < numItemEmbeddings:
+        itemLatentCache[itemIdx] = (colLatents[:, itemIdx], 1)
+        itemDistances[0].add(itemIdx)
+        return colLatents[:, itemIdx], 0
 
     # If movie latent is cached, return their latent immediately
-    if MOVIELATENTCACHE[movie_index] is not None and MOVIELATENTCACHE[movie_index][1] <= recursion_depth:
-        hitcount[MOVIELATENTCACHE[movie_index][1]] += 1
-        return MOVIELATENTCACHE[movie_index][0], MOVIEDISTANCECACHE[movie_index]
+    if itemLatentCache[itemIdx] is not None and itemLatentCache[itemIdx][1] <= recursion_depth:
+        hitcount[itemLatentCache[itemIdx][1]] += 1
+        return itemLatentCache[itemIdx][0], itemDistanceCache[itemIdx]
 
     # If we reached our recursion depth, return None
     if recursion_depth < 1:
         return None, MAX_RECURSION
 
     # Must Generate Latent
-    evidence_count = 0
-    evidence_limit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursion_depth))
-    # print evidence_limit
-    # items, ratings = get_candidate_latents(data[keys_col_first][movie_index][get_items], data[keys_col_first][movie_index][get_ratings], split = num_user_latents)
 
-    # Initialize lists for our dense ratings and latents
-    dense_ratings, input_latents = [], []
+    userEmbeddings = []
     # update the current caller_id with this movie index appended
-    internal_caller = [caller_id[0], caller_id[1] + [movie_index]]
-    # Retrieve latents for every user who watched the movie
-    entries = data[:, movie_index].nonzero()[0]
-    can_entries = [x for x in entries if x < NUM_MOVIE_LATENTS]
-    uncan_entries = shuffle(list(set(entries) - set(can_entries)))
-    entries = can_entries + uncan_entries
+    internal_caller = [caller_id[0], caller_id[1] + [itemIdx]]
 
-    for user_index, rating in zip(entries, data[entries, movie_index]):
+    # Retrieve latents for every user who watched the movie
+    nonZeroRows = data[:, itemIdx].nonzero()[0]
+    userRows = shuffleNonPrototypeEntries(entries=nonZeroRows, prototypeThreshold=numUserEmbeddings)
+
+    evidenceCount = 0
+    evidenceLimit = evidenceLimit / (2 ** (MAX_RECURSION - recursion_depth))
+
+    for userIdx in userRows:
+        userRating = data[userIdx, itemIdx]
         # When it is training mode we use evidence count.
         # When we go over the evidence limit, we no longer need to look for latents
-        if TRAININGMODE and evidence_count > evidence_limit:
+        if trainingMode and evidenceCount > evidenceLimit:
             break
 
         # If the user latent is valid, and does not produce a cycle, append it
-        if user_index not in internal_caller[0]:
-            user_latent, curr_depth = getUserLatent(parameters, data, user_index, recursion_depth - 1,
-                                                    caller_id=internal_caller)
+        if userIdx not in internal_caller[0]:
+            user_latent, curr_depth = getUserEmbedding(parameters, data, userIdx, recursion_depth - 1,
+                                                       caller_id=internal_caller)
             if user_latent is not None:
                 latentWithRating = torch.cat(
-                    (user_latent, Variable(torch.FloatTensor([float(rating)]).type(dtype), volatile=VOLATILE)), dim=0)
-                input_latents.append(latentWithRating)  # We got another movie latent
-                evidence_count += 1
+                    (user_latent, Variable(torch.FloatTensor([float(userRating)]).type(dtype), volatile=VOLATILE)),
+                    dim=0)
+                userEmbeddings.append(latentWithRating)  # We got another movie latent
+                evidenceCount += 1
                 dist = min(dist, curr_depth)
 
-    if (len(input_latents) < 2):
+    if (len(userEmbeddings) < 2):
         return None, MAX_RECURSION
-    prediction = user_to_movie_net_parameters.forward(torch.stack(input_latents, 0))  # Feed through NN
-    column_latent = torch.mean(prediction, dim=0)
-    # print("Row lat")
-    # # USERLATENTCACHE[user_index] = (row_latent, recursion_depth)
-    #
-    # return row_latent
+    prediction = user_to_movie_net_parameters.forward(torch.stack(userEmbeddings, 0))  # Feed through NN
+    targetItemEmbedding = torch.mean(prediction, dim=0)
+
     # Now we have all latents, prepare for concatenation
-    MOVIELATENTCACHE[movie_index] = (
-        column_latent, recursion_depth)  # Cache the movie latent with the current recursion depth
-    # movie_distances[recursion_depth].add(movie_index)
-    if MOVIEDISTANCECACHE[movie_index] is not None:
-        itemDistances[MOVIEDISTANCECACHE[movie_index]].remove(movie_index)
-        MOVIEDISTANCECACHE[movie_index] = min(dist + 1, MOVIEDISTANCECACHE[movie_index])
-        itemDistances[MOVIEDISTANCECACHE[movie_index]].add(movie_index)
+    itemLatentCache[itemIdx] = (
+        targetItemEmbedding, recursion_depth)  # Cache the movie latent with the current recursion depth
+
+    if itemDistanceCache[itemIdx] is not None:
+        itemDistances[itemDistanceCache[itemIdx]].remove(itemIdx)
+        itemDistanceCache[itemIdx] = min(dist + 1, itemDistanceCache[itemIdx])
+        itemDistances[itemDistanceCache[itemIdx]].add(itemIdx)
     else:
-        itemDistances[dist + 1].add(movie_index)
-        MOVIEDISTANCECACHE[movie_index] = dist + 1
-    return column_latent, MOVIEDISTANCECACHE[movie_index]
+        itemDistances[dist + 1].add(itemIdx)
+        itemDistanceCache[itemIdx] = dist + 1
+    return targetItemEmbedding, itemDistanceCache[itemIdx]
 
 
 # Stolen from Mamy Ratsimbazafy
@@ -282,7 +277,7 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, userDistances
     :param test: the test dataset, None by default
     :param optimizer: the optimizer we are using for the model, None by default
     """
-    global curtime, hitcount, TRAININGMODE, filename, param_dict, VOLATILE, BESTPREC
+    global curtime, hitcount, trainingMode, filename, param_dict, VOLATILE, BESTPREC
 
     print("Iteration ", iter)
 
@@ -291,7 +286,7 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, userDistances
     if (iter % 4 != 0):
         return
     VOLATILE = True
-    TRAININGMODE = True
+    trainingMode = True
 
     print("It took: {} seconds".format(time.time() - curtime))
     pred = get_predictions(params, data=train, indices=shuffle(list(zip(*train.nonzero())))[:500])
@@ -352,7 +347,7 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, userDistances
         }, is_best)
 
     VOLATILE = False
-    TRAININGMODE = True
+    trainingMode = True
     curtime = time.time()
     # train_mse.append(rmse_result.data[0])
     # train_mse_iters.append(iter)
@@ -388,11 +383,11 @@ def setup_caches(data, parameters):
     :param data: the dataset
     :param parameters: the dictionary of parameters of our model
     """
-    global NUM_USERS, NUM_MOVIES, numUserLatents, NUM_MOVIE_LATENTS
+    global NUM_USERS, NUM_MOVIES, numUserEmbeddings, numItemEmbeddings
     # NUM_USERS, NUM_MOVIES = list(map(lambda x: len(set(x)), data.nonzero()))
     NUM_USERS, NUM_MOVIES = data.shape
-    numUserLatents = parameters[keys_row_latents].size()[0]
-    NUM_MOVIE_LATENTS = parameters[keys_col_latents].size()[1]
+    numUserEmbeddings = parameters[keys_row_latents].size()[0]
+    numItemEmbeddings = parameters[keys_col_latents].size()[1]
 
     wipe_caches()
 
@@ -401,13 +396,13 @@ def wipe_caches():
     """
     Initializes caches for user and movie latents
     """
-    global USERLATENTCACHE, MOVIELATENTCACHE, UCANHIT, MCANHIT, USERDISTANCECACHE, MOVIEDISTANCECACHE
+    global userLatentCache, itemLatentCache, userDistanceCache, itemDistanceCache
     global hitcount
     hitcount = [0] * (MAX_RECURSION + 1)
-    USERLATENTCACHE = [None] * NUM_USERS
-    MOVIELATENTCACHE = [None] * NUM_MOVIES
-    USERDISTANCECACHE = [None] * NUM_USERS
-    MOVIEDISTANCECACHE = [None] * NUM_MOVIES
+    userLatentCache = [None] * NUM_USERS
+    itemLatentCache = [None] * NUM_MOVIES
+    userDistanceCache = [None] * NUM_USERS
+    itemDistanceCache = [None] * NUM_MOVIES
     for i in range(MAX_RECURSION + 1):
         userDistances[i] = set()
         itemDistances[i] = set()
