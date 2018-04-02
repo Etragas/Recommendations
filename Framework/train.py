@@ -2,25 +2,25 @@ import torch.optim as optim
 from model import *
 from utils import keys_rating_net
 
+from Framework.losses import standard_loss, regularization_loss
+from Framework.model import get_predictions
 
-def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000, epoch=0, alternatingOptimization=False,
+
+def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000, initialIteration=0,
+          alternatingOptimization=False,
           gradientClipping=False):
-    # cudnn.benchmark = True
-    # torch.backends.cudnn.benchmark = True
-    print("Shape of the training data:", train_data.shape)
-
     # Prepare dictionary of parameters to optimize
 
     paramsToOptDict = getDictOfParams(parameters)
     paramsToOptList = paramsToOptDict.values()
-    print("These are the parameters to optimize:", paramsToOptDict)
+    print("These are the parameters to optimize:", paramsToOptDict.keys())
 
     # If optimizer is not specified, use the default Adam optimizer
     if optimizer is None:
-        optimizer = optim.Adam(paramsToOptList, lr=.0001, weight_decay=0.0000)
+        optimizer = optim.Adam(paramsToOptList, lr=.001, weight_decay=0)
     # print(optimizer.__getstate__())
 
-    # Set callback function
+    # Set callback function for reporting performance
     callback = dataCallback(train_data, test_data)
 
     # Mask parameters if necessary
@@ -32,9 +32,10 @@ def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000,
 
     # Perform the optimization
     for iter in range(numIter):
-        iter = iter + epoch
+        iter = iter + initialIteration
         optimizer.zero_grad()  # zero the gradient buffers
-        data_loss = standard_loss(parameters, data=train_data, indices=None)
+        predictions = get_predictions(parameters, data=train_data, indices=None)
+        data_loss = standard_loss(parameters, data=train_data, indices=None, predictions=predictions)
         reg_loss = regularization_loss(parameters, paramsToOptDict, reg_alpha=0.00001)
         loss = data_loss + reg_loss
         loss.backward()
@@ -47,7 +48,8 @@ def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000,
 
     return parameters
 
-def getDictOfParams(parameters:dict):
+
+def getDictOfParams(parameters: dict):
     paramsToOptDict = {}
     for k, v in parameters.items():
         if type(v) == Variable:
@@ -56,6 +58,7 @@ def getDictOfParams(parameters:dict):
             for subkey, param in v.named_parameters():
                 paramsToOptDict[(k, subkey)] = param
     return paramsToOptDict
+
 
 def clip_grads(params, clip=5):
     for v in params:
