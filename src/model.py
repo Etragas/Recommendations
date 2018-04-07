@@ -1,14 +1,8 @@
 import shutil
 import time
 
-import torch
-from sklearn.utils import shuffle
-from torch.autograd import Variable
-from utils import *
-
 from src.losses import rmse, mae, standard_loss, regularization_loss
-from src.utils import keys_row_latents, keys_movie_to_user_net, keys_col_latents, keys_user_to_movie_net, \
-    shuffleNonPrototypeEntries, keys_rating_net
+from utils import *
 
 """
 Initialize all non-mode-specific parameters
@@ -17,7 +11,7 @@ Initialize all non-mode-specific parameters
 curtime = time.time()
 MAX_RECURSION = 4
 trainingMode = True
-evidenceLimit = 40
+EVIDENCELIMIT = 80
 
 train_mse_iters = []
 train_mse = []
@@ -89,7 +83,7 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     :return: the predicted user latent
     """
 
-    global userLatentCache, hitcount, trainingMode, evidenceLimit, numUserEmbeddings, VOLATILE, userDistanceCache
+    global userLatentCache, hitcount, trainingMode, EVIDENCELIMIT, numUserEmbeddings, VOLATILE, userDistanceCache
 
     # Get our necessary parameters from the parameters dictionary
     movie_to_user_net = parameters[keys_movie_to_user_net]
@@ -121,7 +115,7 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
 
     # Retrieve latents for every movie watched by user
     evidenceCount = 0
-    evidenceLimit = evidenceLimit / (2 ** (MAX_RECURSION - recursionStepsRemaining))
+    evidenceLimit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursionStepsRemaining))
 
     for itemIdx in itemColumns:
         itemRating = data[userIdx, itemIdx]
@@ -177,7 +171,7 @@ def getItemEmbedding(parameters, data, itemIdx, recursion_depth=MAX_RECURSION, c
     :return: the predicted movie latent
     """
 
-    global itemLatentCache, hitcount, trainingMode, evidenceLimit, numItemEmbeddings, itemDistanceCache
+    global itemLatentCache, hitcount, trainingMode, EVIDENCELIMIT, numItemEmbeddings, itemDistanceCache
 
     # Get our necessary parameters from the parameters dictionary
     user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
@@ -185,7 +179,6 @@ def getItemEmbedding(parameters, data, itemIdx, recursion_depth=MAX_RECURSION, c
 
     # If movie is canonical, return their latent immediately and cache it.
     if itemIdx < numItemEmbeddings:
-        itemLatentCache[itemIdx] = (colLatents[:, itemIdx], 1)
         itemDistances[0].add(itemIdx)
         return colLatents[:, itemIdx], 0
 
@@ -209,7 +202,7 @@ def getItemEmbedding(parameters, data, itemIdx, recursion_depth=MAX_RECURSION, c
     userRows = shuffleNonPrototypeEntries(entries=nonZeroRows, prototypeThreshold=numUserEmbeddings)
 
     evidenceCount = 0
-    evidenceLimit = evidenceLimit / (2 ** (MAX_RECURSION - recursion_depth))
+    evidenceLimit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursion_depth))
 
     for userIdx in userRows:
         userRating = data[userIdx, itemIdx]
