@@ -1,8 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from scipy.sparse import dok_matrix
 from sklearn.utils import shuffle
 from torch.autograd import Variable
 
@@ -14,8 +16,8 @@ rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 200, 1]
 scale = .1
 
 dtype = torch.FloatTensor
-if (torch.cuda.device_count() > 0):
-    dtype = torch.cuda.FloatTensor  # Uncomment this to run on GPU
+# if (torch.cuda.device_count() > 0):
+#     dtype = torch.cuda.FloatTensor  # Uncomment this to run on GPU
 
 # The if statement checks if the code is running on gpu or cpu
 if (dtype == torch.FloatTensor):
@@ -31,8 +33,8 @@ if (dtype == torch.FloatTensor):
             initParams(self)
 
         def forward(self, x):
-            x = F.relu(self.fc1(x))  # self.bn1(
-            x = F.relu(self.fc2(x))  # self.bn2(
+            x = F.sigmoid(self.fc1(x))  # self.bn1(
+            x = F.sigmoid(self.fc2(x))  # self.bn2(
             x = self.fc3(x)  # self.bn3(
             return x
 
@@ -44,13 +46,17 @@ if (dtype == torch.FloatTensor):
             # self.bn1 = torch.nn.BatchNorm1d(4000)
             self.fc2 = nn.Linear(400, 200)
             # self.bn2 = torch.nn.BatchNorm1d(2000
-            self.fc3 = nn.Linear(200, 1)
+            self.fc3 = nn.Linear(200, 100)
+            self.fc4 = nn.Linear(100, 50)
+            self.fc5 = nn.Linear(50, 1)
             initParams(self)
 
         def forward(self, x):
-            x = F.relu(self.fc1(x))  # self.bn1(
-            x = F.relu(self.fc2(x))  # self.bn2(
-            x = self.fc3(x)  # self.bn3(
+            x = F.sigmoid(self.fc1(x))  # self.bn1(
+            x = F.sigmoid(self.fc2(x))  # self.bn2(
+            x = F.sigmoid(self.fc3(x))
+            x = F.sigmoid(self.fc4(x))
+            x = self.fc5(x)  # self.bn3(
             return x
 else:
     class GeneratorNet(nn.Module):
@@ -154,46 +160,14 @@ def shuffleNonPrototypeEntries(entries, prototypeThreshold=0):
     uncan_entries = shuffle(list(set(entries) - set(can_entries)))
     return can_entries + uncan_entries
 
-
-def fill_in_gaps(canonical_indices, new_indices, full_data):
-    can_sizes = map(lambda x: x.size, canonical_indices)
-    # Sort the indices before.
-    new_axis_sizes = tuple([can_sizes[x] + new_indices[x].size for x in range(len(canonical_indices))])
-    print(new_axis_sizes)
-    training_block = np.zeros(new_axis_sizes)
-    # To load data properly, cross product every axis with every other of new indices.
-    # Fill in gaps along diagonal
-    training_block[:can_sizes[0], :can_sizes[1]] = full_data[np.ix_(*canonical_indices)]
-    training_block[can_sizes[0]:, can_sizes[1]:] = full_data[np.ix_(*new_indices)]
-    # Fill in gaps in between.
-    training_block[:can_sizes[0], can_sizes[1]:] = full_data[np.ix_(canonical_indices[0], new_indices[1])]
-    training_block[can_sizes[0]:, :can_sizes[1]] = full_data[np.ix_(new_indices[0], canonical_indices[1])]
-    return training_block
-
+def removeZeroRows(M):
+    M = scipy.sparse.csr_matrix(M)
+    M = M[M.getnnz(1) > 0][:, M.getnnz(0) > 0]
+    return M.todok()
 
 def get_top_n(data, n):
     indices = np.ravel((data.astype(int)).flatten().argsort())[-n:]
     return indices
-
-
-def splitData(data, train_ratio=.8):
-    np.random.seed(0)  # Debugging line
-    data_bool = data > 0
-    data_ind = data_bool * (np.random.rand(*data.shape))
-    train = data_ind <= train_ratio
-    test = data_ind > train_ratio
-    train = data * train
-    test = data * test
-    return train, test  # [row_indices[:row_split], col_indices[:col_split]], [row_indices[row_split:], col_indices[col_split:]]
-
-
-def stripEmptyRowAndCols(matrix):
-    rows = [x for x in range((matrix.shape[0])) if matrix[x, :].sum() > 0]
-    cols = [x for x in range((matrix.shape[1])) if matrix[:, x].sum() > 0]
-    matrix = matrix[rows, :]
-    matrix = matrix[:, cols]
-    return matrix
-
 
 def getXinCanonical(data, len_can):
     num_here = 0
