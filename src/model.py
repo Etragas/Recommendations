@@ -112,7 +112,7 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     # update the current caller_id with this user index appended
     callier_id_with_self = [caller_id[0] + [userIdx], caller_id[1]]
     # Retrieve latents for every user who watched the movie
-    nonZeroColumns = data[userIdx, :].nonzero()[0]
+    nonZeroColumns = data[userIdx, :].nonzero()[1]
     itemColumns = shuffleNonPrototypeEntries(entries=nonZeroColumns, prototypeThreshold=numUserEmbeddings)
 
     # Retrieve latents for every movie watched by user
@@ -202,7 +202,6 @@ def getItemEmbedding(parameters, data, itemIdx, recursion_depth=MAX_RECURSION, c
     # Retrieve latents for every user who watched the movie
     nonZeroRows = data[:, itemIdx].nonzero()[0]
     userRows = shuffleNonPrototypeEntries(entries=nonZeroRows, prototypeThreshold=numUserEmbeddings)
-
     evidenceCount = 0
     evidenceLimit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursion_depth))
 
