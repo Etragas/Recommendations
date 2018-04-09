@@ -11,7 +11,7 @@ from train import *
 from sklearn.model_selection import train_test_split
 
 from src.DataLoader import DataLoader
-from src.utils import stripEmptyRowAndCols, get_canonical_indices, splitData, splitDataDOK
+from src.utils import get_canonical_indices
 
 
 def parseArgs():
