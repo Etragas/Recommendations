@@ -2,13 +2,16 @@ import argparse
 import pickle
 
 import numpy as np
+import sklearn
 import torch
 from DataLoader import *
 from scipy.sparse import dok_matrix
+import scipy
 from train import *
+from sklearn.model_selection import train_test_split
 
 from src.DataLoader import DataLoader
-from src.utils import stripEmptyRowAndCols, get_canonical_indices, splitData
+from src.utils import stripEmptyRowAndCols, get_canonical_indices, splitData, splitDataDOK
 
 
 def parseArgs():
@@ -19,12 +22,11 @@ def parseArgs():
     print("Args File: ", args.file)
     return args
 
-
 if __name__ == "__main__":
 
     args = parseArgs()
-    numUserProto = 25
-    numItemProto = 25
+    numUserProto = 30
+    numItemProto = 60
     optimizer = None
     epoch = 0
 
@@ -33,8 +35,7 @@ if __name__ == "__main__":
     # full_data = DataLoader().LoadData(file_path="Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
     # DataLoader().fixMovelens100m('../Data/ml-1m/ratings.dat')
     # full_data = DataLoader().LoadData(file_path="Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
-    full_data = DataLoader().LoadData(file_path="Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS,
-                                       size=(1200, 2000))
+    full_data = DataLoader().LoadData(file_path="Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS, size=(1200, 2000))
 
     # Reduce the matrix to toy size
     # full_data = full_data[:100,:100]
@@ -44,7 +45,7 @@ if __name__ == "__main__":
     print("Average Ratings per User: ", np.mean(np.sum(full_data > 0, axis=1)))
 
     # Clean empty rows from the dataset
-    full_data = stripEmptyRowAndCols(full_data)
+    full_data = removeZeroRows(full_data)
     # Determine number of latents for movie/user
     print("Cleaned Data Shape: ", full_data.shape)
     nrows, ncols = full_data.shape
@@ -53,11 +54,17 @@ if __name__ == "__main__":
     # can_idx holds two arrays - they are of canonical indices for users and movies respectively.
     can_idx = get_canonical_indices(full_data, [numUserProto, numItemProto])
     # Resort data so that canonical users and movies are in top left
-    full_data = full_data[:, can_idx[1]]
-    full_data = full_data[can_idx[0], :]
-    print(full_data)
+    # print(full_data)
+    print("Mean of prototype block p1 sorting {}".format(np.mean(full_data[:numUserProto,:numItemProto])))
+    full_data = full_data.tocsc()[:, can_idx[1]]
+    full_data = full_data.tocsr()[can_idx[0], :]
+    full_data = full_data.todok()
+    # print(full_data)
+    print("Mean of prototype block post sorting {}".format(np.mean(full_data[:numUserProto,:numItemProto])))
     # Split full dataset into train and test sets.
-    train_data, test_data = splitData(full_data, train_ratio=.9)
+    train_data, test_data = train_test_split(full_data,test_size = .2)
+    train_data = train_data.todok()
+    test_data = test_data.todok()
     train_idx = test_idx = np.array([np.array(range(nrows)), np.array(range(ncols))])
 
     # If there is an arguments file, load our parameters from it.
