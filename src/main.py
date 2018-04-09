@@ -11,6 +11,7 @@ from train import *
 from sklearn.model_selection import train_test_split
 
 from src.DataLoader import DataLoader
+from src.train import train
 from src.utils import get_canonical_indices
 
 
@@ -25,8 +26,8 @@ def parseArgs():
 if __name__ == "__main__":
 
     args = parseArgs()
-    numUserProto = 30
-    numItemProto = 60
+    numUserProto = 50
+    numItemProto = 50
     optimizer = None
     epoch = 0
 
