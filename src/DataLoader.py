@@ -3,11 +3,14 @@ from os import listdir
 from os.path import join
 import numpy as np
 from scipy.sparse import *
-
+import os
+import os.path
+import pickle
 
 class DataLoader:
     MOVIELENS = "Movielens"
     NETFLIX = "Netflix"
+    pklExtension = "pickled"
 
     def LoadData(self, file_path, data_type, size):
         """
@@ -61,12 +64,28 @@ class DataLoader:
             col_first[0].append(user)
             col_first[1].append(rating)
 
+    def loadCachedIfPossible(self,filePath):
+        pickleFile = filePath+self.pklExtension
+        if os.path.isfile(pickleFile):
+            print("Loading pickled version at {}".format(pickleFile))
+            with open(pickleFile, 'rb') as f:
+                return pickle.load(f)
+        return None
+
+    def savePickledVersion(self, filePath, array):
+        pickleFile = filePath+self.pklExtension
+        print("Saving pickled version at {}".format(pickleFile))
+        with open(pickleFile, 'wb') as f:
+            pickle.dump(array, f, protocol=0)
+
     def LoadMovieLens(self, file_path, size):
         encountered = {}
         idx = 1
+        pickledArray = self.loadCachedIfPossible(filePath=file_path)
+        if type(pickledArray) != type(None): return pickledArray
         f = open(file_path, 'r')
         # Determine length later
-        full_data = np.zeros((size),#np.zeros((6050, 3910),
+        full_data = dok_matrix((size),#np.zeros((6050, 3910),
                      dtype=int)  #                                   ##TODO: FIX THIS MAGIC
 
         for elem in f.readlines():
@@ -78,10 +97,7 @@ class DataLoader:
             user, item, rating = [int(user), int(item), float(rating)]
             full_data[user - 1, item - 1] = rating
         f.close()
-        rows = [x for x in range((full_data.shape[0])) if full_data[x,:].sum() > 0]
-        cols = [x for x in range((full_data.shape[1])) if full_data[:,x].sum() > 0]
-        full_data = full_data[rows,:]
-        full_data = full_data[:,cols]
+        self.savePickledVersion(file_path,full_data)
 
         return full_data
 
