@@ -16,8 +16,8 @@ rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 200, 1]
 scale = .1
 
 dtype = torch.FloatTensor
-# if (torch.cuda.device_count() > 0):
-#     dtype = torch.cuda.FloatTensor  # Uncomment this to run on GPU
+if (torch.cuda.device_count() > 0):
+    dtype = torch.cuda.FloatTensor  # Uncomment this to run on GPU
 
 # The if statement checks if the code is running on gpu or cpu
 if (dtype == torch.FloatTensor):
