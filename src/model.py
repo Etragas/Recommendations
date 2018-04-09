@@ -1,8 +1,10 @@
+import datetime
 import shutil
 import time
 
 from src.losses import rmse, mae, standard_loss, regularization_loss
 from utils import *
+from datetime import datetime
 
 """
 Initialize all non-mode-specific parameters
@@ -282,6 +284,7 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, userDistances
     trainingMode = True
 
     print("It took: {} seconds".format(time.time() - curtime))
+    print("The time is {}".format(datetime.now()))
     pred = get_predictions(params, data=train, indices=shuffle(list(zip(*train.nonzero())))[:500])
     mae_result = mae(gt=train, pred=pred)
     rmse_result = rmse(gt=train, pred=pred)
