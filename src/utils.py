@@ -33,8 +33,8 @@ if (dtype == torch.FloatTensor):
             initParams(self)
 
         def forward(self, x):
-            x = F.sigmoid(self.fc1(x))  # self.bn1(
-            x = F.sigmoid(self.fc2(x))  # self.bn2(
+            x = F.relu(self.fc1(x))  # self.bn1(
+            x = F.relu(self.fc2(x))  # self.bn2(
             x = self.fc3(x)  # self.bn3(
             return x
 
@@ -42,9 +42,9 @@ if (dtype == torch.FloatTensor):
     class RatingGeneratorNet(nn.Module):
         def __init__(self):
             super(RatingGeneratorNet, self).__init__()
-            self.fc1 = nn.Linear(user_latent_size + movie_latent_size, 400)
+            self.fc1 = nn.Linear(user_latent_size + movie_latent_size, 200)
             # self.bn1 = torch.nn.BatchNorm1d(4000)
-            self.fc2 = nn.Linear(400, 200)
+            self.fc2 = nn.Linear(200, 200)
             # self.bn2 = torch.nn.BatchNorm1d(2000
             self.fc3 = nn.Linear(200, 1)
             initParams(self)
@@ -160,6 +160,19 @@ def removeZeroRows(M):
     M = scipy.sparse.csr_matrix(M)
     M = M[M.getnnz(1) > 0][:, M.getnnz(0) > 0]
     return M.todok()
+
+
+def splitDOK(data, trainPercentage):
+    nonZero = shuffle(list(zip(*data.nonzero())))
+    stop = int(trainPercentage * len(nonZero))
+    testIdx = nonZero[stop:]
+    testData = dok_matrix(data.shape)
+    for idx in testIdx:
+        testData[idx] = data[idx]
+        del data[idx]
+    print(data.size)
+    print(testData.size)
+    return data, testData
 
 def get_top_n(data, n):
     indices = np.ravel((data.astype(int)).flatten().argsort())[-n:]

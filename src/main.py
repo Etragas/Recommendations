@@ -7,12 +7,13 @@ import torch
 from DataLoader import *
 from scipy.sparse import dok_matrix
 import scipy
+from sklearn.utils import shuffle
 from train import *
 from sklearn.model_selection import train_test_split
 
 from src.DataLoader import DataLoader
 from src.train import train
-from src.utils import get_canonical_indices
+from src.utils import get_canonical_indices, splitDOK
 
 
 def parseArgs():
@@ -34,7 +35,7 @@ if __name__ == "__main__":
     # Load the data using DataLoader
     # full_data = DataLoader().LoadData(file_path="Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
     # full_data = DataLoader().LoadData(file_path="Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
-    # DataLoader().fixMovelens100m('../Data/ml-1m/ratings.dat')
+     # DataLoader().fixMovelens100m('../Data/ml-1m/ratings.dat')
     # full_data = DataLoader().LoadData(file_path="Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
     full_data = DataLoader().LoadData(file_path="Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS, size=(1200, 2000))
 
@@ -63,10 +64,10 @@ if __name__ == "__main__":
     # print(full_data)
     print("Mean of prototype block post sorting {}".format(np.mean(full_data[:numUserProto,:numItemProto])))
     # Split full dataset into train and test sets.
-    train_data, test_data = train_test_split(full_data,test_size = .2)
-    train_data = train_data.todok()
-    test_data = test_data.todok()
+
+    train_data, test_data = splitDOK(full_data, trainPercentage=.8)
     train_idx = test_idx = np.array([np.array(range(nrows)), np.array(range(ncols))])
+    print("Mean of prototype block post sorting {}".format(np.mean(train_data[:numUserProto,:numItemProto])))
 
     # If there is an arguments file, load our parameters from it.
     # Otherwise build the dictionary of parameters for our nets and latents.

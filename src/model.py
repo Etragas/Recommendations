@@ -114,7 +114,6 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     # Retrieve latents for every user who watched the movie
     nonZeroColumns = data[userIdx, :].nonzero()[1]
     itemColumns = shuffleNonPrototypeEntries(entries=nonZeroColumns, prototypeThreshold=numUserEmbeddings)
-
     # Retrieve latents for every movie watched by user
     evidenceCount = 0
     evidenceLimit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursionStepsRemaining))
