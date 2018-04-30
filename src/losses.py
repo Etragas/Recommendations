@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from torch import Tensor
 from torch.autograd import Variable
 from utils import *
 
@@ -53,11 +54,24 @@ def rmse(gt, pred):
     """
     diff = 0
     numItems = (len(pred.keys()))
-    mean = []
+    protoRMSE = torch.FloatTensor()
+    partialRMSE = torch.FloatTensor()
+    recursiveRMSE = torch.FloatTensor()
     for key in pred.keys():
-        mean.append(pred[key])
-        diff = diff + torch.pow(float(gt[key]) - pred[key], 2)
-    print("Num of items is {} average pred value is {}".format(numItems, np.mean(mean)))
+        row,col = key
+        if row < 40 and col < 40:
+            protoRMSE = torch.cat([protoRMSE,torch.pow(float(gt[key]) - pred[key], 2)],dim=0)
+        elif row < 40 or col <40:
+            partialRMSE = torch.cat([partialRMSE,torch.pow(float(gt[key]) - pred[key], 2)],dim=0)
+        else:
+            recursiveRMSE = torch.cat([recursiveRMSE,torch.pow(float(gt[key]) - pred[key], 2)],dim=0)
+    errors  = torch.cat((protoRMSE,partialRMSE,recursiveRMSE),0)
+    diff = torch.sum(errors)
+    print(diff)
+    print("Num of items is {} average pred value is {}".format(numItems, torch.mean(errors)))
+    print("Proto RMSE is {}".format(torch.sqrt(torch.mean(protoRMSE))))
+    print("Partial RMSE is {}".format(torch.sqrt(torch.mean(partialRMSE))))
+    print("Recursive RMSE is {}".format(torch.sqrt(torch.mean(recursiveRMSE))))
     return torch.sqrt((diff / len(pred.keys())))
 
 
@@ -80,7 +94,7 @@ def mae(gt, pred):
 def computeWeightLoss(parameters):
     regLoss = 0
     for k, v in parameters.items():
-        if type(v) == Variable:
+        if type(v) == Tensor:
             regLoss += torch.sum(torch.pow(v.data, 2))
         else:
             for subkey, param in v.named_parameters():
@@ -114,6 +128,8 @@ def momentDiffV2(parameters, momentFn):
         (colLatents, Variable(3.3 * torch.FloatTensor(torch.ones((1, colLatents.size()[1]))).type(dtype))), dim=0)
     rowLatentsWithRating = torch.cat(
         (rowLatents, Variable(3.3 * torch.FloatTensor(torch.ones((rowLatents.size()[0], 1))).type(dtype))), dim=1)
+    print(colLatntWithRating.shape)
+    print(rowLatentsWithRating.shape)
     averagePredRow = momentFn(parameters[keys_movie_to_user_net].forward(torch.t(colLatntWithRating)), dim=1)
     averagePredCol = momentFn(parameters[keys_user_to_movie_net].forward(rowLatentsWithRating), dim=1)
     averageRow = momentFn(rowLatents, dim=1)

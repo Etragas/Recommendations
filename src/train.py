@@ -1,5 +1,7 @@
 import torch.optim as optim
 from model import *
+from torch import Tensor
+from torch.autograd import Variable
 from utils import keys_rating_net
 
 from src.losses import standard_loss, regularization_loss
@@ -32,6 +34,8 @@ def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000,
 
     # Perform the optimization
     for iter in range(numIter):
+        if iter == 400:
+            break
         iter = iter + initialIteration
         optimizer.zero_grad()  # zero the gradient buffers
         predictions = get_predictions(parameters, data=train_data, indices=None)
@@ -52,9 +56,10 @@ def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000,
 def getDictOfParams(parameters: dict):
     paramsToOptDict = {}
     for k, v in parameters.items():
-        if type(v) == Variable:
+        if type(v) == Tensor:
             paramsToOptDict[(k, k)] = v
         else:
+            print(dir(v))
             for subkey, param in v.named_parameters():
                 paramsToOptDict[(k, subkey)] = param
     return paramsToOptDict

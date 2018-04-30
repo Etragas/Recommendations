@@ -2,9 +2,15 @@ import datetime
 import shutil
 import time
 
+import torch
+from torch import Tensor
+
+from src.NonZeroHero import non_zero_hero
 from src.losses import rmse, mae, standard_loss, regularization_loss
 from utils import *
 from datetime import datetime
+
+from src.utils import shuffleNonPrototypeEntries, RowIter, ColIter
 
 """
 Initialize all non-mode-specific parameters
@@ -26,7 +32,8 @@ itemDistances = {}
 
 rowLatents = 0
 colLatents = 0
-
+userNonZeroCache = {}
+itemNonZeroCache = {}
 hitcount = [0] * (MAX_RECURSION + 1)
 NUM_USERS, NUM_MOVIES = 0, 0
 userLatentCache, itemLatentCache = [None] * NUM_USERS, [None] * NUM_MOVIES
@@ -34,7 +41,7 @@ VOLATILE = False
 BESTPREC = 0
 
 
-def get_predictions(parameters, data, indices=None):
+def get_predictions(parameters, data: non_zero_hero, indices=None):
     """
     Computes the predictions for the specified users and movie pairs
 
@@ -45,20 +52,19 @@ def get_predictions(parameters, data, indices=None):
     :return: rating predictions for all user/movie combinations specified.  If unspecified,
              computes all rating predictions.
     """
-    global VOLATILE
     setup_caches(data, parameters)
     full_predictions = {}
 
     if indices is None:
         print("Generating indices...")
-        indices = shuffle(list(zip(*data.nonzero())))[:1000]
+        indices = data.get_random_indices(1000)
 
     for userIdx, itemIdx in indices:
         key = (userIdx, itemIdx)
         itemLatent = getItemEmbedding(parameters, data, itemIdx)[0]
         userLatent = getUserEmbedding(parameters, data, userIdx)[0]
         if (userLatent is None or itemLatent is None):
-            full_predictions[key] = Variable(torch.FloatTensor([float(3.4)]), volatile=VOLATILE).type(
+            full_predictions[key] = Variable(torch.FloatTensor([float(3.4)])).type(
                 dtype)  # Assign an average rating
         else:
             full_predictions[key] = parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0))
@@ -99,7 +105,7 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     # If user latent is cached at a height greater than or equal to current, return their latent immediately
     if userLatentCache[userIdx] is not None and userLatentCache[userIdx][1] >= recursionStepsRemaining:
         hitcount[userLatentCache[userIdx][1]] += 1
-        return userLatentCache[userIdx][0], userDistanceCache[userIdx]
+        return userLatentCache[userIdx][0], 1
 
     # If we reached our recursion depth, return None
     if recursionStepsRemaining < 1:
@@ -112,12 +118,11 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     # update the current caller_id with this user index appended
     callier_id_with_self = [caller_id[0] + [userIdx], caller_id[1]]
     # Retrieve latents for every user who watched the movie
-    nonZeroColumns = data[userIdx, :].nonzero()[1]
-    itemColumns = shuffleNonPrototypeEntries(entries=nonZeroColumns, prototypeThreshold=numUserEmbeddings)
     # Retrieve latents for every movie watched by user
     evidenceCount = 0
     evidenceLimit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursionStepsRemaining))
 
+    itemColumns = ColIter(userIdx,data,numUserEmbeddings)
     for itemIdx in itemColumns:
         itemRating = data[userIdx, itemIdx]
         # When it is training mode we use evidence count.
@@ -132,7 +137,7 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
 
             if movie_latent is not None:
                 latentWithRating = torch.cat(
-                    (movie_latent, Variable(torch.FloatTensor([float(itemRating)]).type(dtype), volatile=VOLATILE)),
+                    (movie_latent, Variable(torch.FloatTensor([float(itemRating)]).type(dtype))),
                     dim=0)
                 itemEmbbeddings.append(latentWithRating)  # We got another movie latent
                 evidenceCount += 1
@@ -145,18 +150,11 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     row_latent = torch.mean(embeddingConversions, dim=0)
     userLatentCache[userIdx] = (row_latent, recursionStepsRemaining)
     # print "user: ", user_index, " has depth: ", recursion_depth, "and caller id: ", internal_caller, " and all callers are: ", zip(entries, data[user_index, entries]), " and ", data[user_index, :], " and dist is: ", dist + 1
-    if userDistanceCache[userIdx] is not None:
-        userDistances[userDistanceCache[userIdx]].remove(userIdx)
-        userDistanceCache[userIdx] = min(dist + 1, userDistanceCache[userIdx])
-        userDistances[userDistanceCache[userIdx]].add(userIdx)
-    else:
-        userDistances[dist + 1].add(userIdx)
-        userDistanceCache[userIdx] = dist + 1
 
-    return row_latent, userDistanceCache[userIdx]
+    return row_latent, 1
 
 
-def getItemEmbedding(parameters, data, itemIdx, recursion_depth=MAX_RECURSION, caller_id=[[], []],
+def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECURSION, caller_id=[[], []],
                      dist=MAX_RECURSION + 1):
     """
     Generate or retrieve the movie latent.
@@ -166,7 +164,7 @@ def getItemEmbedding(parameters, data, itemIdx, recursion_depth=MAX_RECURSION, c
     :param parameters: dictionary of all the parameters in our model
     :param data: The dataset
     :param itemIdx: index of the movie for which we want to generate a latent
-    :param recursion_depth: the max recursion depth which we can generate latents from.
+    :param recursionStepsRemaining: the max recursion depth which we can generate latents from.
     :param caller_id: All the [user, movie] ancestors logged, which we check to avoid cycles
 
     :return: the predicted movie latent
@@ -178,18 +176,19 @@ def getItemEmbedding(parameters, data, itemIdx, recursion_depth=MAX_RECURSION, c
     user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
     colLatents = parameters[keys_col_latents]
 
+
     # If movie is canonical, return their latent immediately and cache it.
     if itemIdx < numItemEmbeddings:
         itemDistances[0].add(itemIdx)
         return colLatents[:, itemIdx], 0
 
     # If movie latent is cached, return their latent immediately
-    if itemLatentCache[itemIdx] is not None and itemLatentCache[itemIdx][1] <= recursion_depth:
+    if itemLatentCache[itemIdx] is not None and itemLatentCache[itemIdx][1] <= recursionStepsRemaining:
         hitcount[itemLatentCache[itemIdx][1]] += 1
-        return itemLatentCache[itemIdx][0], itemDistanceCache[itemIdx]
+        return itemLatentCache[itemIdx][0], 1
 
     # If we reached our recursion depth, return None
-    if recursion_depth < 1:
+    if recursionStepsRemaining < 1:
         return None, MAX_RECURSION
 
     # Must Generate Latent
@@ -199,25 +198,32 @@ def getItemEmbedding(parameters, data, itemIdx, recursion_depth=MAX_RECURSION, c
     internal_caller = [caller_id[0], caller_id[1] + [itemIdx]]
 
     # Retrieve latents for every user who watched the movie
-    nonZeroRows = data[:, itemIdx].nonzero()[0]
-    userRows = shuffleNonPrototypeEntries(entries=nonZeroRows, prototypeThreshold=numUserEmbeddings)
     evidenceCount = 0
-    evidenceLimit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursion_depth))
+    evidenceLimit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursionStepsRemaining))
+
+    userRows = RowIter(itemIdx,data,numItemEmbeddings)
+    # for i in candidateRows:
+    #         if len(userRows) > 2*evidenceLimit:
+    #             break
+    #         if data.get((i,itemIdx)):
+    #             userRows.append(i)
+    # userRows = []
 
     for userIdx in userRows:
         userRating = data[userIdx, itemIdx]
         # When it is training mode we use evidence count.
         # When we go over the evidence limit, we no longer need to look for latents
         if trainingMode and evidenceCount > evidenceLimit:
+
             break
 
         # If the user latent is valid, and does not produce a cycle, append it
         if userIdx not in internal_caller[0]:
-            user_latent, curr_depth = getUserEmbedding(parameters, data, userIdx, recursion_depth - 1,
+            user_latent, curr_depth = getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining - 1,
                                                        caller_id=internal_caller)
             if user_latent is not None:
                 latentWithRating = torch.cat(
-                    (user_latent, Variable(torch.FloatTensor([float(userRating)]).type(dtype), volatile=VOLATILE)),
+                    (user_latent, Variable(torch.FloatTensor([float(userRating)]).type(dtype))),
                     dim=0)
                 userEmbeddings.append(latentWithRating)  # We got another movie latent
                 evidenceCount += 1
@@ -230,16 +236,9 @@ def getItemEmbedding(parameters, data, itemIdx, recursion_depth=MAX_RECURSION, c
 
     # Now we have all latents, prepare for concatenation
     itemLatentCache[itemIdx] = (
-        targetItemEmbedding, recursion_depth)  # Cache the movie latent with the current recursion depth
+        targetItemEmbedding, recursionStepsRemaining)  # Cache the movie latent with the current recursion depth
 
-    if itemDistanceCache[itemIdx] is not None:
-        itemDistances[itemDistanceCache[itemIdx]].remove(itemIdx)
-        itemDistanceCache[itemIdx] = min(dist + 1, itemDistanceCache[itemIdx])
-        itemDistances[itemDistanceCache[itemIdx]].add(itemIdx)
-    else:
-        itemDistances[dist + 1].add(itemIdx)
-        itemDistanceCache[itemIdx] = dist + 1
-    return targetItemEmbedding, itemDistanceCache[itemIdx]
+    return targetItemEmbedding, 1
 
 
 # Stolen from Mamy Ratsimbazafy
@@ -258,7 +257,7 @@ def save_checkpoint(state, is_best, filename='Weights/checkpoint{}.pth.tar'):
         shutil.copyfile(filename, 'Weights/model_best.pth.tar')
 
 
-def print_perf(params, iter=0, gradient={}, train=None, test=None, userDistances={}, itemDistances={}, optimizer=None):
+def print_perf(params, iter=0, gradient={}, train: non_zero_hero=None, test:non_zero_hero=None, userDistances={}, itemDistances={}, optimizer=None):
     """
     Prints the performance of the model every ten iterations, in terms of MAE, RMSE, and Loss.
     Also includes graphing functionalities.
@@ -278,28 +277,28 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, userDistances
     # print("Gradients are: ", gradient)
     if (iter % 4 != 0):
         return
-    VOLATILE = True
+    torch.set_grad_enabled(False)
     trainingMode = True
 
     print("It took: {} seconds".format(time.time() - curtime))
     print("The time is {}".format(datetime.now()))
-    pred = get_predictions(params, data=train, indices=shuffle(list(zip(*train.nonzero())))[:500])
+    pred = get_predictions(params, data=train, indices=train.get_random_indices(500))
     mae_result = mae(gt=train, pred=pred)
     rmse_result = rmse(gt=train, pred=pred)
     loss_result = standard_loss(parameters=params, data=train, predictions=pred) + regularization_loss(
         parameters=params)
     print("MAE is", mae_result.data[0])
-    print("RMSE is ", rmse_result.data[0])
-    print("Loss is ", loss_result.data[0])
+    print("RMSE is ", rmse_result)
+    print("Loss is ", loss_result)
     if (test is not None):
         print("Printing performance for test:")
-        test_indices = shuffle(list(zip(*test.nonzero())))[:5000]
+        test_indices = test.get_random_indices(5000)
         test_pred = get_predictions(params, train, indices=test_indices)
         test_rmse_result = rmse(gt=test, pred=test_pred)
-        print("Test RMSE is ", (test_rmse_result.data)[0])
+        print("Test RMSE is ", test_rmse_result)
     for k, v in params.items():
         print("Key is: ", k)
-        if type(v) == Variable:
+        if type(v) == Tensor:
             print("Latent Variable Gradient Analytics")
             if (v.grad is None):
                 print("ERROR - GRADIENT MISSING")
@@ -307,8 +306,8 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, userDistances
             flattened = v.grad.view(v.grad.nelement())
             avg_square = torch.sum(torch.pow(v.grad, 2)) / flattened.size()[0]
             median = torch.median(torch.abs(flattened))
-            print("\t average of squares is: ", avg_square.data[0])
-            print("\t median is: ", median.data[0])
+            print("\t average of squares is: ", avg_square)
+            print("\t median is: ", median)
         else:
             print("Neural Net Variable Gradient Analytics")
             for param in v.parameters():
@@ -318,8 +317,8 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, userDistances
                 flattened = param.grad.view(param.grad.nelement())
                 avg_square = torch.sum(torch.pow(param.grad, 2)) / flattened.size()[0]
                 median = torch.median(torch.abs(flattened))
-                print("\t average of squares is: ", avg_square.data[0])
-                print("\t median is: ", median.data[0])
+                print("\t average of squares is: ", avg_square)
+                print("\t median is: ", median)
 
     print("Hitcount is: ", hitcount, sum(hitcount))
     print("Number of users per distance", {key: len(value) for (key, value) in userDistances.items()})
@@ -330,8 +329,8 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, userDistances
           np.mean(list(map(lambda keyValue: len(keyValue[1]) * keyValue[0], itemDistances.items()))))
     if (iter % 20 == 0):
         is_best = False
-        if (test_rmse_result.data[0] < BESTPREC):
-            BESTPREC = test_rmse_result.data[0]
+        if (test_rmse_result < BESTPREC):
+            BESTPREC = test_rmse_result
             is_best = True
         save_checkpoint({
             'epoch': iter + 1,
@@ -340,7 +339,7 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, userDistances
             'optimizer': optimizer,
         }, is_best)
 
-    VOLATILE = False
+    torch.set_grad_enabled(True)
     trainingMode = True
     curtime = time.time()
     # train_mse.append(rmse_result.data[0])
