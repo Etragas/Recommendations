@@ -8,8 +8,8 @@ from scipy.sparse import dok_matrix
 from sklearn.utils import shuffle
 from torch.autograd import Variable
 
-movie_latent_size = 120
-user_latent_size = 120
+movie_latent_size = 100
+user_latent_size = 100
 hyp_user_network_sizes = [movie_latent_size + 1, 200, 200, user_latent_size]
 hyp_movie_network_sizes = [user_latent_size + 1, 200, 200, movie_latent_size]
 rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 1]
