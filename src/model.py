@@ -1,16 +1,13 @@
 import datetime
 import shutil
 import time
-
-import torch
-from torch import Tensor
-
-from src.NonZeroHero import non_zero_hero
-from src.losses import rmse, mae, standard_loss, regularization_loss
-from utils import *
 from datetime import datetime
 
-from src.utils import shuffleNonPrototypeEntries, RowIter, ColIter
+from torch import Tensor
+
+from src.losses import rmse, mae, standard_loss, regularization_loss
+from src.utils import RowIter, ColIter
+from utils import *
 
 """
 Initialize all non-mode-specific parameters
@@ -122,7 +119,7 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     evidenceCount = 0
     evidenceLimit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursionStepsRemaining))
 
-    itemColumns = ColIter(userIdx,data,numUserEmbeddings)
+    itemColumns = ColIter(userIdx, data, numUserEmbeddings)
     for itemIdx in itemColumns:
         itemRating = data[userIdx, itemIdx]
         # When it is training mode we use evidence count.
@@ -176,7 +173,6 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
     user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
     colLatents = parameters[keys_col_latents]
 
-
     # If movie is canonical, return their latent immediately and cache it.
     if itemIdx < numItemEmbeddings:
         itemDistances[0].add(itemIdx)
@@ -201,7 +197,7 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
     evidenceCount = 0
     evidenceLimit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursionStepsRemaining))
 
-    userRows = RowIter(itemIdx,data,numItemEmbeddings)
+    userRows = RowIter(itemIdx, data, numItemEmbeddings)
     # for i in candidateRows:
     #         if len(userRows) > 2*evidenceLimit:
     #             break
@@ -214,7 +210,6 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
         # When it is training mode we use evidence count.
         # When we go over the evidence limit, we no longer need to look for latents
         if trainingMode and evidenceCount > evidenceLimit:
-
             break
 
         # If the user latent is valid, and does not produce a cycle, append it
@@ -257,7 +252,8 @@ def save_checkpoint(state, is_best, filename='Weights/checkpoint{}.pth.tar'):
         shutil.copyfile(filename, 'Weights/model_best.pth.tar')
 
 
-def print_perf(params, iter=0, gradient={}, train: non_zero_hero=None, test:non_zero_hero=None, userDistances={}, itemDistances={}, optimizer=None):
+def print_perf(params, iter=0, gradient={}, train: non_zero_hero = None, test: non_zero_hero = None, userDistances={},
+               itemDistances={}, optimizer=None):
     """
     Prints the performance of the model every ten iterations, in terms of MAE, RMSE, and Loss.
     Also includes graphing functionalities.

@@ -68,7 +68,8 @@ def rmse(gt, pred):
     errors  = torch.cat((protoRMSE,partialRMSE,recursiveRMSE),0)
     diff = torch.sum(errors)
     print(diff)
-    print("Num of items is {} average pred value is {}".format(numItems, torch.mean(errors)))
+    print("Num of items is {} mean is {}, variance is {}".format(numItems, torch.mean(errors), torch.var(errors)))
+
     print("Proto RMSE is {}".format(torch.sqrt(torch.mean(protoRMSE))))
     print("Partial RMSE is {}".format(torch.sqrt(torch.mean(partialRMSE))))
     print("Recursive RMSE is {}".format(torch.sqrt(torch.mean(recursiveRMSE))))
