@@ -8,11 +8,11 @@ from scipy.sparse import dok_matrix
 from sklearn.utils import shuffle
 from torch.autograd import Variable
 
-movie_latent_size = 100
-user_latent_size = 100
+movie_latent_size = 120
+user_latent_size = 120
 hyp_user_network_sizes = [movie_latent_size + 1, 200, 200, user_latent_size]
 hyp_movie_network_sizes = [user_latent_size + 1, 200, 200, movie_latent_size]
-rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 200, 1]
+rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 1]
 scale = .1
 
 dtype = torch.FloatTensor
@@ -21,14 +21,14 @@ if (torch.cuda.device_count() > 0):
 
 # The if statement checks if the code is running on gpu or cpu
 if (dtype == torch.FloatTensor):
-    class GeneratorNet(nn.Module):
+    class UserGeneratorNet(nn.Module):
         def __init__(self, latent_size=None):
-            super(GeneratorNet, self).__init__()
-            self.fc1 = nn.Linear(latent_size + 1, 200)
+            super(UserGeneratorNet, self).__init__()
+            self.fc1 = nn.Linear(hyp_user_network_sizes[0], hyp_user_network_sizes[1])
             # self.bn1 = torch.nn.BatchNorm1d(2000)
-            self.fc2 = nn.Linear(200, 200)
+            self.fc2 = nn.Linear(hyp_user_network_sizes[1], hyp_user_network_sizes[2])
             # self.bn2 = torch.nn.BatchNorm1d(2000)
-            self.fc3 = nn.Linear(200, latent_size)
+            self.fc3 = nn.Linear(hyp_user_network_sizes[2], hyp_user_network_sizes[3])
             # self.bn3 = torch.nn.BatchNorm1d(2000)
             initParams(self)
 
@@ -38,15 +38,31 @@ if (dtype == torch.FloatTensor):
             x = self.fc3(x)  # self.bn3(
             return x
 
+    class MovieGeneratorNet(nn.Module):
+        def __init__(self, latent_size=None):
+            super(MovieGeneratorNet, self).__init__()
+            self.fc1 = nn.Linear(hyp_movie_network_sizes[0], hyp_movie_network_sizes[1])
+            # self.bn1 = torch.nn.BatchNorm1d(2000)
+            self.fc2 = nn.Linear(hyp_movie_network_sizes[1], hyp_movie_network_sizes[2])
+            # self.bn2 = torch.nn.BatchNorm1d(2000)
+            self.fc3 = nn.Linear(hyp_movie_network_sizes[2], hyp_movie_network_sizes[3])
+            # self.bn3 = torch.nn.BatchNorm1d(2000)
+            initParams(self)
+
+        def forward(self, x):
+            x = F.relu(self.fc1(x))  # self.bn1(
+            x = F.relu(self.fc2(x))  # self.bn2(
+            x = self.fc3(x)  # self.bn3(
+            return x
 
     class RatingGeneratorNet(nn.Module):
         def __init__(self):
             super(RatingGeneratorNet, self).__init__()
-            self.fc1 = nn.Linear(user_latent_size + movie_latent_size, 200)
+            self.fc1 = nn.Linear(rating_network_sizes[0], rating_network_sizes[1])
             # self.bn1 = torch.nn.BatchNorm1d(4000)
-            self.fc2 = nn.Linear(200, 200)
+            self.fc2 = nn.Linear(rating_network_sizes[1], rating_network_sizes[2])
             # self.bn2 = torch.nn.BatchNorm1d(2000
-            self.fc3 = nn.Linear(200, 1)
+            self.fc3 = nn.Linear(rating_network_sizes[2], rating_network_sizes[3])
             initParams(self)
 
         def forward(self, x):
@@ -109,13 +125,13 @@ else:
 
 def build_params(num_user_latents=20, num_movie_latents=20):
     parameters = {}
-    parameters[keys_movie_to_user_net] = GeneratorNet(latent_size=movie_latent_size).type(dtype)
-    parameters[keys_user_to_movie_net] = GeneratorNet(latent_size=user_latent_size).type(dtype)
+    parameters[keys_movie_to_user_net] = UserGeneratorNet(latent_size=movie_latent_size).type(dtype)
+    parameters[keys_user_to_movie_net] = MovieGeneratorNet(latent_size=user_latent_size).type(dtype)
     parameters[keys_col_latents] = Variable(
         torch.from_numpy(scale * np.random.normal(size=(movie_latent_size, num_movie_latents))).float().type(dtype),
         requires_grad=True)  # Column Latents
     parameters[keys_row_latents] = Variable(
-        torch.from_numpy((scale * np.random.normal(size=(num_user_latents, user_latent_size)))).float().type(dtype),
+        torch.from_numpy(scale * np.random.normal(size=(num_user_latents, user_latent_size))).float().type(dtype),
         requires_grad=True)  # Row Latents
     parameters[keys_rating_net] = RatingGeneratorNet().type(dtype)
     return parameters
@@ -201,6 +217,16 @@ def getNeighbours(full_data, percentiles=[.01, .01, .02, .03, .04, .05, .10, .20
     plt.plot(percentiles, user_results)
     plt.show()
     return user_results
+
+def getDictOfParams(parameters: dict):
+    paramsToOptDict = {}
+    for k, v in parameters.items():
+        if type(v) == Variable:
+            paramsToOptDict[(k, k)] = v
+        else:
+            for subkey, param in v.named_parameters():
+                paramsToOptDict[(k, subkey)] = param
+    return paramsToOptDict
 
 
 keys_row_first = "row"

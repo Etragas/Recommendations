@@ -3,10 +3,10 @@ import torch
 from torch.autograd import Variable
 from utils import *
 
-from src.utils import keys_col_latents, keys_row_latents, keys_movie_to_user_net, keys_user_to_movie_net
+from utils import keys_col_latents, keys_row_latents, keys_movie_to_user_net, keys_user_to_movie_net
 
 
-def standard_loss(parameters, data=None, indices=None, predictions={}):
+def standard_loss(parameters, data=None, num_flops=0, indices=None, predictions={}):
     """
     Compute simplified version of squared loss
 
@@ -20,11 +20,12 @@ def standard_loss(parameters, data=None, indices=None, predictions={}):
     # generate predictions on specified indices with given parameters
     numel = len(predictions.keys())
     data_loss = numel * torch.pow(rmse(data, predictions), 2)
+    num_flops += numel * 5 #assuming finding length is trivial (0 flops) and square root is also one flop (simplified assumption)
 
-    return data_loss
+    return data_loss, num_flops
 
 
-def regularization_loss(parameters=None, paramsToOpt=None, reg_alpha=.01):
+def regularization_loss(parameters=None, paramsToOpt=None, num_flops=0, reg_alpha=.01):
     """
     Computes the regularization loss, penalizing vector norms
 
@@ -38,8 +39,23 @@ def regularization_loss(parameters=None, paramsToOpt=None, reg_alpha=.01):
     # reg_loss = reg_alpha * momentDiffV2(parameters, torch.mean)
     # reg_loss += reg_alpha * momentDiff(parameters, torch.var)
     reg_loss += reg_alpha * computeWeightLoss(parameters)
-
-    return reg_loss
+    for k, v in parameters.items():
+        if type(v) == Variable:
+            num_flops += 2 * v.size()[0] * v.size()[1]
+        else:
+            for subkey, param in v.named_parameters():
+                if (len(param.size()) > 1):
+                  num_flops += 2 * param.size()[0] * param.size()[1]
+                else:
+                  num_flops += 2 * param.size()[0]
+    return reg_loss, num_flops
+    '''
+    movie_latent_size = 120
+    user_latent_size = 120
+    hyp_user_network_sizes = [movie_latent_size + 1, 200, 200, user_latent_size]
+    hyp_movie_network_sizes = [user_latent_size + 1, 200, 200, movie_latent_size]
+    rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 1]
+    '''
 
 
 def rmse(gt, pred):
@@ -56,9 +72,9 @@ def rmse(gt, pred):
     mean = []
     for key in pred.keys():
         mean.append(pred[key])
-        diff = diff + torch.pow(float(gt[key]) - pred[key], 2)
+        diff = diff + torch.pow(float(gt[key]) - pred[key], 2) # 1 addition flop, 1 subtraction flop, 1 multiplication flop
     print("Num of items is {} average pred value is {}".format(numItems, np.mean(mean)))
-    return torch.sqrt((diff / len(pred.keys())))
+    return torch.sqrt((diff / len(pred.keys()))) # 1 division flop, 1 square root flop
 
 
 def mae(gt, pred):

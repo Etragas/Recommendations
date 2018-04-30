@@ -11,9 +11,9 @@ from sklearn.utils import shuffle
 from train import *
 from sklearn.model_selection import train_test_split
 
-from src.DataLoader import DataLoader
-from src.train import train
-from src.utils import get_canonical_indices, splitDOK
+from DataLoader import DataLoader
+from train import train
+from utils import get_canonical_indices, splitDOK
 
 
 def parseArgs():
@@ -35,12 +35,12 @@ if __name__ == "__main__":
     # Load the data using DataLoader
     # full_data = DataLoader().LoadData(file_path="Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
     # full_data = DataLoader().LoadData(file_path="Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
-     # DataLoader().fixMovelens100m('../Data/ml-1m/ratings.dat')
+    # DataLoader().fixMovelens100m('../Data/ml-1m/ratings.dat')
     # full_data = DataLoader().LoadData(file_path="Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
-    full_data = DataLoader().LoadData(file_path="Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS, size=(1200, 2000))
+    full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS, size=(1200, 2000))
 
     # Reduce the matrix to toy size
-    # full_data = full_data[:100,:100]
+    #full_data = full_data[:100,:100]
     print("Data shape: ", full_data.shape)
 
     # Print some statistics
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     # Split full dataset into train and test sets.
 
     train_data, test_data = splitDOK(full_data, trainPercentage=.8)
-    train_idx = test_idx = np.array([np.array(range(nrows)), np.array(range(ncols))])
+    #train_idx = test_idx = np.array([np.array(range(nrows)), np.array(range(ncols))])
     print("Mean of prototype block post sorting {}".format(np.mean(train_data[:numUserProto,:numItemProto])))
 
     # If there is an arguments file, load our parameters from it.
