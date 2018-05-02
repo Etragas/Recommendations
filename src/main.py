@@ -3,7 +3,7 @@ import argparse
 from DataLoader import *
 from train import *
 from train import train
-from utils import get_canonical_indices, splitDOK, removeZeroRows
+from utils import get_canonical_indices, splitDOK
 
 
 def parseArgs():
@@ -13,10 +13,6 @@ def parseArgs():
     args = parser.parse_args()
     print("Args File: ", args.file)
     return args
-
-
-def train_profile():
-    pass
 
 
 def main():
@@ -35,35 +31,24 @@ def main():
     numUserProto = 943  # int((full_data.shape[0] / 843) * 40)
     numItemProto = 1682  # int((full_data.shape[1] / 1650) * 40)
 
-    # full_data = removeZeroRows(full_data)
-    # import matplotlib.pyplot as plt
-    # import numpy as np
-    #
-    # plt.imshow(full_data.todense(), cmap='hot')
-    # plt.show()
-
     # Reduce the matrix to toy size
     # full_data = full_data[:100,:100]
     print("Data shape: ", full_data.shape)
 
     # Print some statistics
     print("Median Ratings Ratings per User: ", np.median(list(np.sum(full_data > 0, axis=1))))
-    # Clean empty rows from the dataset
-    full_data = removeZeroRows(full_data)
     # Determine number of latents for movie/user
     print("Cleaned Data Shape: ", full_data.shape)
-    nrows, ncols = full_data.shape
 
     print("Number of User Prototypes: {} \n Number of Movie Prototypes: {}".format(numUserProto, numItemProto))
     # can_idx holds two arrays - they are of canonical indices for users and movies respectively.
     can_idx = get_canonical_indices(full_data, [numUserProto, numItemProto])
     # Resort data so that canonical users and movies are in top left
-    # print(full_data)
     print("Mean of prototype block p1 sorting {}".format(np.mean(full_data[:numUserProto, :numItemProto])))
     full_data = full_data.tocsc()[:, can_idx[1]]
     full_data = full_data.tocsr()[can_idx[0], :]
     full_data = full_data.todok()
-    # print(full_data)
+
     # plt.imshow(full_data.todense(), cmap='hot', interpolation='nearest')
     # plt.show()
 
@@ -75,9 +60,8 @@ def main():
     test_data = non_zero_hero(test_data)
     train_data.freeze_dataset()
     test_data.freeze_dataset()
-    train_idx = test_idx = np.array([np.array(range(nrows)), np.array(range(ncols))])
     print("Mean of prototype block post sorting {}".format(np.mean(train_data[:numUserProto, :numItemProto])))
-    # train_data = train_data.todense()
+
     # If there is an arguments file, load our parameters from it.
     # Otherwise build the dictionary of parameters for our nets and latents.
     if args.file:

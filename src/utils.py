@@ -15,8 +15,8 @@ from torch.autograd import Variable
 
 from NonZeroHero import non_zero_hero
 
-movie_latent_size = 100
-user_latent_size = 100
+movie_latent_size = 20
+user_latent_size = 20
 hyp_user_network_sizes = [movie_latent_size + 1, 200, 200, user_latent_size]
 hyp_movie_network_sizes = [user_latent_size + 1, 200, 200, movie_latent_size]
 rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 200, 1]

@@ -1,11 +1,10 @@
 import torch.optim as optim
-from model import *
 from torch import Tensor
-from torch.autograd import Variable
-from utils import keys_rating_net
 
+from model import *
 from src.losses import standard_loss, regularization_loss
 from src.model import get_predictions
+from utils import keys_rating_net
 
 
 def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000, initialIteration=0,
@@ -19,7 +18,7 @@ def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000,
 
     # If optimizer is not specified, use the default Adam optimizer
     if optimizer is None:
-        optimizer = optim.Adam(paramsToOptList, lr=.001, weight_decay=0)
+        optimizer = optim.Adam(paramsToOptList, lr=1e-3, weight_decay=0.1)
     # print(optimizer.__getstate__())
 
     # Set callback function for reporting performance

@@ -64,9 +64,8 @@ def get_predictions(parameters, data: non_zero_hero, indices=None):
             full_predictions[key] = Variable(torch.FloatTensor([float(3.4)])).type(
                 dtype)  # Assign an average rating
         else:
-            full_predictions[key] = parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0))
-            # full_predictions[key] = Variable(torch.FloatTensor([float(3.4)]), volatile=VOLATILE).type(
-            #   dtype)  # Assign an average rating
+            # full_predictions[key] = parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0))
+            full_predictions[key] = torch.dot(userLatent, itemLatent).view(1,1)
     ## torch.dot(userLatent, itemLatent)
 
     return full_predictions
