@@ -40,7 +40,7 @@ def regularization_loss(parameters=None, paramsToOpt=None, reg_alpha=.01):
     return reg_loss
 
 
-def rmse(gt, pred):
+def rmse_logging(gt, pred):
     """
     Computes the rmse given a ground truth and a prediction
 
@@ -73,6 +73,24 @@ def rmse(gt, pred):
     except:
         pass
     return torch.sqrt((diff / len(pred.keys())))
+
+
+def rmse(gt, pred):
+    """
+    Computes the rmse given a ground truth and a prediction
+
+    :param gt: the ground truth, a.k.a. the dataset
+    :param pred: the predicted ratings
+
+    :return: the root mean squared error between ground truth and prediction
+    """
+    diff = 0
+    for key in pred.keys():
+
+        diff += (float(gt[key]) - pred[key]) ** 2
+    rmse = torch.sqrt((diff / len(pred.keys())))
+    print("Rmse is {}".format(rmse))
+    return rmse
 
 
 def mae(gt, pred):

@@ -6,7 +6,6 @@ from datetime import datetime
 from torch import Tensor
 
 from src.losses import rmse, mae, standard_loss, regularization_loss
-from src.utils import RowIter, ColIter
 from utils import *
 
 """
@@ -54,7 +53,7 @@ def get_predictions(parameters, data: non_zero_hero, indices=None):
 
     if indices is None:
         print("Generating indices...")
-        indices = data.get_random_indices(10000)
+        indices = data.get_random_indices(1024)
 
     for userIdx, itemIdx in indices:
         key = (userIdx, itemIdx)
@@ -65,7 +64,40 @@ def get_predictions(parameters, data: non_zero_hero, indices=None):
                 dtype)  # Assign an average rating
         else:
             # full_predictions[key] = parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0))
-            full_predictions[key] = torch.dot(userLatent, itemLatent).view(1,1)
+            full_predictions[key] = torch.dot(userLatent, itemLatent).view(1, 1)
+    ## torch.dot(userLatent, itemLatent)
+
+    return full_predictions
+
+
+def get_predictions_tensor(parameters, data: non_zero_hero, indices=None):
+    """
+    Computes the predictions for the specified users and movie pairs
+
+    :param parameters: all the parameters in our model
+    :param data: dictionary of the data in row form and column form
+    :param indices: user and movie indices for which we generate predictions
+
+    :return: rating predictions for all user/movie combinations specified.  If unspecified,
+             computes all rating predictions.
+    """
+    setup_caches(data, parameters)
+    full_predictions = torch.FloatTensor()
+
+    if indices is None:
+        print("Generating indices...")
+        indices = data.get_random_indices(1024)
+
+    for userIdx, itemIdx in indices:
+        key = (userIdx, itemIdx)
+        itemLatent = getItemEmbedding(parameters, data, itemIdx)[0]
+        userLatent = getUserEmbedding(parameters, data, userIdx)[0]
+        if (userLatent is None or itemLatent is None):
+            full_predictions[key] = torch.cat((full_predictions, Variable(torch.FloatTensor([float(3.4)])).type(
+                dtype)), dim=0)  # Assign an average rating
+        else:
+            # full_predictions[key] = parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0))
+            full_predictions = torch.cat((full_predictions, torch.dot(userLatent, itemLatent).view(1,1)), dim=0)
     ## torch.dot(userLatent, itemLatent)
 
     return full_predictions
@@ -90,14 +122,13 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     global userLatentCache, hitcount, trainingMode, EVIDENCELIMIT, numUserEmbeddings, VOLATILE, userDistanceCache
 
     # Get our necessary parameters from the parameters dictionary
-    movie_to_user_net = parameters[keys_movie_to_user_net]
 
     # If user is canonical, return their latent immediately and cache it.
     if userIdx < numUserEmbeddings:
         rowLatents = parameters[keys_row_latents]
-        userDistances[0].add(userIdx)
         return rowLatents[userIdx, :], 0
 
+    movie_to_user_net = parameters[keys_movie_to_user_net]
     # If user latent is cached at a height greater than or equal to current, return their latent immediately
     if userLatentCache[userIdx] is not None and userLatentCache[userIdx][1] >= recursionStepsRemaining:
         hitcount[userLatentCache[userIdx][1]] += 1
@@ -169,14 +200,13 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
     global itemLatentCache, hitcount, trainingMode, EVIDENCELIMIT, numItemEmbeddings, itemDistanceCache
 
     # Get our necessary parameters from the parameters dictionary
-    user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
     colLatents = parameters[keys_col_latents]
 
     # If movie is canonical, return their latent immediately and cache it.
     if itemIdx < numItemEmbeddings:
-        itemDistances[0].add(itemIdx)
         return colLatents[:, itemIdx], 0
 
+    user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
     # If movie latent is cached, return their latent immediately
     if itemLatentCache[itemIdx] is not None and itemLatentCache[itemIdx][1] <= recursionStepsRemaining:
         hitcount[itemLatentCache[itemIdx][1]] += 1
@@ -270,8 +300,7 @@ def print_perf(params, iter=0, gradient={}, train: non_zero_hero = None, test: n
 
     # Print gradients for testing.
     # print("Gradients are: ", gradient)
-    if (iter % 4 != 0):
-        return
+
     torch.set_grad_enabled(False)
     trainingMode = True
 

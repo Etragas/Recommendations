@@ -41,7 +41,7 @@ def linesToDict(lines):
         full_data[int(user), int(item)] = int(rating)
     return full_data
 
-class DataLoader:
+class dl:
     MOVIELENS = "Movielens"
     NETFLIX = "Netflix"
     pklExtension = "pickled"

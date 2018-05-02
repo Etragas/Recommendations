@@ -25,16 +25,16 @@ def createDict(path):
 
 # p = pstats.Stats('../ml-100k-stats')
 ml100kMap = createDict('../ml-100k-stats')
-ml1mMap = createDict('../ml-1m-stats')
+# ml1mMap = createDict('../ml-1m-stats')
 
 ratios = {}
-for key in ml1mMap.keys():
+for key in ml100kMap.keys():
     if key not in ml100kMap:
         print("Key {} not in ml100k".format(key))
         continue
     # print(ml1mMap[key])
     # print(ml100kMap[key])
-    ratios[key] = getRatio(ml1mMap[key],ml100kMap[key])
+    ratios[key] = ml100kMap[key]
 
 ratioList = [(k,v) for k,v in ratios.items()]
 ratioList = sorted(ratioList,key=lambda t: t[1].cumulative_time / t[1].n_calls, reverse=True)

@@ -1,6 +1,7 @@
 import argparse
+import cProfile
 
-from DataLoader import *
+from dl import *
 from train import *
 from train import train
 from utils import get_canonical_indices, splitDOK
@@ -25,8 +26,8 @@ def main():
     # full_data = DataLoader().LoadData(file_path="Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
     # DataLoader().fixMovelens100m('../Data/ml-1m/ratings.dat')
     # full_data = DataLoader().LoadData(file_path="Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
-    full_data = DataLoader().LoadData(file_path="Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS,
-                                      size=(1200, 2000))
+    full_data = dl().LoadData(file_path="Data/ml-100k/u.data", data_type=dl.MOVIELENS,
+                              size=(1200, 2000))
 
     numUserProto = 943  # int((full_data.shape[0] / 843) * 40)
     numItemProto = 1682  # int((full_data.shape[1] / 1650) * 40)
