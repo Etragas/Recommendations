@@ -54,7 +54,7 @@ def get_predictions(parameters, data: non_zero_hero, indices=None):
 
     if indices is None:
         print("Generating indices...")
-        indices = data.get_random_indices(1000)
+        indices = data.get_random_indices(10000)
 
     for userIdx, itemIdx in indices:
         key = (userIdx, itemIdx)
