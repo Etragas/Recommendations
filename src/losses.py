@@ -1,10 +1,7 @@
-import numpy as np
-import torch
 from torch import Tensor
-from torch.autograd import Variable
-from utils import *
 
-from src.utils import keys_col_latents, keys_row_latents, keys_movie_to_user_net, keys_user_to_movie_net
+from utils import *
+from utils import keys_col_latents, keys_row_latents, keys_movie_to_user_net, keys_user_to_movie_net
 
 
 def standard_loss(parameters, data=None, indices=None, predictions={}):
@@ -58,21 +55,23 @@ def rmse(gt, pred):
     partialRMSE = torch.FloatTensor()
     recursiveRMSE = torch.FloatTensor()
     for key in pred.keys():
-        row,col = key
+        row, col = key
         if row < 40 and col < 40:
-            protoRMSE = torch.cat([protoRMSE,torch.pow(float(gt[key]) - pred[key], 2)],dim=0)
-        elif row < 40 or col <40:
-            partialRMSE = torch.cat([partialRMSE,torch.pow(float(gt[key]) - pred[key], 2)],dim=0)
+            protoRMSE = torch.cat([protoRMSE, torch.pow(float(gt[key]) - pred[key], 2)], dim=0)
+        elif row < 40 or col < 40:
+            partialRMSE = torch.cat([partialRMSE, torch.pow(float(gt[key]) - pred[key], 2)], dim=0)
         else:
-            recursiveRMSE = torch.cat([recursiveRMSE,torch.pow(float(gt[key]) - pred[key], 2)],dim=0)
-    errors  = torch.cat((protoRMSE,partialRMSE,recursiveRMSE),0)
+            recursiveRMSE = torch.cat([recursiveRMSE, torch.pow(float(gt[key]) - pred[key], 2)], dim=0)
+    errors = torch.cat((protoRMSE, partialRMSE, recursiveRMSE), 0)
     diff = torch.sum(errors)
     print(diff)
     print("Num of items is {} mean is {}, variance is {}".format(numItems, torch.mean(errors), torch.var(errors)))
-
-    print("Proto RMSE is {}".format(torch.sqrt(torch.mean(protoRMSE))))
-    print("Partial RMSE is {}".format(torch.sqrt(torch.mean(partialRMSE))))
-    print("Recursive RMSE is {}".format(torch.sqrt(torch.mean(recursiveRMSE))))
+    try:
+        print("Proto RMSE is {}".format(torch.sqrt(torch.mean(protoRMSE))))
+        print("Partial RMSE is {}".format(torch.sqrt(torch.mean(partialRMSE))))
+        print("Recursive RMSE is {}".format(torch.sqrt(torch.mean(recursiveRMSE))))
+    except:
+        pass
     return torch.sqrt((diff / len(pred.keys())))
 
 

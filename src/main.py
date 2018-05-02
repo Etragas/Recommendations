@@ -1,21 +1,9 @@
 import argparse
-import pickle
 
-import numpy as np
-import sklearn
-import torch
 from DataLoader import *
-from functools import reduce
-from scipy.sparse import dok_matrix
-import scipy
-from sklearn.utils import shuffle
 from train import *
-from sklearn.model_selection import train_test_split
-
-from src.DataLoader import DataLoader
-from src.NonZeroHero import non_zero_hero
-from src.train import train
-from src.utils import get_canonical_indices, splitDOK, removeZeroRows
+from train import train
+from utils import get_canonical_indices, splitDOK, removeZeroRows
 
 
 def parseArgs():
@@ -26,8 +14,10 @@ def parseArgs():
     print("Args File: ", args.file)
     return args
 
+
 def train_profile():
     pass
+
 
 def main():
     args = parseArgs()
@@ -39,9 +29,11 @@ def main():
     # full_data = DataLoader().LoadData(file_path="Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
     # DataLoader().fixMovelens100m('../Data/ml-1m/ratings.dat')
     # full_data = DataLoader().LoadData(file_path="Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
-    full_data = DataLoader().LoadData(file_path="Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS, size=(1200, 2000))
-    numUserProto = 40#int((full_data.shape[0]/843)*40)
-    numItemProto = 40#int((full_data.shape[1]/1650)*40)
+    full_data = DataLoader().LoadData(file_path="Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS,
+                                      size=(1200, 2000))
+
+    numUserProto = 943  # int((full_data.shape[0] / 843) * 40)
+    numItemProto = 1682  # int((full_data.shape[1] / 1650) * 40)
 
     # full_data = removeZeroRows(full_data)
     # import matplotlib.pyplot as plt
@@ -103,11 +95,8 @@ def main():
     filename = "final_trained_parameters.pkl"
     pickle.dump(parameters, open(filename, 'wb'))
 
+
 if __name__ == "__main__":
-    import cProfile
-    import re
     train_profile = main()
     train_profile()
     # cProfile.run('train_profile()', 'ml-100k-stats')
-
-

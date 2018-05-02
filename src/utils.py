@@ -1,11 +1,10 @@
 import gc
-from time import process_time
-from timeit import Timer
-from itertools import chain
 import random
+from itertools import chain
+from time import process_time
+
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,9 +12,8 @@ from scipy.sparse import dok_matrix
 from sklearn.utils import shuffle
 from sortedcontainers import SortedList
 from torch.autograd import Variable
-import threading
 
-from src.NonZeroHero import non_zero_hero
+from NonZeroHero import non_zero_hero
 
 movie_latent_size = 100
 user_latent_size = 100
@@ -61,7 +59,7 @@ if (dtype == torch.FloatTensor):
         def forward(self, x):
             x = F.relu(self.fc1(x))  # self.bn1(
             x = F.relu(self.fc2(x))  # self.bn2(
-            x = self.fc3(x)  # self.bn3(
+            x = 5 * F.sigmoid(self.fc3(x))
             return x
 else:
     class GeneratorNet(nn.Module):
@@ -150,10 +148,10 @@ def get_canonical_indices(data, latent_sizes):
     user_rating_counts = indicators.sum(axis=1)  # Bug one found
     movie_rating_counts = indicators.sum(axis=0)  # Bug one found
     user_indices = list(get_top_n(user_rating_counts, latent_sizes[0]))
-    rest = list(set(range(data.shape[0]))-set(user_indices))
+    rest = list(set(range(data.shape[0])) - set(user_indices))
     user_indices.extend(rest)
     movie_indices = list(get_top_n(movie_rating_counts, latent_sizes[1]))
-    rest = list(set(range(data.shape[1]))-set(movie_indices))
+    rest = list(set(range(data.shape[1])) - set(movie_indices))
     movie_indices.extend(rest)
     return np.array(list(user_indices)), np.array((movie_indices))
 
@@ -168,14 +166,16 @@ def get_canonical_indices(data, latent_sizes):
 #     uncan_entries = set(entries) - can_entries
 #     return list(can_entries) + list(uncan_entries)
 
-def shuffleNonPrototypeEntries(entries : SortedList, prototypeThreshold):
+def shuffleNonPrototypeEntries(entries: SortedList, prototypeThreshold):
     breakIdx = 0
     for entry in entries:
         if entry <= prototypeThreshold:
             breakIdx += 1
         else:
             break
-    return chain(random.sample(range(0,breakIdx),breakIdx), (random.randint(breakIdx,len(entries)-1) for x in range(breakIdx,len(entries))))
+    return chain(random.sample(range(0, breakIdx), breakIdx),
+                 (random.randint(breakIdx, len(entries) - 1) for x in range(breakIdx, len(entries))))
+
 
 def removeZeroRows(M):
     M = M.tocsr()
@@ -191,7 +191,7 @@ def splitDOK(data, trainPercentage):
     print(len(testIdx))
     testData = dok_matrix(data.shape, dtype=np.byte)
     testRow, testCol = zip(*testIdx)
-    testData[testRow, testCol] = data[testRow,testCol]
+    testData[testRow, testCol] = data[testRow, testCol]
     print(testData.shape)
     for key in testIdx:
         del data[key]
@@ -202,9 +202,11 @@ def splitDOK(data, trainPercentage):
     print(testData.size)
     return data, testData
 
+
 def get_top_n(data, n):
     indices = np.ravel((data.astype(int)).flatten().argsort())[-n:]
     return indices
+
 
 def getXinCanonical(data, len_can):
     num_here = 0
@@ -225,6 +227,7 @@ class RowIter():
         for i in self.idx:
             yield self.entries[i]
 
+
 class ColIter():
     def __init__(self, rowIdx, data: non_zero_hero, numEmbeddings):
         self.rowIdx = rowIdx
@@ -234,6 +237,7 @@ class ColIter():
     def __iter__(self):
         for j in self.idx:
             yield self.entries[j]
+
 
 def getNeighbours(full_data, percentiles=[.01, .01, .02, .03, .04, .05, .10, .20]):
     user_results = []
