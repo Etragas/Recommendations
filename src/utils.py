@@ -1,23 +1,30 @@
+import gc
+import random
+from itertools import chain
+from time import process_time
+
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from scipy.sparse import dok_matrix
 from sklearn.utils import shuffle
+from sortedcontainers import SortedList
 from torch.autograd import Variable
 
-movie_latent_size = 100
-user_latent_size = 100
+from NonZeroHero import non_zero_hero
+
+movie_latent_size = 20
+user_latent_size = 20
 hyp_user_network_sizes = [movie_latent_size + 1, 200, 200, user_latent_size]
 hyp_movie_network_sizes = [user_latent_size + 1, 200, 200, movie_latent_size]
 rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 200, 1]
 scale = .1
 
 dtype = torch.FloatTensor
-if (torch.cuda.device_count() > 0):
-    dtype = torch.cuda.FloatTensor  # Uncomment this to run on GPU
+# if (torch.cuda.device_count() > 0):
+#     dtype = torch.cuda.FloatTensor  # Uncomment this to run on GPU
 
 # The if statement checks if the code is running on gpu or cpu
 if (dtype == torch.FloatTensor):
@@ -52,7 +59,7 @@ if (dtype == torch.FloatTensor):
         def forward(self, x):
             x = F.relu(self.fc1(x))  # self.bn1(
             x = F.relu(self.fc2(x))  # self.bn2(
-            x = self.fc3(x)  # self.bn3(
+            x = 5 * F.sigmoid(self.fc3(x))
             return x
 else:
     class GeneratorNet(nn.Module):
@@ -124,7 +131,7 @@ def build_params(num_user_latents=20, num_movie_latents=20):
 def initParams(net):
     for param in net.parameters():
         if (param.data.dim() > 1):
-            param.data = torch.nn.init.xavier_uniform(param.data)
+            param.data = torch.nn.init.xavier_uniform_(param.data)
 
 
 # Credit to David Duvenaud for sleek init code
@@ -141,23 +148,37 @@ def get_canonical_indices(data, latent_sizes):
     user_rating_counts = indicators.sum(axis=1)  # Bug one found
     movie_rating_counts = indicators.sum(axis=0)  # Bug one found
     user_indices = list(get_top_n(user_rating_counts, latent_sizes[0]))
+    rest = list(set(range(data.shape[0])) - set(user_indices))
+    user_indices.extend(rest)
     movie_indices = list(get_top_n(movie_rating_counts, latent_sizes[1]))
-    for val in range(data.shape[0]):
-        if val not in user_indices:
-            user_indices.append(val)
-    for val in range(data.shape[1]):
-        if val not in movie_indices:
-            movie_indices.append(val)
-    return np.array(user_indices), np.array(movie_indices)
+    rest = list(set(range(data.shape[1])) - set(movie_indices))
+    movie_indices.extend(rest)
+    return np.array(list(user_indices)), np.array((movie_indices))
 
 
-def shuffleNonPrototypeEntries(entries, prototypeThreshold=0):
-    can_entries = [x for x in entries if x < prototypeThreshold]
-    uncan_entries = shuffle(list(set(entries) - set(can_entries)))
-    return can_entries + uncan_entries
+# def shuffleNonPrototypeEntries(entries : SortedList, prototypeThreshold):
+#     can_entries = set()
+#     for x in entries:
+#         if x < prototypeThreshold:
+#             can_entries.add(x)
+#         else:
+#             break
+#     uncan_entries = set(entries) - can_entries
+#     return list(can_entries) + list(uncan_entries)
+
+def shuffleNonPrototypeEntries(entries: SortedList, prototypeThreshold):
+    breakIdx = 0
+    for entry in entries:
+        if entry <= prototypeThreshold:
+            breakIdx += 1
+        else:
+            break
+    return chain(random.sample(range(0, breakIdx), breakIdx),
+                 (random.randint(breakIdx, len(entries) - 1) for x in range(breakIdx, len(entries))))
+
 
 def removeZeroRows(M):
-    M = scipy.sparse.csr_matrix(M)
+    M = M.tocsr()
     M = M[M.getnnz(1) > 0][:, M.getnnz(0) > 0]
     return M.todok()
 
@@ -165,18 +186,27 @@ def removeZeroRows(M):
 def splitDOK(data, trainPercentage):
     nonZero = shuffle(list(zip(*data.nonzero())))
     stop = int(trainPercentage * len(nonZero))
+    t = process_time()
     testIdx = nonZero[stop:]
-    testData = dok_matrix(data.shape)
-    for idx in testIdx:
-        testData[idx] = data[idx]
-        del data[idx]
+    print(len(testIdx))
+    testData = dok_matrix(data.shape, dtype=np.byte)
+    testRow, testCol = zip(*testIdx)
+    testData[testRow, testCol] = data[testRow, testCol]
+    print(testData.shape)
+    for key in testIdx:
+        del data[key]
+    gc.collect()
+    print("Time is {}".format(process_time() - t))
+
     print(data.size)
     print(testData.size)
     return data, testData
 
+
 def get_top_n(data, n):
     indices = np.ravel((data.astype(int)).flatten().argsort())[-n:]
     return indices
+
 
 def getXinCanonical(data, len_can):
     num_here = 0
@@ -185,6 +215,28 @@ def getXinCanonical(data, len_can):
             num_here += 1
     print("wat, ", num_here)
     return num_here
+
+
+class RowIter():
+    def __init__(self, itemIdx, data: non_zero_hero, numEmbeddings):
+        self.itemIdx = itemIdx
+        self.entries = data.get_non_zero(col=itemIdx).rows
+        self.idx = shuffleNonPrototypeEntries(entries=self.entries, prototypeThreshold=numEmbeddings)
+
+    def __iter__(self):
+        for i in self.idx:
+            yield self.entries[i]
+
+
+class ColIter():
+    def __init__(self, rowIdx, data: non_zero_hero, numEmbeddings):
+        self.rowIdx = rowIdx
+        self.entries = data.get_non_zero(row=rowIdx).cols
+        self.idx = shuffleNonPrototypeEntries(entries=self.entries, prototypeThreshold=numEmbeddings)
+
+    def __iter__(self):
+        for j in self.idx:
+            yield self.entries[j]
 
 
 def getNeighbours(full_data, percentiles=[.01, .01, .02, .03, .04, .05, .10, .20]):

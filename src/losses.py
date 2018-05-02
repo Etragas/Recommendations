@@ -1,9 +1,7 @@
-import numpy as np
-import torch
-from torch.autograd import Variable
-from utils import *
+from torch import Tensor
 
-from src.utils import keys_col_latents, keys_row_latents, keys_movie_to_user_net, keys_user_to_movie_net
+from utils import *
+from utils import keys_col_latents, keys_row_latents, keys_movie_to_user_net, keys_user_to_movie_net
 
 
 def standard_loss(parameters, data=None, indices=None, predictions={}):
@@ -42,7 +40,7 @@ def regularization_loss(parameters=None, paramsToOpt=None, reg_alpha=.01):
     return reg_loss
 
 
-def rmse(gt, pred):
+def rmse_logging(gt, pred):
     """
     Computes the rmse given a ground truth and a prediction
 
@@ -53,12 +51,46 @@ def rmse(gt, pred):
     """
     diff = 0
     numItems = (len(pred.keys()))
-    mean = []
+    protoRMSE = torch.FloatTensor()
+    partialRMSE = torch.FloatTensor()
+    recursiveRMSE = torch.FloatTensor()
     for key in pred.keys():
-        mean.append(pred[key])
-        diff = diff + torch.pow(float(gt[key]) - pred[key], 2)
-    print("Num of items is {} average pred value is {}".format(numItems, np.mean(mean)))
+        row, col = key
+        if row < 40 and col < 40:
+            protoRMSE = torch.cat([protoRMSE, torch.pow(float(gt[key]) - pred[key], 2)], dim=0)
+        elif row < 40 or col < 40:
+            partialRMSE = torch.cat([partialRMSE, torch.pow(float(gt[key]) - pred[key], 2)], dim=0)
+        else:
+            recursiveRMSE = torch.cat([recursiveRMSE, torch.pow(float(gt[key]) - pred[key], 2)], dim=0)
+    errors = torch.cat((protoRMSE, partialRMSE, recursiveRMSE), 0)
+    diff = torch.sum(errors)
+    print(diff)
+    print("Num of items is {} mean is {}, variance is {}".format(numItems, torch.mean(errors), torch.var(errors)))
+    try:
+        print("Proto RMSE is {}".format(torch.sqrt(torch.mean(protoRMSE))))
+        print("Partial RMSE is {}".format(torch.sqrt(torch.mean(partialRMSE))))
+        print("Recursive RMSE is {}".format(torch.sqrt(torch.mean(recursiveRMSE))))
+    except:
+        pass
     return torch.sqrt((diff / len(pred.keys())))
+
+
+def rmse(gt, pred):
+    """
+    Computes the rmse given a ground truth and a prediction
+
+    :param gt: the ground truth, a.k.a. the dataset
+    :param pred: the predicted ratings
+
+    :return: the root mean squared error between ground truth and prediction
+    """
+    diff = 0
+    for key in pred.keys():
+
+        diff += (float(gt[key]) - pred[key]) ** 2
+    rmse = torch.sqrt((diff / len(pred.keys())))
+    print("Rmse is {}".format(rmse))
+    return rmse
 
 
 def mae(gt, pred):
@@ -80,7 +112,7 @@ def mae(gt, pred):
 def computeWeightLoss(parameters):
     regLoss = 0
     for k, v in parameters.items():
-        if type(v) == Variable:
+        if type(v) == Tensor:
             regLoss += torch.sum(torch.pow(v.data, 2))
         else:
             for subkey, param in v.named_parameters():
@@ -114,6 +146,8 @@ def momentDiffV2(parameters, momentFn):
         (colLatents, Variable(3.3 * torch.FloatTensor(torch.ones((1, colLatents.size()[1]))).type(dtype))), dim=0)
     rowLatentsWithRating = torch.cat(
         (rowLatents, Variable(3.3 * torch.FloatTensor(torch.ones((rowLatents.size()[0], 1))).type(dtype))), dim=1)
+    print(colLatntWithRating.shape)
+    print(rowLatentsWithRating.shape)
     averagePredRow = momentFn(parameters[keys_movie_to_user_net].forward(torch.t(colLatntWithRating)), dim=1)
     averagePredCol = momentFn(parameters[keys_user_to_movie_net].forward(rowLatentsWithRating), dim=1)
     averageRow = momentFn(rowLatents, dim=1)
