@@ -15,8 +15,8 @@ from torch.autograd import Variable
 
 from NonZeroHero import non_zero_hero
 
-movie_latent_size = 20
-user_latent_size = 20
+movie_latent_size = 60
+user_latent_size = 60
 hyp_user_network_sizes = [movie_latent_size + 1, 200, 200, user_latent_size]
 hyp_movie_network_sizes = [user_latent_size + 1, 200, 200, movie_latent_size]
 rating_network_sizes = [movie_latent_size + user_latent_size, 200, 200, 200, 1]
@@ -40,8 +40,8 @@ if (dtype == torch.FloatTensor):
             initParams(self)
 
         def forward(self, x):
-            x = F.relu(self.fc1(x))  # self.bn1(
-            x = F.relu(self.fc2(x))  # self.bn2(
+            x = F.tanh(self.fc1(x))  # self.bn1(
+            x = F.tanh(self.fc2(x))  # self.bn2(
             x = self.fc3(x)  # self.bn3(
             return x
 
@@ -49,17 +49,17 @@ if (dtype == torch.FloatTensor):
     class RatingGeneratorNet(nn.Module):
         def __init__(self):
             super(RatingGeneratorNet, self).__init__()
-            self.fc1 = nn.Linear(user_latent_size + movie_latent_size, 200)
+            self.fc1 = nn.Linear(user_latent_size + movie_latent_size, 50)
             # self.bn1 = torch.nn.BatchNorm1d(4000)
-            self.fc2 = nn.Linear(200, 200)
+            self.fc2 = nn.Linear(50, 50)
             # self.bn2 = torch.nn.BatchNorm1d(2000
-            self.fc3 = nn.Linear(200, 1)
+            self.fc3 = nn.Linear(50, 1)
             initParams(self)
 
         def forward(self, x):
-            x = F.relu(self.fc1(x))  # self.bn1(
-            x = F.relu(self.fc2(x))  # self.bn2(
-            x = 5 * F.sigmoid(self.fc3(x))
+            x = F.sigmoid(self.fc1(x))  # self.bn1(
+            x = F.sigmoid(self.fc2(x))  # self.bn2(
+            x = (self.fc3(x))
             return x
 else:
     class GeneratorNet(nn.Module):

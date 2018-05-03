@@ -8,14 +8,16 @@ from torch import Tensor
 from src.losses import rmse, mae, standard_loss, regularization_loss
 from utils import *
 
+from src.utils import ColIter, RowIter
+
 """
 Initialize all non-mode-specific parameters
 """
 
 curtime = time.time()
-MAX_RECURSION = 4
+MAX_RECURSION = 2
 trainingMode = True
-EVIDENCELIMIT = 80
+EVIDENCELIMIT = 20
 
 train_mse_iters = []
 train_mse = []
@@ -89,17 +91,14 @@ def get_predictions_tensor(parameters, data: non_zero_hero, indices=None):
         indices = data.get_random_indices(1024)
 
     for userIdx, itemIdx in indices:
-        key = (userIdx, itemIdx)
-        itemLatent = getItemEmbedding(parameters, data, itemIdx)[0]
-        userLatent = getUserEmbedding(parameters, data, userIdx)[0]
+        itemLatent = getItemEmbedding(parameters, data, itemIdx.item())[0]
+        userLatent = getUserEmbedding(parameters, data, userIdx.item())[0]
         if (userLatent is None or itemLatent is None):
-            full_predictions[key] = torch.cat((full_predictions, Variable(torch.FloatTensor([float(3.4)])).type(
-                dtype)), dim=0)  # Assign an average rating
+            full_predictions = torch.cat((full_predictions, Variable(torch.FloatTensor([float(3.4)])).type(
+                dtype).view(1,1)), dim=0)  # Assign an average rating
         else:
-            # full_predictions[key] = parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0))
+            # full_predictions = torch.cat((full_predictions, parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).view(1,1)), dim=0)
             full_predictions = torch.cat((full_predictions, torch.dot(userLatent, itemLatent).view(1,1)), dim=0)
-    ## torch.dot(userLatent, itemLatent)
-
     return full_predictions
 
 
@@ -148,9 +147,10 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     # Retrieve latents for every movie watched by user
     evidenceCount = 0
     evidenceLimit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursionStepsRemaining))
-
     itemColumns = ColIter(userIdx, data, numUserEmbeddings)
+
     for itemIdx in itemColumns:
+        evidenceCount += 1
         itemRating = data[userIdx, itemIdx]
         # When it is training mode we use evidence count.
         # When we go over the evidence limit, we no longer need to look for latents
@@ -167,7 +167,6 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
                     (movie_latent, Variable(torch.FloatTensor([float(itemRating)]).type(dtype))),
                     dim=0)
                 itemEmbbeddings.append(latentWithRating)  # We got another movie latent
-                evidenceCount += 1
                 dist = min(dist, curr_depth)
 
     if (len(itemEmbbeddings) < 2):
@@ -235,6 +234,7 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
     # userRows = []
 
     for userIdx in userRows:
+        evidenceCount+=1
         userRating = data[userIdx, itemIdx]
         # When it is training mode we use evidence count.
         # When we go over the evidence limit, we no longer need to look for latents
@@ -250,7 +250,6 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
                     (user_latent, Variable(torch.FloatTensor([float(userRating)]).type(dtype))),
                     dim=0)
                 userEmbeddings.append(latentWithRating)  # We got another movie latent
-                evidenceCount += 1
                 dist = min(dist, curr_depth)
 
     if (len(userEmbeddings) < 2):

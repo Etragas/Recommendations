@@ -1,10 +1,12 @@
 import torch.optim as optim
-from torch import cuda
+from torch import cuda, nn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
 from model import *
 from utils import keys_rating_net
+
+from src.model import get_predictions, get_predictions_tensor, dataCallback
 
 
 def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000, initialIteration=0,
@@ -18,24 +20,19 @@ def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000,
 
     # If optimizer is not specified, use the default Adam optimizer
     if optimizer is None:
-        optimizer = optim.Adam(paramsToOptList, lr=1e-3, weight_decay=0.1)
+        optimizer = optim.Adam(paramsToOptList, lr=1e-3, weight_decay=0.0001)
     # print(optimizer.__getstate__())
 
     # Set callback function for reporting performance
     callback = dataCallback(train_data, test_data)
-    parameters = {keys_row_latents: parameters[keys_row_latents], keys_col_latents: parameters[keys_col_latents]}
+    # parameters = {keys_row_latents: parameters[keys_row_latents], keys_col_latents: parameters[keys_col_latents]}
     # Mask parameters if necessary
-    if alternatingOptimization:
-        paramSet1 = [keys_rating_net]
-        paramSet2 = [x for x in parameters.keys() if x not in [keys_rating_net]]
-        maskParams = [paramSet1, paramSet2]
-        print("Masked parameters are: ", maskParams)
     # Perform the optimization
     kwargs = {'num_workers': 1, 'pin_memory': True} if cuda else {}
     idxData = np.array([(k[0], k[1], float(v)) for k, v in train_data.items()])
     print(idxData.shape)
-    batch_size = 1024
-
+    batch_size = 10000
+    batch_per_epoch = int(idxData.shape[0]/batch_size)
     for epoch in range(100):
         idx_loader = DataLoader(dataset=idxData, batch_size=batch_size, shuffle=True,
                                 **kwargs)
@@ -58,12 +55,9 @@ def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000,
             reg_loss = 0  # regularization_loss(parameters, paramsToOptDict, reg_alpha=0.00000)
             loss = data_loss + reg_loss
             loss.backward()
-            if alternatingOptimization:
-                mask_grad(paramsToOptDict, maskParams[iter % 2])
-            if gradientClipping:
-                clip_grads(paramsToOptDict, clip=1)
             optimizer.step()  # Does the update
-        callback(parameters, iter, None, optimizer=optimizer)
+            if iter % batch_per_epoch == 0:
+                callback(parameters, batch_per_epoch*epoch+iter, None, optimizer=optimizer)
 
     return parameters
 

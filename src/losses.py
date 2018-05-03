@@ -85,10 +85,13 @@ def rmse(gt, pred):
     :return: the root mean squared error between ground truth and prediction
     """
     diff = 0
-    for key in pred.keys():
+    try:
+        for key in pred.keys():
+            diff += (float(gt[key]) - pred[key]) ** 2
+        rmse = torch.sqrt((diff / len(pred.keys())))
+    except:
+        rmse = -1
 
-        diff += (float(gt[key]) - pred[key]) ** 2
-    rmse = torch.sqrt((diff / len(pred.keys())))
     print("Rmse is {}".format(rmse))
     return rmse
 

@@ -1,9 +1,12 @@
 import argparse
+import cProfile
 
 from dl import *
 from train import *
 from train import train
 from utils import get_canonical_indices, splitDOK
+
+from src.NonZeroHero import non_zero_hero
 
 
 def parseArgs():
@@ -25,11 +28,10 @@ def main():
     # full_data = dl().LoadData(file_path="Data/ml-10m/ratingsbetter.dat", data_type=dl.MOVIELENS, size= (72000,11000))
     # DataLoader().fixMovelens100m('../Data/ml-1m/ratings.dat')
     # full_data = dl().LoadData(file_path="Data/ml-1m/ratingsbetter.dat", data_type=dl.MOVIELENS, size= (6100,4000))
-    full_data = dl().LoadData(file_path="Data/ml-100k/u.data", data_type=dl.MOVIELENS,
-                              size=(1200, 2000))
+    full_data = dl().LoadData(file_path="Data/ml-100k/u.data", data_type=dl.MOVIELENS,size=(1200, 2000))
 
-    numUserProto = int((full_data.shape[0]))  # / 843))
-    numItemProto = int((full_data.shape[1]))  # / 1650))
+    numUserProto = int((full_data.shape[0]) / 943) * 40
+    numItemProto = int((full_data.shape[1]) / 1650) * 40
 
     # Reduce the matrix to toy size
     # full_data = full_data[:100,:100]
@@ -82,5 +84,5 @@ def main():
 
 if __name__ == "__main__":
     train_profile = main()
-    train_profile()
-    # cProfile.run('train_profile()', 'ml-100k-stats')
+    # train_profile()
+    cProfile.run('train_profile()', 'ml-1m-stats')

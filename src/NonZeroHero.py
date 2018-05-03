@@ -28,6 +28,7 @@ class non_zero_hero(dok_matrix):
         return (self.nonzero_indices[choice] for choice in choices)
 
     def get_non_zero(self, row=None, col=None) -> MatrixIndices:
+
         if not row and not col:
             return None
 
