@@ -25,11 +25,13 @@ def main():
     # full_data = dl().LoadData(file_path="Data/ml-10m/ratingsbetter.dat", data_type=dl.MOVIELENS, size= (72000,11000))
     # DataLoader().fixMovelens100m('../Data/ml-1m/ratings.dat')
     # full_data = dl().LoadData(file_path="Data/ml-1m/ratingsbetter.dat", data_type=dl.MOVIELENS, size= (6100,4000))
-    full_data = dl().LoadData(file_path="Data/ml-100k/u.data", data_type=dl.MOVIELENS,
+    full_data = dl().LoadData(file_path="../Data/ml-100k/u.data", data_type=dl.MOVIELENS,
                               size=(1200, 2000))
 
     numUserProto = int((full_data.shape[0]))  # / 843))
     numItemProto = int((full_data.shape[1]))  # / 1650))
+    #numUserProto = 50
+    #numItemProto = 50
 
     # Reduce the matrix to toy size
     # full_data = full_data[:100,:100]
@@ -40,7 +42,7 @@ def main():
     # Determine number of latents for movie/user
     print("Cleaned Data Shape: ", full_data.shape)
 
-    print("Number of User Prototypes: {} \n Number of Movie Prototypes: {}".format(numUserProto, numItemProto))
+    print("Number of User Prototypes: {} \nNumber of Movie Prototypes: {}".format(numUserProto, numItemProto))
     # can_idx holds two arrays - they are of canonical indices for users and movies respectively.
     can_idx = get_canonical_indices(full_data, [numUserProto, numItemProto])
     # Resort data so that canonical users and movies are in top left
@@ -53,8 +55,8 @@ def main():
     # plt.show()
 
     print("Mean of prototype block post sorting {}".format(np.mean(full_data[:numUserProto, :numItemProto])))
-    # Split full dataset into train and test sets.
 
+    # Split full dataset into train and test sets.
     train_data, test_data = splitDOK(full_data, trainPercentage=.8)
     train_data = non_zero_hero(train_data)
     test_data = non_zero_hero(test_data)

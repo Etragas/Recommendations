@@ -10,7 +10,6 @@ MatrixIndices = namedtuple('MatrixIndices', ['rows', 'cols'])
 class non_zero_hero(dok_matrix):
 
     def freeze_dataset(self):
-        print("Num items", len(dict.items(self)))
         self.non_zero_for_row = defaultdict(lambda: SortedList())
         self.non_zero_for_col = defaultdict(lambda: SortedList())
 

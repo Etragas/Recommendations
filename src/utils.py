@@ -186,20 +186,18 @@ def removeZeroRows(M):
 def splitDOK(data, trainPercentage):
     nonZero = shuffle(list(zip(*data.nonzero())))
     stop = int(trainPercentage * len(nonZero))
-    t = process_time()
+    #t = process_time()
     testIdx = nonZero[stop:]
-    print(len(testIdx))
     testData = dok_matrix(data.shape, dtype=np.byte)
     testRow, testCol = zip(*testIdx)
     testData[testRow, testCol] = data[testRow, testCol]
-    print(testData.shape)
+    #print("Test data shape is: ", testData.shape)
     for key in testIdx:
         del data[key]
     gc.collect()
-    print("Time is {}".format(process_time() - t))
-
-    print(data.size)
-    print(testData.size)
+    #print("Time is {}".format(process_time() - t))
+    print("Number of train ratings: ", data.size)
+    print("Number of test ratings: ", testData.size)
     return data, testData
 
 
@@ -213,7 +211,6 @@ def getXinCanonical(data, len_can):
     for x in range(data.shape[0]):
         if (data[x, :len_can] > 0).sum() > 0:
             num_here += 1
-    print("wat, ", num_here)
     return num_here
 
 
