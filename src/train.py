@@ -34,7 +34,7 @@ def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000,
     kwargs = {'num_workers': 1, 'pin_memory': True} if cuda else {}
     idxData = np.array([(k[0], k[1], float(v)) for k, v in train_data.items()])
     print(idxData.shape)
-    batch_size = 1
+    batch_size = 1024
 
     for epoch in range(100):
         idx_loader = DataLoader(dataset=idxData, batch_size=batch_size, shuffle=True,
@@ -58,12 +58,7 @@ def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000,
             # data_loss = standard_loss(parameters, data=train_data, indices=None, predictions=predictions)
             reg_loss = 0  # regularization_loss(parameters, paramsToOptDict, reg_alpha=0.00000)
             loss = data_loss + reg_loss
-            with torch.autograd.profiler.profile() as prof:
-              loss.backward()
-            f = open("profile_log", "w")
-            f.write(prof)
-            input("just printed prof: ")
-            print("iteration: ", iter, " and loss is: ", loss)
+            loss.backward()
             if alternatingOptimization:
                 mask_grad(paramsToOptDict, maskParams[iter % 2])
             if gradientClipping:
