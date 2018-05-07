@@ -40,7 +40,7 @@ def regularization_loss(parameters=None, paramsToOpt=None, reg_alpha=.01):
     return reg_loss
 
 
-def rmse_logging(gt, pred):
+def rmse_logging(gt, pred, num_user_protos, num_item_protos):
     """
     Computes the rmse given a ground truth and a prediction
 
@@ -56,9 +56,9 @@ def rmse_logging(gt, pred):
     recursiveRMSE = torch.FloatTensor()
     for key in pred.keys():
         row, col = key
-        if row < 40 and col < 40:
+        if row < num_user_protos and col < num_item_protos:
             protoRMSE = torch.cat([protoRMSE, torch.pow(float(gt[key]) - pred[key], 2)], dim=0)
-        elif row < 40 or col < 40:
+        elif row < num_user_protos or col < num_item_protos:
             partialRMSE = torch.cat([partialRMSE, torch.pow(float(gt[key]) - pred[key], 2)], dim=0)
         else:
             recursiveRMSE = torch.cat([recursiveRMSE, torch.pow(float(gt[key]) - pred[key], 2)], dim=0)
@@ -86,7 +86,6 @@ def rmse(gt, pred):
     """
     diff = 0
     for key in pred.keys():
-
         diff += (float(gt[key]) - pred[key]) ** 2
     rmse = torch.sqrt((diff / len(pred.keys())))
     print("Rmse is {}".format(rmse))

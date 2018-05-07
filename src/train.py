@@ -10,8 +10,8 @@ from utils import keys_rating_net
 def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000, initialIteration=0,
           alternatingOptimization=False,
           gradientClipping=False):
+    
     # Prepare dictionary of parameters to optimize
-
     paramsToOptDict = getDictOfParams(parameters)
     paramsToOptList = paramsToOptDict.values()
     print("These are the parameters to optimize:", paramsToOptDict.keys())
@@ -23,7 +23,7 @@ def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000,
 
     # Set callback function for reporting performance
     callback = dataCallback(train_data, test_data)
-    parameters = {keys_row_latents: parameters[keys_row_latents], keys_col_latents: parameters[keys_col_latents]}
+    #parameters = {keys_row_latents: parameters[keys_row_latents], keys_col_latents: parameters[keys_col_latents]}
     # Mask parameters if necessary
     if alternatingOptimization:
         paramSet1 = [keys_rating_net]
@@ -39,17 +39,18 @@ def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000,
     for epoch in range(100):
         idx_loader = DataLoader(dataset=idxData, batch_size=batch_size, shuffle=True,
                                 **kwargs)
+        iters_per_epoch = len(idx_loader)
         loss_function = nn.MSELoss(size_average=False)
 
         for iter, batch in enumerate(idx_loader):
-            iter = iter + initialIteration
+            iter = iter + epoch * iters_per_epoch
             optimizer.zero_grad()  # zero the gradient buffers
             row = batch[:, 0]
             col = batch[:, 1]
             val = batch[:, 2]
-            row = Variable(row.long())
-            col = Variable(col.long())
-            val = Variable(val.float())
+            row = row.long().tolist()
+            col = col.long().tolist()
+            val = val.float()
             indices = list(zip(row,col))
 
             predictions = get_predictions_tensor(parameters, data=train_data, indices=indices)
@@ -74,7 +75,6 @@ def getDictOfParams(parameters: dict):
         if type(v) == Tensor:
             paramsToOptDict[(k, k)] = v
         else:
-            print(dir(v))
             for subkey, param in v.named_parameters():
                 paramsToOptDict[(k, subkey)] = param
     return paramsToOptDict
