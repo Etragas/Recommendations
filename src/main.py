@@ -32,6 +32,7 @@ def main():
 
     numUserProto = int((full_data.shape[0]) / 943) * 40
     numItemProto = int((full_data.shape[1]) / 1650) * 40
+    full_data = removeZeroRows(full_data)
 
     # Reduce the matrix to toy size
     # full_data = full_data[:100,:100]
@@ -51,6 +52,11 @@ def main():
     full_data = full_data.tocsr()[can_idx[0], :]
     full_data = full_data.todok()
 
+    print("Pre drop matrix sum", np.sum(full_data))
+    num_drop_rows = 150
+    # drop_rows = np.random.randint(0, full_data.shape[0], num_drop_rows)
+    # dropDataFromRows(data=full_data, rows=drop_rows, numItems=150)
+    # print("Post drop matrix sum", np.sum(full_data))
     # plt.imshow(full_data.todense(), cmap='hot', interpolation='nearest')
     # plt.show()
 
@@ -84,5 +90,5 @@ def main():
 
 if __name__ == "__main__":
     train_profile = main()
-    # train_profile()
-    cProfile.run('train_profile()', 'ml-1m-stats')
+    train_profile()
+    # cProfile.run('train_profile()', 'ml-100k-stats')

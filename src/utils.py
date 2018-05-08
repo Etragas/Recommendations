@@ -146,8 +146,10 @@ def init_random_params(scale, layer_sizes, rs=np.random.RandomState(0)):
 def get_canonical_indices(data, latent_sizes):
     indicators = data > 0
     user_rating_counts = indicators.sum(axis=1)  # Bug one found
+    print(user_rating_counts)
     movie_rating_counts = indicators.sum(axis=0)  # Bug one found
     user_indices = list(get_top_n(user_rating_counts, latent_sizes[0]))
+    print(user_indices)
     rest = list(set(range(data.shape[0])) - set(user_indices))
     user_indices.extend(rest)
     movie_indices = list(get_top_n(movie_rating_counts, latent_sizes[1]))
@@ -186,25 +188,23 @@ def removeZeroRows(M):
 def splitDOK(data, trainPercentage):
     nonZero = shuffle(list(zip(*data.nonzero())))
     stop = int(trainPercentage * len(nonZero))
-    t = process_time()
+    #t = process_time()
     testIdx = nonZero[stop:]
-    print(len(testIdx))
     testData = dok_matrix(data.shape, dtype=np.byte)
     testRow, testCol = zip(*testIdx)
     testData[testRow, testCol] = data[testRow, testCol]
-    print(testData.shape)
+    #print("Test data shape is: ", testData.shape)
     for key in testIdx:
         del data[key]
     gc.collect()
-    print("Time is {}".format(process_time() - t))
-
-    print(data.size)
-    print(testData.size)
+    #print("Time is {}".format(process_time() - t))
+    print("Number of train ratings: ", data.size)
+    print("Number of test ratings: ", testData.size)
     return data, testData
 
 
 def get_top_n(data, n):
-    indices = np.ravel((data.astype(int)).flatten().argsort())[-n:]
+    indices = np.ravel((data.astype(int)).flatten().argsort())[::-1][:n]
     return indices
 
 
@@ -213,7 +213,6 @@ def getXinCanonical(data, len_can):
     for x in range(data.shape[0]):
         if (data[x, :len_can] > 0).sum() > 0:
             num_here += 1
-    print("wat, ", num_here)
     return num_here
 
 
@@ -253,6 +252,15 @@ def getNeighbours(full_data, percentiles=[.01, .01, .02, .03, .04, .05, .10, .20
     plt.plot(percentiles, user_results)
     plt.show()
     return user_results
+
+def dropDataFromRows(data, rows, numItems):
+    for row in rows:
+        columns = data[row, :].nonzero()[1]
+        randomColumns = shuffle(columns)[:5]
+        columns = np.array(list(set(columns) - set(randomColumns)))
+        data[row, columns] = 0
+
+
 
 
 keys_row_first = "row"

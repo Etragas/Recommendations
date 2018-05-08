@@ -26,20 +26,23 @@ def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000,
     # Set callback function for reporting performance
     callback = dataCallback(train_data, test_data)
     # parameters = {keys_row_latents: parameters[keys_row_latents], keys_col_latents: parameters[keys_col_latents]}
+
+    #parameters = {keys_row_latents: parameters[keys_row_latents], keys_col_latents: parameters[keys_col_latents]}
     # Mask parameters if necessary
     # Perform the optimization
     kwargs = {'num_workers': 1, 'pin_memory': True} if cuda else {}
     idxData = np.array([(k[0], k[1], float(v)) for k, v in train_data.items()])
     print(idxData.shape)
-    batch_size = 10000
-    batch_per_epoch = int(idxData.shape[0]/batch_size)
+    batch_size = 1024
+
     for epoch in range(100):
         idx_loader = DataLoader(dataset=idxData, batch_size=batch_size, shuffle=True,
                                 **kwargs)
+        iters_per_epoch = len(idx_loader)
         loss_function = nn.MSELoss(size_average=False)
 
         for iter, batch in enumerate(idx_loader):
-            iter = iter + initialIteration
+            iter = iter + epoch * iters_per_epoch
             optimizer.zero_grad()  # zero the gradient buffers
             row = batch[:, 0]
             col = batch[:, 1]
@@ -56,8 +59,7 @@ def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000,
             loss = data_loss + reg_loss
             loss.backward()
             optimizer.step()  # Does the update
-            if iter % batch_per_epoch == 0:
-                callback(parameters, batch_per_epoch*epoch+iter, None, optimizer=optimizer)
+            callback(parameters, iter, None, optimizer=optimizer)
 
     return parameters
 
@@ -68,7 +70,6 @@ def getDictOfParams(parameters: dict):
         if type(v) == Tensor:
             paramsToOptDict[(k, k)] = v
         else:
-            print(dir(v))
             for subkey, param in v.named_parameters():
                 paramsToOptDict[(k, subkey)] = param
     return paramsToOptDict

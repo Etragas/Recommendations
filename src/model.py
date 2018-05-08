@@ -62,12 +62,11 @@ def get_predictions(parameters, data: non_zero_hero, indices=None):
         itemLatent = getItemEmbedding(parameters, data, itemIdx)[0]
         userLatent = getUserEmbedding(parameters, data, userIdx)[0]
         if (userLatent is None or itemLatent is None):
-            full_predictions[key] = Variable(torch.FloatTensor([float(3.4)])).type(
-                dtype)  # Assign an average rating
+            full_predictions[key] = torch.FloatTensor([float(3.4)]).type(
+                dtype).view(1,1)  # Assign an average rating
         else:
             # full_predictions[key] = parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0))
             full_predictions[key] = torch.dot(userLatent, itemLatent).view(1, 1)
-    ## torch.dot(userLatent, itemLatent)
 
     return full_predictions
 
@@ -91,13 +90,12 @@ def get_predictions_tensor(parameters, data: non_zero_hero, indices=None):
         indices = data.get_random_indices(1024)
 
     for userIdx, itemIdx in indices:
-        itemLatent = getItemEmbedding(parameters, data, itemIdx.item())[0]
-        userLatent = getUserEmbedding(parameters, data, userIdx.item())[0]
+        itemLatent = getItemEmbedding(parameters, data, itemIdx)[0]
+        userLatent = getUserEmbedding(parameters, data, userIdx)[0]
         if (userLatent is None or itemLatent is None):
             full_predictions = torch.cat((full_predictions, Variable(torch.FloatTensor([float(3.4)])).type(
                 dtype).view(1,1)), dim=0)  # Assign an average rating
         else:
-            # full_predictions = torch.cat((full_predictions, parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).view(1,1)), dim=0)
             full_predictions = torch.cat((full_predictions, torch.dot(userLatent, itemLatent).view(1,1)), dim=0)
     return full_predictions
 
@@ -140,15 +138,15 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     # Must generate latent
 
     # Initialize lists for our dense ratings and latents
-    itemEmbbeddings = []
-    # update the current caller_id with this user index appended
-    callier_id_with_self = [caller_id[0] + [userIdx], caller_id[1]]
-    # Retrieve latents for every user who watched the movie
-    # Retrieve latents for every movie watched by user
+    itemEmbeddings = []
+    # Update the current caller_id with this user index appended
+    caller_id_with_self = [caller_id[0] + [userIdx], caller_id[1]]
     evidenceCount = 0
     evidenceLimit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursionStepsRemaining))
-    itemColumns = ColIter(userIdx, data, numUserEmbeddings)
 
+    # Retrieve indices of every movie watched by user
+    itemColumns = ColIter(userIdx, data, numUserEmbeddings)
+    # Retrieve "evidenceLimits" number of movie latents watched by user
     for itemIdx in itemColumns:
         evidenceCount += 1
         itemRating = data[userIdx, itemIdx]
@@ -157,25 +155,26 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
         if trainingMode and evidenceCount > evidenceLimit:
             break
 
-            # If the item latent is valid, and does not produce a cycle, append it
-        if itemIdx not in callier_id_with_self[1]:
+        # If the item latent is valid, and does not produce a cycle, append it
+        if itemIdx not in caller_id_with_self[1]:
             movie_latent, curr_depth = getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining - 1,
-                                                        caller_id=callier_id_with_self)
+                                                        caller_id=caller_id_with_self)
 
             if movie_latent is not None:
                 latentWithRating = torch.cat(
                     (movie_latent, Variable(torch.FloatTensor([float(itemRating)]).type(dtype))),
                     dim=0)
-                itemEmbbeddings.append(latentWithRating)  # We got another movie latent
+                itemEmbeddings.append(latentWithRating)  # We got another movie latent
                 dist = min(dist, curr_depth)
 
-    if (len(itemEmbbeddings) < 2):
+    # Not enough item embeddings to generate user embedding from
+    if (len(itemEmbeddings) < 2):
         return None, MAX_RECURSION
     # Now have all latents, prepare for concatenations
-    embeddingConversions = movie_to_user_net.forward(torch.stack(itemEmbbeddings, 0))  # Feed through NN
+    embeddingConversions = movie_to_user_net.forward(torch.stack(itemEmbeddings, 0))  # Feed through NN
     row_latent = torch.mean(embeddingConversions, dim=0)
     userLatentCache[userIdx] = (row_latent, recursionStepsRemaining)
-    # print "user: ", user_index, " has depth: ", recursion_depth, "and caller id: ", internal_caller, " and all callers are: ", zip(entries, data[user_index, entries]), " and ", data[user_index, :], " and dist is: ", dist + 1
+    # Is it possible for the line above to cache it worse?
 
     return row_latent, 1
 
@@ -198,16 +197,16 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
 
     global itemLatentCache, hitcount, trainingMode, EVIDENCELIMIT, numItemEmbeddings, itemDistanceCache
 
-    # Get our necessary parameters from the parameters dictionary
-    colLatents = parameters[keys_col_latents]
-
     # If movie is canonical, return their latent immediately and cache it.
     if itemIdx < numItemEmbeddings:
+        colLatents = parameters[keys_col_latents]
         return colLatents[:, itemIdx], 0
 
-    user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
-    # If movie latent is cached, return their latent immediately
-    if itemLatentCache[itemIdx] is not None and itemLatentCache[itemIdx][1] <= recursionStepsRemaining:
+    # Get our necessary parameters from the parameters dictionary
+    user_to_movie_net= parameters[keys_user_to_movie_net]
+
+    # If movie latent is cached at a height greater than or equal to current, return their latent immediately
+    if itemLatentCache[itemIdx] is not None and itemLatentCache[itemIdx][1] >= recursionStepsRemaining:
         hitcount[itemLatentCache[itemIdx][1]] += 1
         return itemLatentCache[itemIdx][0], 1
 
@@ -216,23 +215,16 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
         return None, MAX_RECURSION
 
     # Must Generate Latent
-
+    # Initialize list for our dense ratings and latents
     userEmbeddings = []
     # update the current caller_id with this movie index appended
-    internal_caller = [caller_id[0], caller_id[1] + [itemIdx]]
-
-    # Retrieve latents for every user who watched the movie
+    caller_id_with_self = [caller_id[0], caller_id[1] + [itemIdx]]
     evidenceCount = 0
     evidenceLimit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursionStepsRemaining))
 
+    # Retrieve indices of every user who watched this movie
     userRows = RowIter(itemIdx, data, numItemEmbeddings)
-    # for i in candidateRows:
-    #         if len(userRows) > 2*evidenceLimit:
-    #             break
-    #         if data.get((i,itemIdx)):
-    #             userRows.append(i)
-    # userRows = []
-
+    # Retrieve "evidenceLimits" number of user latents  who watched the movie
     for userIdx in userRows:
         evidenceCount+=1
         userRating = data[userIdx, itemIdx]
@@ -242,9 +234,9 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
             break
 
         # If the user latent is valid, and does not produce a cycle, append it
-        if userIdx not in internal_caller[0]:
+        if userIdx not in caller_id_with_self[0]:
             user_latent, curr_depth = getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining - 1,
-                                                       caller_id=internal_caller)
+                                                       caller_id=caller_id_with_self)
             if user_latent is not None:
                 latentWithRating = torch.cat(
                     (user_latent, Variable(torch.FloatTensor([float(userRating)]).type(dtype))),
@@ -252,14 +244,15 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
                 userEmbeddings.append(latentWithRating)  # We got another movie latent
                 dist = min(dist, curr_depth)
 
+    # Not enough item embeddings to generate item embedding from
     if (len(userEmbeddings) < 2):
         return None, MAX_RECURSION
-    prediction = user_to_movie_net_parameters.forward(torch.stack(userEmbeddings, 0))  # Feed through NN
-    targetItemEmbedding = torch.mean(prediction, dim=0)
 
     # Now we have all latents, prepare for concatenation
-    itemLatentCache[itemIdx] = (
-        targetItemEmbedding, recursionStepsRemaining)  # Cache the movie latent with the current recursion depth
+    embeddingConversions = user_to_movie_net.forward(torch.stack(userEmbeddings, 0))  # Feed through NN
+    targetItemEmbedding = torch.mean(embeddingConversions, dim=0)
+    itemLatentCache[itemIdx] = (targetItemEmbedding, recursionStepsRemaining)  # Cache the movie latent with the current recursion depth
+    # Is it possible for the line above to cache it worse?
 
     return targetItemEmbedding, 1
 
