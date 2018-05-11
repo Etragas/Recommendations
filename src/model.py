@@ -2,7 +2,8 @@ import datetime
 import shutil
 import time
 
-from src.losses import rmse, mae, standard_loss, regularization_loss
+from torch import Tensor
+from losses import rmse, mae, standard_loss, regularization_loss
 from utils import *
 from datetime import datetime
 
@@ -58,16 +59,43 @@ def get_predictions(parameters, data, indices=None):
         itemLatent = getItemEmbedding(parameters, data, itemIdx)[0]
         userLatent = getUserEmbedding(parameters, data, userIdx)[0]
         if (userLatent is None or itemLatent is None):
-            full_predictions[key] = Variable(torch.FloatTensor([float(3.4)]), volatile=VOLATILE).type(
-                dtype)  # Assign an average rating
+            full_predictions[key] = torch.tensor([float(3.4)], requires_grad=True).type(
+                dtype).view(1,1)  # Assign an average rating
         else:
             full_predictions[key] = parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0))
-            # full_predictions[key] = Variable(torch.FloatTensor([float(3.4)]), volatile=VOLATILE).type(
-            #   dtype)  # Assign an average rating
+            # full_predictions[key] = torch.dot(userLatent, itemLatent).view(1, 1)
     ## torch.dot(userLatent, itemLatent)
 
     return full_predictions
 
+def get_predictions_tensor(parameters, data, indices=None):
+    """
+    Computes the predictions for the specified users and movie pairs
+
+    :param parameters: all the parameters in our model
+    :param data: dictionary of the data in row form and column form
+    :param indices: user and movie indices for which we generate predictions
+
+    :return: rating predictions for all user/movie combinations specified.  If unspecified,
+             computes all rating predictions.
+    """
+    setup_caches(data, parameters)
+    full_predictions = torch.FloatTensor()
+
+    if indices is None:
+        print("Generating indices...")
+        indices = shuffle(list(zip(*data.nonzero())))[:1000]#data.get_random_indices(1024)
+
+    for userIdx, itemIdx in indices:
+        itemLatent = getItemEmbedding(parameters, data, itemIdx)[0]
+        userLatent = getUserEmbedding(parameters, data, userIdx)[0]
+        if (userLatent is None or itemLatent is None):
+            full_predictions = torch.cat((full_predictions, Variable(torch.tensor([float(3.4)], requires_grad=True)).type(
+                dtype).view(1,1)), dim=0)  # Assign an average rating
+        else:
+            full_predictions = torch.cat((full_predictions, parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).view(1,1)), dim=0)
+            #full_predictions = torch.cat((full_predictions, torch.dot(userLatent, itemLatent).view(1,1)), dim=0)
+    return full_predictions
 
 def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECURSION, caller_id=[[], []],
                      dist=MAX_RECURSION + 1):
@@ -131,9 +159,10 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
                                                         caller_id=callier_id_with_self)
 
             if movie_latent is not None:
-                latentWithRating = torch.cat(
-                    (movie_latent, Variable(torch.FloatTensor([float(itemRating)]).type(dtype), volatile=VOLATILE)),
-                    dim=0)
+                with torch.set_grad_enabled(not VOLATILE):
+                    latentWithRating = torch.cat(
+                        (movie_latent, Variable(torch.FloatTensor([float(itemRating)]).type(dtype))),
+                        dim=0)
                 itemEmbbeddings.append(latentWithRating)  # We got another movie latent
                 evidenceCount += 1
                 dist = min(dist, curr_depth)
@@ -184,7 +213,7 @@ def getItemEmbedding(parameters, data, itemIdx, recursion_depth=MAX_RECURSION, c
         return colLatents[:, itemIdx], 0
 
     # If movie latent is cached, return their latent immediately
-    if itemLatentCache[itemIdx] is not None and itemLatentCache[itemIdx][1] <= recursion_depth:
+    if itemLatentCache[itemIdx] is not None and itemLatentCache[itemIdx][1] >= recursion_depth:
         hitcount[itemLatentCache[itemIdx][1]] += 1
         return itemLatentCache[itemIdx][0], itemDistanceCache[itemIdx]
 
@@ -216,9 +245,10 @@ def getItemEmbedding(parameters, data, itemIdx, recursion_depth=MAX_RECURSION, c
             user_latent, curr_depth = getUserEmbedding(parameters, data, userIdx, recursion_depth - 1,
                                                        caller_id=internal_caller)
             if user_latent is not None:
-                latentWithRating = torch.cat(
-                    (user_latent, Variable(torch.FloatTensor([float(userRating)]).type(dtype), volatile=VOLATILE)),
-                    dim=0)
+                with torch.set_grad_enabled(not VOLATILE):
+                    latentWithRating = torch.cat(
+                        (user_latent, Variable(torch.FloatTensor([float(userRating)]).type(dtype))),
+                        dim=0)
                 userEmbeddings.append(latentWithRating)  # We got another movie latent
                 evidenceCount += 1
                 dist = min(dist, curr_depth)
@@ -288,18 +318,18 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, userDistances
     rmse_result = rmse(gt=train, pred=pred)
     loss_result = standard_loss(parameters=params, data=train, predictions=pred) + regularization_loss(
         parameters=params)
-    print("MAE is", mae_result.data[0])
-    print("RMSE is ", rmse_result.data[0])
-    print("Loss is ", loss_result.data[0])
+    print("MAE is", mae_result.item())
+    print("RMSE is ", rmse_result.item())
+    print("Loss is ", loss_result.item())
     if (test is not None):
         print("Printing performance for test:")
         test_indices = shuffle(list(zip(*test.nonzero())))[:5000]
         test_pred = get_predictions(params, train, indices=test_indices)
         test_rmse_result = rmse(gt=test, pred=test_pred)
-        print("Test RMSE is ", (test_rmse_result.data)[0])
+        print("Test RMSE is ", test_rmse_result.item())
     for k, v in params.items():
         print("Key is: ", k)
-        if type(v) == Variable:
+        if type(v) == Tensor:
             print("Latent Variable Gradient Analytics")
             if (v.grad is None):
                 print("ERROR - GRADIENT MISSING")
@@ -307,8 +337,8 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, userDistances
             flattened = v.grad.view(v.grad.nelement())
             avg_square = torch.sum(torch.pow(v.grad, 2)) / flattened.size()[0]
             median = torch.median(torch.abs(flattened))
-            print("\t average of squares is: ", avg_square.data[0])
-            print("\t median is: ", median.data[0])
+            print("\t average of squares is: ", avg_square.item())
+            print("\t median is: ", median.item())
         else:
             print("Neural Net Variable Gradient Analytics")
             for param in v.parameters():
@@ -318,8 +348,8 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, userDistances
                 flattened = param.grad.view(param.grad.nelement())
                 avg_square = torch.sum(torch.pow(param.grad, 2)) / flattened.size()[0]
                 median = torch.median(torch.abs(flattened))
-                print("\t average of squares is: ", avg_square.data[0])
-                print("\t median is: ", median.data[0])
+                print("\t average of squares is: ", avg_square.item())
+                print("\t median is: ", median.item())
 
     print("Hitcount is: ", hitcount, sum(hitcount))
     print("Number of users per distance", {key: len(value) for (key, value) in userDistances.items()})
@@ -330,8 +360,8 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, userDistances
           np.mean(list(map(lambda keyValue: len(keyValue[1]) * keyValue[0], itemDistances.items()))))
     if (iter % 20 == 0):
         is_best = False
-        if (test_rmse_result.data[0] < BESTPREC):
-            BESTPREC = test_rmse_result.data[0]
+        if (test_rmse_result.item() < BESTPREC):
+            BESTPREC = test_rmse_result.item()
             is_best = True
         save_checkpoint({
             'epoch': iter + 1,

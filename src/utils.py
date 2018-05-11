@@ -124,7 +124,7 @@ def build_params(num_user_latents=20, num_movie_latents=20):
 def initParams(net):
     for param in net.parameters():
         if (param.data.dim() > 1):
-            param.data = torch.nn.init.xavier_uniform(param.data)
+            param.data = torch.nn.init.xavier_uniform_(param.data)
 
 
 # Credit to David Duvenaud for sleek init code

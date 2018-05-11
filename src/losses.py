@@ -1,9 +1,10 @@
 import numpy as np
 import torch
+from torch import Tensor
 from torch.autograd import Variable
 from utils import *
 
-from src.utils import keys_col_latents, keys_row_latents, keys_movie_to_user_net, keys_user_to_movie_net
+from utils import keys_col_latents, keys_row_latents, keys_movie_to_user_net, keys_user_to_movie_net
 
 
 def standard_loss(parameters, data=None, indices=None, predictions={}):
@@ -55,7 +56,7 @@ def rmse(gt, pred):
     numItems = (len(pred.keys()))
     mean = []
     for key in pred.keys():
-        mean.append(pred[key])
+        mean.append(pred[key].item())
         diff = diff + torch.pow(float(gt[key]) - pred[key], 2)
     print("Num of items is {} average pred value is {}".format(numItems, np.mean(mean)))
     return torch.sqrt((diff / len(pred.keys())))
@@ -80,7 +81,7 @@ def mae(gt, pred):
 def computeWeightLoss(parameters):
     regLoss = 0
     for k, v in parameters.items():
-        if type(v) == Variable:
+        if type(v) == Tensor:
             regLoss += torch.sum(torch.pow(v.data, 2))
         else:
             for subkey, param in v.named_parameters():
