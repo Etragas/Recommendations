@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import random
 import numpy as np
 import scipy
 import torch
@@ -7,6 +8,9 @@ import torch.nn.functional as F
 from scipy.sparse import dok_matrix
 from sklearn.utils import shuffle
 from torch.autograd import Variable
+from itertools import chain
+from sortedcontainers import SortedList
+from NonZeroHero import non_zero_hero
 
 movie_latent_size = 100
 user_latent_size = 100
@@ -150,11 +154,21 @@ def get_canonical_indices(data, latent_sizes):
             movie_indices.append(val)
     return np.array(user_indices), np.array(movie_indices)
 
-
+'''
 def shuffleNonPrototypeEntries(entries, prototypeThreshold=0):
     can_entries = [x for x in entries if x < prototypeThreshold]
     uncan_entries = shuffle(list(set(entries) - set(can_entries)))
     return can_entries + uncan_entries
+'''
+def shuffleNonPrototypeEntries(entries: SortedList, prototypeThreshold):
+    breakIdx = 0
+    for entry in entries:
+        if entry <= prototypeThreshold:
+            breakIdx += 1
+        else:
+            break
+    return chain(random.sample(range(0, breakIdx), breakIdx),
+                 (random.randint(breakIdx, len(entries) - 1) for x in range(breakIdx, len(entries))))
 
 def removeZeroRows(M):
     M = scipy.sparse.csr_matrix(M)
@@ -186,6 +200,26 @@ def getXinCanonical(data, len_can):
     print("wat, ", num_here)
     return num_here
 
+class RowIter():
+    def __init__(self, itemIdx, data : non_zero_hero, numEmbeddings):
+        self.itemIdx = itemIdx
+        self.entries = data.get_non_zero(col=itemIdx).rows
+        self.idx = shuffleNonPrototypeEntries(entries=self.entries, prototypeThreshold=numEmbeddings)
+
+    def __iter__(self):
+        for i in self.idx:
+            yield self.entries[i]
+
+
+class ColIter():
+    def __init__(self, rowIdx, data : non_zero_hero, numEmbeddings):
+        self.rowIdx = rowIdx
+        self.entries = data.get_non_zero(row=rowIdx).cols
+        self.idx = shuffleNonPrototypeEntries(entries=self.entries, prototypeThreshold=numEmbeddings)
+
+    def __iter__(self):
+        for j in self.idx:
+            yield self.entries[j]
 
 def getNeighbours(full_data, percentiles=[.01, .01, .02, .03, .04, .05, .10, .20]):
     user_results = []

@@ -1,19 +1,17 @@
+import numpy as np
 import argparse
 import pickle
-
-import numpy as np
 import sklearn
-import torch
-from DataLoader import *
-from scipy.sparse import dok_matrix
 import scipy
-from sklearn.utils import shuffle
-from train import *
-from sklearn.model_selection import train_test_split
+import torch
 
+from train import *
 from DataLoader import DataLoader
-from train import train
+from NonZeroHero import non_zero_hero
 from utils import get_canonical_indices, splitDOK
+from scipy.sparse import dok_matrix
+from sklearn.utils import shuffle
+from sklearn.model_selection import train_test_split
 
 
 def parseArgs():
@@ -52,12 +50,12 @@ if __name__ == "__main__":
     print("Cleaned Data Shape: ", full_data.shape)
     nrows, ncols = full_data.shape
 
-    print("Number of User Prototypes: {} \n Number of Movie Prototypes: {}".format(numUserProto, numItemProto))
+    print("Number of User Prototypes: {} \nNumber of Movie Prototypes: {}".format(numUserProto, numItemProto))
     # can_idx holds two arrays - they are of canonical indices for users and movies respectively.
     can_idx = get_canonical_indices(full_data, [numUserProto, numItemProto])
     # Resort data so that canonical users and movies are in top left
     # print(full_data)
-    print("Mean of prototype block p1 sorting {}".format(np.mean(full_data[:numUserProto,:numItemProto])))
+    print("Mean of prototype block pre sorting {}".format(np.mean(full_data[:numUserProto,:numItemProto])))
     full_data = full_data.tocsc()[:, can_idx[1]]
     full_data = full_data.tocsr()[can_idx[0], :]
     full_data = full_data.todok()
@@ -66,8 +64,11 @@ if __name__ == "__main__":
     # Split full dataset into train and test sets.
 
     train_data, test_data = splitDOK(full_data, trainPercentage=.8)
-    train_idx = test_idx = np.array([np.array(range(nrows)), np.array(range(ncols))])
-    print("Mean of prototype block post sorting {}".format(np.mean(train_data[:numUserProto,:numItemProto])))
+    train_data = non_zero_hero(train_data)
+    test_data = non_zero_hero(test_data)
+    train_data.freeze_dataset()
+    test_data.freeze_dataset()
+    print("Mean of prototype block post sorting for train data {}".format(np.mean(train_data[:numUserProto,:numItemProto])))
 
     # If there is an arguments file, load our parameters from it.
     # Otherwise build the dictionary of parameters for our nets and latents.

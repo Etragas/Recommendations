@@ -84,7 +84,7 @@ def get_predictions_tensor(parameters, data, indices=None):
 
     if indices is None:
         print("Generating indices...")
-        indices = shuffle(list(zip(*data.nonzero())))[:1000]#data.get_random_indices(1024)
+        indices = data.get_random_indices(1024)#shuffle(list(zip(*data.nonzero())))[:1000]#data.get_random_indices(1024)
 
     for userIdx, itemIdx in indices:
         itemLatent = getItemEmbedding(parameters, data, itemIdx)[0]
@@ -140,8 +140,9 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     # update the current caller_id with this user index appended
     callier_id_with_self = [caller_id[0] + [userIdx], caller_id[1]]
     # Retrieve latents for every user who watched the movie
-    nonZeroColumns = data[userIdx, :].nonzero()[1]
-    itemColumns = shuffleNonPrototypeEntries(entries=nonZeroColumns, prototypeThreshold=numUserEmbeddings)
+    #nonZeroColumns = data[userIdx, :].nonzero()[1]
+    #itemColumns = shuffleNonPrototypeEntries(entries=nonZeroColumns, prototypeThreshold=numUserEmbeddings)
+    itemColumns = ColIter(userIdx, data, numUserEmbeddings)
     # Retrieve latents for every movie watched by user
     evidenceCount = 0
     evidenceLimit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursionStepsRemaining))
@@ -228,8 +229,10 @@ def getItemEmbedding(parameters, data, itemIdx, recursion_depth=MAX_RECURSION, c
     internal_caller = [caller_id[0], caller_id[1] + [itemIdx]]
 
     # Retrieve latents for every user who watched the movie
-    nonZeroRows = data[:, itemIdx].nonzero()[0]
-    userRows = shuffleNonPrototypeEntries(entries=nonZeroRows, prototypeThreshold=numUserEmbeddings)
+    #nonZeroRows = data[:, itemIdx].nonzero()[0]
+    #userRows = shuffleNonPrototypeEntries(entries=nonZeroRows, prototypeThreshold=numUserEmbeddings)
+    userRows = RowIter(itemIdx, data, numItemEmbeddings)
+
     evidenceCount = 0
     evidenceLimit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursion_depth))
 
@@ -312,7 +315,6 @@ def print_perf(params, iter=0, gradient={}, train=None, test=None, userDistances
     trainingMode = True
 
     print("It took: {} seconds".format(time.time() - curtime))
-    print("The time is {}".format(datetime.now()))
     pred = get_predictions(params, data=train, indices=shuffle(list(zip(*train.nonzero())))[:500])
     mae_result = mae(gt=train, pred=pred)
     rmse_result = rmse(gt=train, pred=pred)

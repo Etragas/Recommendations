@@ -1,25 +1,27 @@
 import torch.optim as optim
-from torch import Tensor
+from torch import Tensor, cuda
 from model import *
 from utils import keys_rating_net
 from torch.utils.data import DataLoader
 
 from losses import standard_loss, regularization_loss
-from model import get_predictions
 
 
 def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000, initialIteration=0,
           alternatingOptimization=False,
           gradientClipping=False):
-    # Prepare dictionary of parameters to optimize
 
+    batch_size = 1024
+    num_epochs = 100
+    kwargs = {'num_workers': 1, 'pin_memory': True} if cuda else {}
+    # Prepare dictionary of parameters to optimize
     paramsToOptDict = getDictOfParams(parameters)
     paramsToOptList = paramsToOptDict.values()
     print("These are the parameters to optimize:", paramsToOptDict.keys())
 
     # If optimizer is not specified, use the default Adam optimizer
     if optimizer is None:
-        optimizer = optim.Adam(paramsToOptList, lr=.001, weight_decay=0)
+        optimizer = optim.Adam(paramsToOptList, lr=.001, weight_decay=0.0001)
     # print(optimizer.__getstate__())
 
     # Set callback function for reporting performance
@@ -35,11 +37,11 @@ def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000,
     # Perform the optimization
     loss_function = nn.MSELoss(size_average=False)
     idxData = np.array([(k[0], k[1], float(v)) for k, v in train_data.items()])
-    batch_size = 1000
-    #Currently just 1 epoch
-    idx_loader = DataLoader(dataset=idxData, batch_size=batch_size, shuffle=True)
-    for iter, batch in enumerate(idx_loader):
-        iter = iter + initialIteration
+    for epoch in range(num_epochs):
+      idx_loader = DataLoader(dataset=idxData, batch_size=batch_size, shuffle=True, **kwargs)
+      iters_per_epoch = len(idx_loader)
+      for iter, batch in enumerate(idx_loader):
+        iter = iter + epoch * iters_per_epoch
         row = batch[:, 0]
         col = batch[:, 1]
         val = batch[:, 2]
@@ -48,9 +50,7 @@ def train(train_data, test_data, parameters=None, optimizer=None, numIter=10000,
         val = Variable(val.float())
         indices = list(zip(row, col))
         optimizer.zero_grad()  # zero the gradient buffers
-        #predictions_dict = get_predictions(parameters, data=train_data, indices=indices)
         predictions = get_predictions_tensor(parameters, data=train_data, indices=indices)
-        #data_loss = standard_loss(parameters_dict, data=train_data, indices=indices, predictions=predictions)
         data_loss = loss_function(predictions, val.view(len(indices), 1))
         reg_loss = regularization_loss(parameters, paramsToOptDict, reg_alpha=0.00001)
         loss = data_loss + reg_loss
