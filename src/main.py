@@ -1,17 +1,13 @@
-import numpy as np
 import argparse
 import pickle
-import sklearn
-import scipy
+
+import numpy as np
 import torch
 
-from train import train
 from DataLoader import DataLoader
 from NonZeroHero import non_zero_hero
+from train import train
 from utils import get_canonical_indices, splitDOK, removeZeroRows, build_params, dropDataFromRows
-from scipy.sparse import dok_matrix
-from sklearn.utils import shuffle
-from sklearn.model_selection import train_test_split
 
 
 def parseArgs():
@@ -22,9 +18,10 @@ def parseArgs():
     print("Args File: ", args.file)
     return args
 
+
 if __name__ == "__main__":
-    
-    #Set model parameters
+
+    # Set model parameters
     args = parseArgs()
     numUserProto = 50
     numItemProto = 50
@@ -36,9 +33,10 @@ if __name__ == "__main__":
     # Load the data using DataLoader
     # full_data = DataLoader().LoadData(file_path="Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
     # full_data = DataLoader().LoadData(file_path="Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
-     # DataLoader().fixMovelens100m('../Data/ml-1m/ratings.dat')
+    # DataLoader().fixMovelens100m('../Data/ml-1m/ratings.dat')
     # full_data = DataLoader().LoadData(file_path="Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
-    full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS, size=(1200, 2000))
+    full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS,
+                                      size=(1200, 2000))
 
     # Reduce the matrix to toy size
     # full_data = full_data[:100,:100]
@@ -56,30 +54,33 @@ if __name__ == "__main__":
     print("Number of User Prototypes: {} \nNumber of Movie Prototypes: {}".format(numUserProto, numItemProto))
     # can_idx holds two arrays - they are of canonical indices for users and movies respectively.
     can_idx = get_canonical_indices(full_data, [numUserProto, numItemProto])
-    
+
     # Resort data so that canonical users and movies are in top left
-    print("Mean of prototype block pre sorting {}".format(np.mean(full_data[:numUserProto,:numItemProto])))
+    print("Mean of prototype block pre sorting {}".format(np.mean(full_data[:numUserProto, :numItemProto])))
     full_data = full_data.tocsc()[:, can_idx[1]]
     full_data = full_data.tocsr()[can_idx[0], :]
     full_data = full_data.todok()
-    print("Mean of prototype block post sorting {}".format(np.mean(full_data[:numUserProto,:numItemProto])))
+    print("Mean of prototype block post sorting {}".format(np.mean(full_data[:numUserProto, :numItemProto])))
 
-    print("Pre drop matrix sum", np.sum(full_data))
-    num_drop_rows = 150
-    drop_rows = np.random.randint(0, full_data.shape[0], num_drop_rows)
-    dropDataFromRows(data=full_data, rows=drop_rows)
-    # print("Post drop matrix sum", np.sum(full_data))
+    cold_start = False
+    if cold_start:
+        print("Pre drop matrix sum", np.sum(full_data))
+        num_drop_rows = 150
+        drop_rows = np.random.randint(0, full_data.shape[0], num_drop_rows)
+        dropDataFromRows(data=full_data, rows=drop_rows)
+        print("Post drop matrix sum", np.sum(full_data))
     # plt.imshow(full_data.todense(), cmap='hot', interpolation='nearest')
     # plt.show()
-    
+
     # Split full dataset into train and test sets.
     train_data, test_data = splitDOK(full_data, trainPercentage=.8)
     train_data = non_zero_hero(train_data)
     test_data = non_zero_hero(test_data)
     train_data.freeze_dataset()
     test_data.freeze_dataset()
-    
-    print("Mean of prototype block post sorting after split {}".format(np.mean(train_data[:numUserProto,:numItemProto])))
+
+    print(
+        "Mean of prototype block post sorting after split {}".format(np.mean(train_data[:numUserProto, :numItemProto])))
 
     # If there is an arguments file, load our parameters from it.
     # Otherwise build the dictionary of parameters for our nets and latents.
