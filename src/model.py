@@ -59,7 +59,7 @@ def get_predictions(parameters, data, indices=None):
             full_predictions[key] = torch.tensor([float(3.4)], requires_grad=True).type(
                 dtype).view(1,1)  # Assign an average rating
         else:
-            full_predictions[key] = parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0))
+            full_predictions[key] = parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).type(dtype)
             # full_predictions[key] = torch.dot(userLatent, itemLatent).view(1, 1)
     ## torch.dot(userLatent, itemLatent)
 
@@ -91,9 +91,9 @@ def get_predictions_tensor(parameters, data, indices=None):
                 dtype).view(1,1)), dim=0)  # Assign an average rating
         else:
             # NNREC
-            full_predictions = torch.cat((full_predictions, parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).view(1,1)), dim=0)
+            # full_predictions = torch.cat((full_predictions, parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).type(dtype).view(1,1)), dim=0)
             # LREC
-            #full_predictions = torch.cat((full_predictions, torch.dot(userLatent, itemLatent).view(1,1)), dim=0)
+            full_predictions = torch.cat((full_predictions, torch.dot(userLatent, itemLatent).type(dtype).view(1,1)), dim=0)
     return full_predictions
 
 def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECURSION, ancestor_ids=[[], []],
