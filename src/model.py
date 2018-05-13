@@ -119,6 +119,9 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     # If user is canonical, return their latent immediately and cache it.
     if userIdx < numUserEmbeddings:
         rowLatents = parameters[keys_row_latents]
+        if not userLatentCache[userIdx]:
+            userLatentCache[userIdx] = (None,recursionStepsRemaining)
+        hitcount[userLatentCache[userIdx][1]] += 1
         userDistances[0].add(userIdx)
         return rowLatents[userIdx, :]
 
@@ -171,6 +174,7 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     embeddingConversions = item_to_user_net.forward(torch.stack(itemEmbeddings, 0))
     row_latent = torch.mean(embeddingConversions, dim=0)  # Final user latent is calculated as the mean.
     userLatentCache[userIdx] = (row_latent, recursionStepsRemaining)
+    hitcount[userLatentCache[userIdx][1]] += 1
 
     return row_latent
 
@@ -196,6 +200,9 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
     # If item is canonical, return its latent immediately and cache it.
     if itemIdx < numItemEmbeddings:
         colLatents = parameters[keys_col_latents]
+        if not itemLatentCache[itemIdx]:
+            itemLatentCache[itemIdx] = (None,recursionStepsRemaining)
+        hitcount[itemLatentCache[itemIdx][1]] += 1
         itemDistances[0].add(itemIdx)
         return colLatents[:, itemIdx]
 
@@ -247,6 +254,7 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
     prediction = user_to_movie_net_parameters.forward(torch.stack(userEmbeddings, 0))  # Feed through NN
     targetItemEmbedding = torch.mean(prediction, dim=0)  # Final item latent is calculated as the mean
     itemLatentCache[itemIdx] = (targetItemEmbedding, recursionStepsRemaining)
+    hitcount[itemLatentCache[itemIdx][1]] += 1
 
     return targetItemEmbedding
 
@@ -298,12 +306,6 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
     # print("MAE is", mae_result.item())
     # print("RMSE is ", rmse_result.item())
     # print("Loss is ", loss_result.item())
-    if (test is not None):
-        print("Printing performance for test:")
-        test_indices = shuffle(list(zip(*test.nonzero())))[:5000]
-        test_pred = get_predictions(params, train, indices=test_indices)
-        test_rmse_result = rmse(gt=test, pred=test_pred)
-        print("Test RMSE is ", test_rmse_result.item())
     for k, v in params.items():
         print("Key is: ", k)
         if type(v) == Tensor:
@@ -335,6 +337,13 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
     print("Number of items per distance: ", {key: len(value) for (key, value) in itemDistances.items()})
     print("Movie average distance to prototypes: ",
           np.mean(list(map(lambda keyValue: len(keyValue[1]) * keyValue[0], itemDistances.items()))))
+    if (test is not None):
+        print("Printing performance for test:")
+        test_indices = shuffle(list(zip(*test.nonzero())))[:5000]
+        test_pred = get_predictions(params, train, indices=test_indices)
+        test_rmse_result = rmse(gt=test, pred=test_pred)
+        print("Test RMSE is ", test_rmse_result.item())
+
     if (iter % 20 == 0):
         is_best = False
         if (test_rmse_result.item() < BESTPREC):
