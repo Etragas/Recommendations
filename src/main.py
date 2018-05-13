@@ -5,10 +5,10 @@ import sklearn
 import scipy
 import torch
 
-from train import *
+from train import train
 from DataLoader import DataLoader
 from NonZeroHero import non_zero_hero
-from utils import get_canonical_indices, splitDOK
+from utils import get_canonical_indices, splitDOK, removeZeroRows, build_params
 from scipy.sparse import dok_matrix
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
@@ -23,10 +23,13 @@ def parseArgs():
     return args
 
 if __name__ == "__main__":
-
+    
+    #Set model parameters
     args = parseArgs()
     numUserProto = 50
     numItemProto = 50
+    num_epochs = 100
+    batch_size = 1024
     optimizer = None
     epoch = 0
 
@@ -53,22 +56,22 @@ if __name__ == "__main__":
     print("Number of User Prototypes: {} \nNumber of Movie Prototypes: {}".format(numUserProto, numItemProto))
     # can_idx holds two arrays - they are of canonical indices for users and movies respectively.
     can_idx = get_canonical_indices(full_data, [numUserProto, numItemProto])
+    
     # Resort data so that canonical users and movies are in top left
-    # print(full_data)
     print("Mean of prototype block pre sorting {}".format(np.mean(full_data[:numUserProto,:numItemProto])))
     full_data = full_data.tocsc()[:, can_idx[1]]
     full_data = full_data.tocsr()[can_idx[0], :]
     full_data = full_data.todok()
-    # print(full_data)
     print("Mean of prototype block post sorting {}".format(np.mean(full_data[:numUserProto,:numItemProto])))
+    
     # Split full dataset into train and test sets.
-
     train_data, test_data = splitDOK(full_data, trainPercentage=.8)
     train_data = non_zero_hero(train_data)
     test_data = non_zero_hero(test_data)
     train_data.freeze_dataset()
     test_data.freeze_dataset()
-    print("Mean of prototype block post sorting for train data {}".format(np.mean(train_data[:numUserProto,:numItemProto])))
+    
+    print("Mean of prototype block post sorting after split {}".format(np.mean(train_data[:numUserProto,:numItemProto])))
 
     # If there is an arguments file, load our parameters from it.
     # Otherwise build the dictionary of parameters for our nets and latents.

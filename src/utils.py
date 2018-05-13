@@ -1,13 +1,15 @@
-import matplotlib.pyplot as plt
 import random
-import numpy as np
 import scipy
 import torch
+import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
+
 from scipy.sparse import dok_matrix
 from sklearn.utils import shuffle
 from torch.autograd import Variable
+from torch import Tensor
 from itertools import chain
 from sortedcontainers import SortedList
 from NonZeroHero import non_zero_hero
@@ -124,21 +126,20 @@ def build_params(num_user_latents=20, num_movie_latents=20):
     parameters[keys_rating_net] = RatingGeneratorNet().type(dtype)
     return parameters
 
+def getDictOfParams(parameters: dict):
+    paramsToOptDict = {}
+    for k, v in parameters.items():
+        if type(v) == Tensor:
+            paramsToOptDict[(k, k)] = v
+        else:
+            for subkey, param in v.named_parameters():
+                paramsToOptDict[(k, subkey)] = param
+    return paramsToOptDict
 
 def initParams(net):
     for param in net.parameters():
         if (param.data.dim() > 1):
             param.data = torch.nn.init.xavier_uniform_(param.data)
-
-
-# Credit to David Duvenaud for sleek init code
-def init_random_params(scale, layer_sizes, rs=np.random.RandomState(0)):
-    """Build a list of (weights, biases) tuples,
-       one for each layer in the net."""
-    return [[scale * rs.randn(m, n),  # weight matrix
-             scale * rs.randn(n)]  # bias vector
-            for m, n in zip(layer_sizes[:-1], layer_sizes[1:])]
-
 
 def get_canonical_indices(data, latent_sizes):
     indicators = data > 0
@@ -154,12 +155,6 @@ def get_canonical_indices(data, latent_sizes):
             movie_indices.append(val)
     return np.array(user_indices), np.array(movie_indices)
 
-'''
-def shuffleNonPrototypeEntries(entries, prototypeThreshold=0):
-    can_entries = [x for x in entries if x < prototypeThreshold]
-    uncan_entries = shuffle(list(set(entries) - set(can_entries)))
-    return can_entries + uncan_entries
-'''
 def shuffleNonPrototypeEntries(entries: SortedList, prototypeThreshold):
     breakIdx = 0
     for entry in entries:
@@ -184,21 +179,11 @@ def splitDOK(data, trainPercentage):
     for idx in testIdx:
         testData[idx] = data[idx]
         del data[idx]
-    print(data.size)
-    print(testData.size)
     return data, testData
 
 def get_top_n(data, n):
     indices = np.ravel((data.astype(int)).flatten().argsort())[-n:]
     return indices
-
-def getXinCanonical(data, len_can):
-    num_here = 0
-    for x in range(data.shape[0]):
-        if (data[x, :len_can] > 0).sum() > 0:
-            num_here += 1
-    print("wat, ", num_here)
-    return num_here
 
 class RowIter():
     def __init__(self, itemIdx, data : non_zero_hero, numEmbeddings):
@@ -210,7 +195,6 @@ class RowIter():
         for i in self.idx:
             yield self.entries[i]
 
-
 class ColIter():
     def __init__(self, rowIdx, data : non_zero_hero, numEmbeddings):
         self.rowIdx = rowIdx
@@ -220,6 +204,29 @@ class ColIter():
     def __iter__(self):
         for j in self.idx:
             yield self.entries[j]
+
+def clip_grads(params, clip=5):
+    for k, v in params.items():
+        if (v.grad is None):
+            continue
+        v.grad.data.clamp_(-clip, clip)
+
+def mask_grad(params, keysToMask):
+    for keys, value in params.items():
+        superKey, subKey = keys
+        if superKey in keysToMask:
+            if (value.grad is None):
+                continue
+            value.grad.data.zero_()
+    return
+
+# TODO: Following functions are currently unused, please review
+def getXinCanonical(data, len_can):
+    num_here = 0
+    for x in range(data.shape[0]):
+        if (data[x, :len_can] > 0).sum() > 0:
+            num_here += 1
+    return num_here
 
 def getNeighbours(full_data, percentiles=[.01, .01, .02, .03, .04, .05, .10, .20]):
     user_results = []
@@ -235,6 +242,14 @@ def getNeighbours(full_data, percentiles=[.01, .01, .02, .03, .04, .05, .10, .20
     plt.plot(percentiles, user_results)
     plt.show()
     return user_results
+
+# Credit to David Duvenaud for sleek init code
+def init_random_params(scale, layer_sizes, rs=np.random.RandomState(0)):
+    """Build a list of (weights, biases) tuples,
+       one for each layer in the net."""
+    return [[scale * rs.randn(m, n),  # weight matrix
+             scale * rs.randn(n)]  # bias vector
+            for m, n in zip(layer_sizes[:-1], layer_sizes[1:])]
 
 
 keys_row_first = "row"
