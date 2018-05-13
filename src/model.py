@@ -51,8 +51,8 @@ def get_predictions(parameters, data, indices=None):
 
     for userIdx, itemIdx in indices:
         key = (userIdx, itemIdx)
-        itemLatent = getItemEmbedding(parameters, data, itemIdx)[0]
-        userLatent = getUserEmbedding(parameters, data, userIdx)[0]
+        itemLatent = getItemEmbedding(parameters, data, itemIdx)
+        userLatent = getUserEmbedding(parameters, data, userIdx)
         if (userLatent is None or itemLatent is None):
             full_predictions[key] = torch.tensor([float(3.4)], requires_grad=True).type(
                 dtype).view(1, 1)  # Assign an average rating
@@ -83,8 +83,8 @@ def get_predictions_tensor(parameters, data, indices=None):
         indices = data.get_random_indices(1024)
     # For each user and item pair, generate their latents and compute a prediction if possible.
     for userIdx, itemIdx in indices:
-        itemLatent = getItemEmbedding(parameters, data, itemIdx)[0]
-        userLatent = getUserEmbedding(parameters, data, userIdx)[0]
+        itemLatent = getItemEmbedding(parameters, data, itemIdx)
+        userLatent = getUserEmbedding(parameters, data, userIdx)
         if (userLatent is None or itemLatent is None):
             full_predictions = torch.cat(
                 (full_predictions, Variable(torch.tensor([float(3.4)], requires_grad=True)).type(
@@ -120,16 +120,16 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     if userIdx < numUserEmbeddings:
         rowLatents = parameters[keys_row_latents]
         userDistances[0].add(userIdx)
-        return rowLatents[userIdx, :], 0
+        return rowLatents[userIdx, :]
 
     # If user latent is cached at a higher recursion level, return their latent immediately
     if userLatentCache[userIdx] is not None and userLatentCache[userIdx][1] >= recursionStepsRemaining:
         hitcount[userLatentCache[userIdx][1]] += 1
-        return userLatentCache[userIdx][0], userDistanceCache[userIdx]
+        return userLatentCache[userIdx][0]
 
     # If we reached our recursion depth, return None
     if recursionStepsRemaining < 1:
-        return None, MAX_RECURSION
+        return None
 
     # Must generate latent
     # Exponentially decrease evidence count according to recursion depth
@@ -149,7 +149,7 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
 
         # If the item latent is valid, and does not produce a cycle, store it and its rating
         if itemIdx not in ancestor_ids[1]:
-            item_latent, curr_depth = getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining - 1,
+            item_latent = getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining - 1,
                                                        ancestor_ids=ancestor_ids)
 
             if item_latent is not None:
@@ -160,11 +160,10 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
                         dim=0)
                 itemEmbeddings.append(latentWithRating)  # We got another item latent
                 evidenceCount += 1
-                dist = min(dist, curr_depth)
 
     # Not enough item embeddings to generate a user embedding
     if (len(itemEmbeddings) < 2):
-        return None, MAX_RECURSION
+        return None
 
     # Get our necessary parameters from the parameters dictionary
     item_to_user_net = parameters[keys_movie_to_user_net]
@@ -172,16 +171,8 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     embeddingConversions = item_to_user_net.forward(torch.stack(itemEmbeddings, 0))
     row_latent = torch.mean(embeddingConversions, dim=0)  # Final user latent is calculated as the mean.
     userLatentCache[userIdx] = (row_latent, recursionStepsRemaining)
-    # Compute the shortest path of this user latent to the prototypes
-    if userDistanceCache[userIdx] is not None:
-        userDistances[userDistanceCache[userIdx]].remove(userIdx)
-        userDistanceCache[userIdx] = min(dist + 1, userDistanceCache[userIdx])
-        userDistances[userDistanceCache[userIdx]].add(userIdx)
-    else:
-        userDistances[dist + 1].add(userIdx)
-        userDistanceCache[userIdx] = dist + 1
 
-    return row_latent, userDistanceCache[userIdx]
+    return row_latent
 
 
 def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECURSION, ancestor_ids=[[], []],
@@ -206,16 +197,16 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
     if itemIdx < numItemEmbeddings:
         colLatents = parameters[keys_col_latents]
         itemDistances[0].add(itemIdx)
-        return colLatents[:, itemIdx], 0
+        return colLatents[:, itemIdx]
 
     # If item latent is cached at a higher recursion level, return their latent immediately
     if itemLatentCache[itemIdx] is not None and itemLatentCache[itemIdx][1] >= recursionStepsRemaining:
         hitcount[itemLatentCache[itemIdx][1]] += 1
-        return itemLatentCache[itemIdx][0], itemDistanceCache[itemIdx]
+        return itemLatentCache[itemIdx][0]
 
     # If we reached our recursion depth, return None
     if recursionStepsRemaining < 1:
-        return None, MAX_RECURSION
+        return None
 
     # Must generate latent
     # Exponentially decrease evidence count according to recursion depth
@@ -235,7 +226,7 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
 
         # If the user latent is valid, and does not produce a cycle, store it and its rating
         if userIdx not in ancestor_ids[0]:
-            user_latent, curr_depth = getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining - 1,
+            user_latent = getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining - 1,
                                                        ancestor_ids=ancestor_ids)
             if user_latent is not None:
                 userRating = data[userIdx, itemIdx]
@@ -245,11 +236,10 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
                         dim=0)
                 userEmbeddings.append(latentWithRating)  # We got another item latent
                 evidenceCount += 1
-                dist = min(dist, curr_depth)
 
     # Not enough user embeddings to generate an item embedding
     if (len(userEmbeddings) < 2):
-        return None, MAX_RECURSION
+        return None
 
     # Get our necessary parameters from the parameters dictionary
     user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
@@ -257,16 +247,8 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
     prediction = user_to_movie_net_parameters.forward(torch.stack(userEmbeddings, 0))  # Feed through NN
     targetItemEmbedding = torch.mean(prediction, dim=0)  # Final item latent is calculated as the mean
     itemLatentCache[itemIdx] = (targetItemEmbedding, recursionStepsRemaining)
-    # Compute the shortest path of this item latent to the prototypes
-    if itemDistanceCache[itemIdx] is not None:
-        itemDistances[itemDistanceCache[itemIdx]].remove(itemIdx)
-        itemDistanceCache[itemIdx] = min(dist + 1, itemDistanceCache[itemIdx])
-        itemDistances[itemDistanceCache[itemIdx]].add(itemIdx)
-    else:
-        itemDistances[dist + 1].add(itemIdx)
-        itemDistanceCache[itemIdx] = dist + 1
 
-    return targetItemEmbedding, itemDistanceCache[itemIdx]
+    return targetItemEmbedding
 
 
 # Stolen from Mamy Ratsimbazafy
