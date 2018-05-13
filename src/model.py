@@ -1,19 +1,16 @@
-import datetime
+import math
 import shutil
 import time
-import math
 
-from torch import Tensor
-from losses import rmse, mae, standard_loss, regularization_loss
+from losses import rmse
 from utils import *
-from datetime import datetime
 
 """
 Initialize all non-mode-specific parameters
 """
 curtime = time.time()
-MAX_RECURSION = 4
-EVIDENCELIMIT = 80
+MAX_RECURSION = 2
+EVIDENCELIMIT = 20
 VOLATILE = False
 BESTPREC = 0
 
@@ -31,6 +28,7 @@ userLatentCache, itemLatentCache = [None] * NUM_USERS, [None] * NUM_MOVIES
 
 train_mse_iters = []
 train_mse = []
+
 
 def get_predictions(parameters, data, indices=None):
     """
@@ -57,13 +55,14 @@ def get_predictions(parameters, data, indices=None):
         userLatent = getUserEmbedding(parameters, data, userIdx)[0]
         if (userLatent is None or itemLatent is None):
             full_predictions[key] = torch.tensor([float(3.4)], requires_grad=True).type(
-                dtype).view(1,1)  # Assign an average rating
+                dtype).view(1, 1)  # Assign an average rating
         else:
-            full_predictions[key] = parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).type(dtype)
+            full_predictions[key] = torch.dot(userLatent, itemLatent).type(dtype)
             # full_predictions[key] = torch.dot(userLatent, itemLatent).view(1, 1)
     ## torch.dot(userLatent, itemLatent)
 
     return full_predictions
+
 
 def get_predictions_tensor(parameters, data, indices=None):
     """
@@ -87,14 +86,17 @@ def get_predictions_tensor(parameters, data, indices=None):
         itemLatent = getItemEmbedding(parameters, data, itemIdx)[0]
         userLatent = getUserEmbedding(parameters, data, userIdx)[0]
         if (userLatent is None or itemLatent is None):
-            full_predictions = torch.cat((full_predictions, Variable(torch.tensor([float(3.4)], requires_grad=True)).type(
-                dtype).view(1,1)), dim=0)  # Assign an average rating
+            full_predictions = torch.cat(
+                (full_predictions, Variable(torch.tensor([float(3.4)], requires_grad=True)).type(
+                    dtype).view(1, 1)), dim=0)  # Assign an average rating
         else:
             # NNREC
             # full_predictions = torch.cat((full_predictions, parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).type(dtype).view(1,1)), dim=0)
             # LREC
-            full_predictions = torch.cat((full_predictions, torch.dot(userLatent, itemLatent).type(dtype).view(1,1)), dim=0)
+            full_predictions = torch.cat((full_predictions, torch.dot(userLatent, itemLatent).type(dtype).view(1, 1)),
+                                         dim=0)
     return full_predictions
+
 
 def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECURSION, ancestor_ids=[[], []],
                      dist=MAX_RECURSION + 1):
@@ -148,7 +150,7 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
         # If the item latent is valid, and does not produce a cycle, store it and its rating
         if itemIdx not in ancestor_ids[1]:
             item_latent, curr_depth = getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining - 1,
-                                                        ancestor_ids=ancestor_ids)
+                                                       ancestor_ids=ancestor_ids)
 
             if item_latent is not None:
                 itemRating = data[userIdx, itemIdx]
@@ -163,12 +165,12 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     # Not enough item embeddings to generate a user embedding
     if (len(itemEmbeddings) < 2):
         return None, MAX_RECURSION
-    
+
     # Get our necessary parameters from the parameters dictionary
     item_to_user_net = parameters[keys_movie_to_user_net]
     # Now have all latents, concatenation and pass through user latent generator net
     embeddingConversions = item_to_user_net.forward(torch.stack(itemEmbeddings, 0))
-    row_latent = torch.mean(embeddingConversions, dim=0) # Final user latent is calculated as the mean.
+    row_latent = torch.mean(embeddingConversions, dim=0)  # Final user latent is calculated as the mean.
     userLatentCache[userIdx] = (row_latent, recursionStepsRemaining)
     # Compute the shortest path of this user latent to the prototypes
     if userDistanceCache[userIdx] is not None:
@@ -248,12 +250,12 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
     # Not enough user embeddings to generate an item embedding
     if (len(userEmbeddings) < 2):
         return None, MAX_RECURSION
-    
+
     # Get our necessary parameters from the parameters dictionary
     user_to_movie_net_parameters = parameters[keys_user_to_movie_net]
     # Now have all latents, perform concatenation and pass through user latent generator net
     prediction = user_to_movie_net_parameters.forward(torch.stack(userEmbeddings, 0))  # Feed through NN
-    targetItemEmbedding = torch.mean(prediction, dim=0) # Final item latent is calculated as the mean
+    targetItemEmbedding = torch.mean(prediction, dim=0)  # Final item latent is calculated as the mean
     itemLatentCache[itemIdx] = (targetItemEmbedding, recursionStepsRemaining)
     # Compute the shortest path of this item latent to the prototypes
     if itemDistanceCache[itemIdx] is not None:
@@ -263,7 +265,7 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
     else:
         itemDistances[dist + 1].add(itemIdx)
         itemDistanceCache[itemIdx] = dist + 1
-        
+
     return targetItemEmbedding, itemDistanceCache[itemIdx]
 
 
@@ -282,8 +284,9 @@ def save_checkpoint(state, is_best, filename='Weights/checkpoint{}.pth.tar'):
     if is_best:
         shutil.copyfile(filename, 'Weights/model_best.pth.tar')
 
+
 def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=None,
-                  userDistances={}, itemDistances={}, optimizer=None):
+               userDistances={}, itemDistances={}, optimizer=None):
     """
     Prints the performance of the model every ten iterations, in terms of MAE, RMSE, and Loss.
     Also includes graphing functionalities.
@@ -297,7 +300,7 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
     global curtime, hitcount, filename, VOLATILE, BESTPREC
 
     print("Iteration ", iter)
-    print("RMSE is", math.sqrt(loss/len(predictions)))
+    print("RMSE is", math.sqrt(loss / len(predictions)))
     print("Loss is", loss)
 
     if (iter % 4 != 0):
@@ -305,14 +308,14 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
     VOLATILE = True
 
     print("It took: {} seconds".format(time.time() - curtime))
-    #pred = get_predictions(params, data=train, indices=shuffle(list(zip(*train.nonzero())))[:500])
-    #mae_result = mae(gt=train, pred=pred)
-    #rmse_result = rmse(gt=train, pred=pred)
-    #loss_result = standard_loss(parameters=params, data=train, predictions=pred)# + regularization_loss(
+    # pred = get_predictions(params, data=train, indices=shuffle(list(zip(*train.nonzero())))[:500])
+    # mae_result = mae(gt=train, pred=pred)
+    # rmse_result = rmse(gt=train, pred=pred)
+    # loss_result = standard_loss(parameters=params, data=train, predictions=pred)# + regularization_loss(
     #    #parameters=params)
-    #print("MAE is", mae_result.item())
-    #print("RMSE is ", rmse_result.item())
-    #print("Loss is ", loss_result.item())
+    # print("MAE is", mae_result.item())
+    # print("RMSE is ", rmse_result.item())
+    # print("Loss is ", loss_result.item())
     if (test is not None):
         print("Printing performance for test:")
         test_indices = shuffle(list(zip(*test.nonzero())))[:5000]
@@ -388,12 +391,12 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
 
 def dataCallback(data, test=None):
     return lambda params, iter, prediction, loss, optimizer: print_perf(params, iter, train=data,
-                                                              test=test,
-                                                              predictions=prediction,
-                                                              loss=loss,
-                                                              userDistances=userDistances,
-                                                              itemDistances=itemDistances,
-                                                              optimizer=optimizer)
+                                                                        test=test,
+                                                                        predictions=prediction,
+                                                                        loss=loss,
+                                                                        userDistances=userDistances,
+                                                                        itemDistances=itemDistances,
+                                                                        optimizer=optimizer)
 
 
 def setup_caches(data, parameters):
