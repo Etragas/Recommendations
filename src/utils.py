@@ -181,6 +181,13 @@ def splitDOK(data, trainPercentage):
         del data[idx]
     return data, testData
 
+def dropDataFromRows(data, rows):
+    for row in rows:
+        columns = data[row, :].nonzero()[1]
+        randomColumns = shuffle(columns)[:5]
+        columns = np.array(list(set(columns) - set(randomColumns)))
+        data[row, columns] = 0
+
 def get_top_n(data, n):
     indices = np.ravel((data.astype(int)).flatten().argsort())[-n:]
     return indices

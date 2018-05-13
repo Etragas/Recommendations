@@ -8,7 +8,7 @@ import torch
 from train import train
 from DataLoader import DataLoader
 from NonZeroHero import non_zero_hero
-from utils import get_canonical_indices, splitDOK, removeZeroRows, build_params
+from utils import get_canonical_indices, splitDOK, removeZeroRows, build_params, dropDataFromRows
 from scipy.sparse import dok_matrix
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
@@ -63,6 +63,14 @@ if __name__ == "__main__":
     full_data = full_data.tocsr()[can_idx[0], :]
     full_data = full_data.todok()
     print("Mean of prototype block post sorting {}".format(np.mean(full_data[:numUserProto,:numItemProto])))
+
+    print("Pre drop matrix sum", np.sum(full_data))
+    num_drop_rows = 150
+    drop_rows = np.random.randint(0, full_data.shape[0], num_drop_rows)
+    dropDataFromRows(data=full_data, rows=drop_rows)
+    # print("Post drop matrix sum", np.sum(full_data))
+    # plt.imshow(full_data.todense(), cmap='hot', interpolation='nearest')
+    # plt.show()
     
     # Split full dataset into train and test sets.
     train_data, test_data = splitDOK(full_data, trainPercentage=.8)
