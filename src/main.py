@@ -62,7 +62,8 @@ if __name__ == "__main__":
     full_data = full_data.todok()
     print("Mean of prototype block post sorting {}".format(np.mean(full_data[:numUserProto, :numItemProto])))
 
-    cold_start = False
+    cold_start = True
+    drop_rows = None
     if cold_start:
         print("Pre drop matrix sum", np.sum(full_data))
         num_drop_rows = 150
@@ -95,7 +96,7 @@ if __name__ == "__main__":
         parameters = build_params(numUserProto, numItemProto)
 
     # Train the parameters.
-    parameters = train(train_data, test_data, parameters=parameters, optimizer=optimizer, initialIteration=epoch)
+    parameters = train(train_data, test_data, parameters=parameters, optimizer=optimizer, dropped_rows=drop_rows, initialIteration=epoch)
 
     # Store the trained parameters for future use.
     filename = "final_trained_parameters.pkl"

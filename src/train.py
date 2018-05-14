@@ -10,7 +10,7 @@ from losses import standard_loss, regularization_loss
 
 def train(train_data, test_data, parameters=None, optimizer=None, num_epochs=100, 
           batch_size=1024, initialIteration=0, alternatingOptimization=False,
-          gradientClipping=False):
+          dropped_rows=None, gradientClipping=False):
     
     kwargs = {'num_workers': 1, 'pin_memory': True} if cuda else {}
 
@@ -54,7 +54,7 @@ def train(train_data, test_data, parameters=None, optimizer=None, num_epochs=100
         data_loss = loss_function(predictions, val.view(len(indices), 1))
         reg_loss = regularization_loss(parameters, paramsToOptDict, reg_alpha=0.00001)
         loss = data_loss + reg_loss
-        callback(parameters, iter, predictions, loss=data_loss.item(), optimizer=optimizer)
+        callback(parameters, iter, predictions, loss=data_loss.item(), dropped_rows=dropped_rows, optimizer=optimizer)
         optimizer.zero_grad()  # zero the gradient buffers
         loss.backward()
         if alternatingOptimization:

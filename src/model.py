@@ -9,8 +9,8 @@ from utils import *
 Initialize all non-mode-specific parameters
 """
 curtime = time.time()
-MAX_RECURSION = 2
-EVIDENCELIMIT = 20
+MAX_RECURSION = 4
+EVIDENCELIMIT = 80
 VOLATILE = False
 BESTPREC = 0
 
@@ -268,7 +268,7 @@ def save_checkpoint(state, is_best, filename='Weights/checkpoint{}.pth.tar'):
 
 
 def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=None,
-               userDistances={}, itemDistances={}, optimizer=None):
+               dropped_rows=None, userDistances={}, itemDistances={}, optimizer=None):
     """
     Prints the performance of the model every ten iterations, in terms of MAE, RMSE, and Loss.
     Also includes graphing functionalities.
@@ -300,10 +300,25 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
     # print("Loss is ", loss_result.item())
     if (test is not None):
         print("Printing performance for test:")
-        test_indices = shuffle(list(zip(*test.nonzero())))[:5000]
+        test_indices = shuffle(list(zip(*test.nonzero())))#[:5000]
+        #split into hot and cold indices
+        test_cold_indices = [x for x in test_indices if x[0] in dropped_rows]
+        test_hot_indices = list(set(test_indices) - set(test_cold_indices))
         test_pred = get_predictions(params, train, indices=test_indices)
         test_rmse_result = rmse(gt=test, pred=test_pred)
-        print("Test RMSE is ", test_rmse_result.item())
+        print("Test Total RMSE is ", test_rmse_result.item())
+        if (len(test_cold_indices) > 0):
+          test_cold_pred = get_predictions(params, train, indices=test_cold_indices)
+          test_cold_rmse_result = rmse(gt=test, pred=test_cold_pred)
+          print("Test Cold RMSE ", test_cold_rmse_result.item())
+        else:
+          print("Test Cold RMSE is N/A - No dropped users were selected for Test")
+        if (len(test_hot_indices) > 0):
+          test_hot_pred = get_predictions(params, train, indices=test_hot_indices)
+          test_hot_rmse_result = rmse(gt=test, pred=test_hot_pred)
+          print("Test Hot RMSE is ", test_hot_rmse_result.item())
+        else:
+          print("Test Hot RMSE is N/A - All dropped users were selected for Test")
     for k, v in params.items():
         print("Key is: ", k)
         if type(v) == Tensor:
@@ -335,6 +350,7 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
     print("Number of items per distance: ", {key: len(value) for (key, value) in itemDistances.items()})
     print("Movie average distance to prototypes: ",
           np.mean(list(map(lambda keyValue: len(keyValue[1]) * keyValue[0], itemDistances.items()))))
+    '''
     if (iter % 20 == 0):
         is_best = False
         if (test_rmse_result.item() < BESTPREC):
@@ -346,7 +362,7 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
             'best_prec1': test_rmse_result,
             'optimizer': optimizer,
         }, is_best)
-
+    '''
     VOLATILE = False
     curtime = time.time()
     '''
@@ -372,10 +388,11 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
 
 
 def dataCallback(data, test=None):
-    return lambda params, iter, prediction, loss, optimizer: print_perf(params, iter, train=data,
+    return lambda params, iter, prediction, loss, dropped_rows, optimizer: print_perf(params, iter, train=data,
                                                                         test=test,
                                                                         predictions=prediction,
                                                                         loss=loss,
+                                                                        dropped_rows=dropped_rows,
                                                                         userDistances=userDistances,
                                                                         itemDistances=itemDistances,
                                                                         optimizer=optimizer)
