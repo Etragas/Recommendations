@@ -57,8 +57,10 @@ def get_predictions(parameters, data, indices=None):
             full_predictions[key] = torch.tensor([float(3.4)], requires_grad=True).type(
                 dtype).view(1, 1)  # Assign an average rating
         else:
-            full_predictions[key] = torch.dot(userLatent, itemLatent).type(dtype)
-            # full_predictions[key] = torch.dot(userLatent, itemLatent).view(1, 1)
+            # NNREC
+            full_predictions[key] = parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).type(dtype)
+            # LREC
+            # full_predictions[key] = torch.dot(userLatent, itemLatent).type(dtype)
     ## torch.dot(userLatent, itemLatent)
 
     return full_predictions
@@ -91,10 +93,10 @@ def get_predictions_tensor(parameters, data, indices=None):
                     dtype).view(1, 1)), dim=0)  # Assign an average rating
         else:
             # NNREC
-            # full_predictions = torch.cat((full_predictions, parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).type(dtype).view(1,1)), dim=0)
+            full_predictions = torch.cat((full_predictions, parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).type(dtype).view(1,1)), dim=0)
             # LREC
-            full_predictions = torch.cat((full_predictions, torch.dot(userLatent, itemLatent).type(dtype).view(1, 1)),
-                                         dim=0)
+            # full_predictions = torch.cat((full_predictions, torch.dot(userLatent, itemLatent).type(dtype).view(1, 1)),
+            #                             dim=0)
     return full_predictions
 
 
@@ -307,16 +309,22 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
         test_pred = get_predictions(params, train, indices=test_indices)
         test_rmse_result = rmse(gt=test, pred=test_pred)
         print("Test Total RMSE is ", test_rmse_result.item())
+        with open("REC-1000-total.txt", "a+") as f:
+          f.write(str(test_rmse_result.item()))
         if (len(test_cold_indices) > 0):
           test_cold_pred = get_predictions(params, train, indices=test_cold_indices)
           test_cold_rmse_result = rmse(gt=test, pred=test_cold_pred)
           print("Test Cold RMSE ", test_cold_rmse_result.item())
+          with open("REC-1000-cold.txt", "a+") as f:
+            f.write(str(test_cold_rmse_result.item()))
         else:
           print("Test Cold RMSE is N/A - No dropped users were selected for Test")
         if (len(test_hot_indices) > 0):
           test_hot_pred = get_predictions(params, train, indices=test_hot_indices)
           test_hot_rmse_result = rmse(gt=test, pred=test_hot_pred)
           print("Test Hot RMSE is ", test_hot_rmse_result.item())
+          with open("REC-1000-hot.txt", "a+") as f:
+            f.write(str(test_hot_rmse_result.item()))
         else:
           print("Test Hot RMSE is N/A - All dropped users were selected for Test")
     for k, v in params.items():
