@@ -23,10 +23,10 @@ if __name__ == "__main__":
 
     # Set model parameters
     args = parseArgs()
-    numUserProto = 50
-    numItemProto = 50
+    numUserProto = 100
+    numItemProto = 100
     num_epochs = 100
-    batch_size = 1024
+    batch_size = 1
     optimizer = None
     epoch = 0
 
@@ -95,7 +95,7 @@ if __name__ == "__main__":
         parameters = build_params(numUserProto, numItemProto)
 
     # Train the parameters.
-    parameters = train(train_data, test_data, parameters=parameters, optimizer=optimizer, initialIteration=epoch)
+    parameters = train(train_data, test_data, parameters=parameters, optimizer=optimizer, batch_size=batch_size, initialIteration=epoch)
 
     # Store the trained parameters for future use.
     filename = "final_trained_parameters.pkl"

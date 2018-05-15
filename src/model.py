@@ -9,8 +9,8 @@ from utils import *
 Initialize all non-mode-specific parameters
 """
 curtime = time.time()
-MAX_RECURSION = 2
-EVIDENCELIMIT = 20
+MAX_RECURSION = 4
+EVIDENCELIMIT = 65536
 VOLATILE = False
 BESTPREC = 0
 
@@ -21,6 +21,8 @@ Initialize dictionaries and lists for storing metrics
 """
 userDistances = {}
 itemDistances = {}
+userProgenitorDistances = {}
+itemProgenitorDistances = {}
 
 hitcount = [0] * (MAX_RECURSION + 1)
 NUM_USERS, NUM_MOVIES = 0, 0
@@ -57,8 +59,8 @@ def get_predictions(parameters, data, indices=None):
             full_predictions[key] = torch.tensor([float(3.4)], requires_grad=True).type(
                 dtype).view(1, 1)  # Assign an average rating
         else:
-            full_predictions[key] = torch.dot(userLatent, itemLatent).type(dtype)
-            # full_predictions[key] = torch.dot(userLatent, itemLatent).view(1, 1)
+            full_predictions[key] = parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).type(dtype)
+            #full_predictions[key] = torch.dot(userLatent, itemLatent).type(dtype)
     ## torch.dot(userLatent, itemLatent)
 
     return full_predictions
@@ -91,15 +93,15 @@ def get_predictions_tensor(parameters, data, indices=None):
                     dtype).view(1, 1)), dim=0)  # Assign an average rating
         else:
             # NNREC
-            # full_predictions = torch.cat((full_predictions, parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).type(dtype).view(1,1)), dim=0)
+            full_predictions = torch.cat((full_predictions, parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).type(dtype).view(1,1)), dim=0)
             # LREC
-            full_predictions = torch.cat((full_predictions, torch.dot(userLatent, itemLatent).type(dtype).view(1, 1)),
-                                         dim=0)
+            # full_predictions = torch.cat((full_predictions, torch.dot(userLatent, itemLatent).type(dtype).view(1, 1)),
+            #                              dim=0)
     return full_predictions
 
 
 def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECURSION, ancestor_ids=[[], []],
-                     dist=MAX_RECURSION + 1):
+                     progenitor=None, dist=MAX_RECURSION + 1):
     """
     Generate or retrieve the user latent.
     If it is a canonical, we retrieve it.
@@ -114,7 +116,13 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     :return: the predicted user latent
     """
 
-    global VOLATILE, EVIDENCELIMIT, numUserEmbeddings, userLatentCache, userDistanceCache, hitcount
+    global VOLATILE, EVIDENCELIMIT, numUserEmbeddings, userLatentCache, userDistanceCache, hitcount, itemProgenitorDistances, itemProgenitorCache, userProgenitorCache, userProgenitorDistances
+    
+    # update the current ancestor tracker with this user index appended
+    ancestor_ids = [ancestor_ids[0] + [userIdx], ancestor_ids[1]]
+    if progenitor is None:
+      progenitor = 0
+      userProgenitorCache[userIdx] = userProgenitorDistances
 
     # If user is canonical, return their latent immediately and cache it.
     if userIdx < numUserEmbeddings:
@@ -122,16 +130,26 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
         if not userLatentCache[userIdx]:
             userLatentCache[userIdx] = (None,recursionStepsRemaining)
         hitcount[userLatentCache[userIdx][1]] += 1
-        userDistances[0].add(userIdx)
+        curr_depth = MAX_RECURSION - recursionStepsRemaining
+        ancestor_idx = ancestor_ids[progenitor][0]
+        if progenitor is 0:
+          userProgenitorCache[ancestor_idx][curr_depth] = userProgenitorCache[ancestor_idx][curr_depth] + 1
+        else:
+          itemProgenitorCache[ancestor_idx][curr_depth] = itemProgenitorCache[ancestor_idx][curr_depth] + 1
         return rowLatents[userIdx, :]
 
     # If user latent is cached at a higher recursion level, return their latent immediately
-    if userLatentCache[userIdx] is not None and userLatentCache[userIdx][1] >= recursionStepsRemaining:
-        hitcount[userLatentCache[userIdx][1]] += 1
-        return userLatentCache[userIdx][0]
+    # if userLatentCache[userIdx] is not None and userLatentCache[userIdx][1] >= recursionStepsRemaining:
+    #     hitcount[userLatentCache[userIdx][1]] += 1
+    #     return userLatentCache[userIdx][0]
 
     # If we reached our recursion depth, return None
     if recursionStepsRemaining < 1:
+        ancestor_idx = ancestor_ids[progenitor][0]
+        if progenitor is 0:
+          userProgenitorCache[ancestor_idx]['None'] = userProgenitorCache[ancestor_idx]['None'] + 1
+        else:
+          itemProgenitorCache[ancestor_idx]['None'] = itemProgenitorCache[ancestor_idx]['None'] + 1
         return None
 
     # Must generate latent
@@ -140,8 +158,6 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     evidenceLimit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursionStepsRemaining))
     # Initialize lists for our dense ratings and latents
     itemEmbeddings = []
-    # update the current ancestor tracker with this user index appended
-    ancestor_ids = [ancestor_ids[0] + [userIdx], ancestor_ids[1]]
     # Retrieve indices of every item rated by the user
     itemColumns = ColIter(userIdx, data, numUserEmbeddings)
     # Generate latents for each item rated by user
@@ -153,7 +169,7 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
         # If the item latent is valid, and does not produce a cycle, store it and its rating
         if itemIdx not in ancestor_ids[1]:
             item_latent = getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining - 1,
-                                                       ancestor_ids=ancestor_ids)
+                                                       ancestor_ids=ancestor_ids, progenitor=progenitor)
 
             if item_latent is not None:
                 itemRating = data[userIdx, itemIdx]
@@ -180,7 +196,7 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
 
 
 def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECURSION, ancestor_ids=[[], []],
-                     dist=MAX_RECURSION + 1):
+                     progenitor=None, dist=MAX_RECURSION + 1):
     """
     Generate or retrieve the item latent.
     If it is a canonical, we retrieve it.
@@ -195,24 +211,40 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
     :return: the predicted item latent
     """
 
-    global VOLATILE, EVIDENCELIMIT, numItemEmbeddings, itemLatentCache, itemDistanceCache, hitcount
+    global VOLATILE, EVIDENCELIMIT, numItemEmbeddings, itemLatentCache, itemDistanceCache, hitcount, itemProgenitorDistances, itemProgenitorCache, userProgenitorCache, userProgenitorDistances
 
+    # update the current ancestor tracker with this item index appended
+    ancestor_ids = [ancestor_ids[0], ancestor_ids[1] + [itemIdx]]
+    if progenitor is None:
+      progenitor = 1
+      itemProgenitorCache[itemIdx] = itemProgenitorDistances
+    
     # If item is canonical, return its latent immediately and cache it.
     if itemIdx < numItemEmbeddings:
         colLatents = parameters[keys_col_latents]
         if not itemLatentCache[itemIdx]:
             itemLatentCache[itemIdx] = (None,recursionStepsRemaining)
         hitcount[itemLatentCache[itemIdx][1]] += 1
-        itemDistances[0].add(itemIdx)
+        curr_depth = MAX_RECURSION - recursionStepsRemaining
+        ancestor_idx = ancestor_ids[progenitor][0]
+        if progenitor is 0:
+          userProgenitorCache[ancestor_idx][curr_depth] = userProgenitorCache[ancestor_idx][curr_depth] + 1
+        else:
+          itemProgenitorCache[ancestor_idx][curr_depth] = itemProgenitorCache[ancestor_idx][curr_depth] + 1
         return colLatents[:, itemIdx]
 
     # If item latent is cached at a higher recursion level, return their latent immediately
-    if itemLatentCache[itemIdx] is not None and itemLatentCache[itemIdx][1] >= recursionStepsRemaining:
-        hitcount[itemLatentCache[itemIdx][1]] += 1
-        return itemLatentCache[itemIdx][0]
+    #if itemLatentCache[itemIdx] is not None and itemLatentCache[itemIdx][1] >= recursionStepsRemaining:
+    #    hitcount[itemLatentCache[itemIdx][1]] += 1
+    #    return itemLatentCache[itemIdx][0]
 
     # If we reached our recursion depth, return None
     if recursionStepsRemaining < 1:
+        ancestor_idx = ancestor_ids[progenitor][0]
+        if progenitor is 0:
+          userProgenitorCache[ancestor_idx]['None'] = userProgenitorCache[ancestor_idx]['None'] + 1
+        else:
+          itemProgenitorCache[ancestor_idx]['None'] = itemProgenitorCache[ancestor_idx]['None'] + 1
         return None
 
     # Must generate latent
@@ -221,8 +253,6 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
     evidenceLimit = EVIDENCELIMIT / (2 ** (MAX_RECURSION - recursionStepsRemaining))
     # Initialize lists for our dense ratings and latents
     userEmbeddings = []
-    # update the current ancestor tracker with this item index appended
-    ancestor_ids = [ancestor_ids[0], ancestor_ids[1] + [itemIdx]]
     # Retrieve indices for every user who rated the item
     userRows = RowIter(itemIdx, data, numItemEmbeddings)
     # Generate latents for each user who rated the item
@@ -234,7 +264,7 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
         # If the user latent is valid, and does not produce a cycle, store it and its rating
         if userIdx not in ancestor_ids[0]:
             user_latent = getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining - 1,
-                                                       ancestor_ids=ancestor_ids)
+                                                       ancestor_ids=ancestor_ids, progenitor=progenitor)
             if user_latent is not None:
                 userRating = data[userIdx, itemIdx]
                 with torch.set_grad_enabled(not VOLATILE):
@@ -331,19 +361,21 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
                 print("\t median is: ", median.item())
 
     print("Hitcount is: ", hitcount, sum(hitcount))
-    print("Number of users per distance", {key: len(value) for (key, value) in userDistances.items()})
-    print("User average distance to prototypes: ",
-          np.mean(list(map(lambda keyValue: len(keyValue[1]) * keyValue[0], userDistances.items()))))
-    print("Number of items per distance: ", {key: len(value) for (key, value) in itemDistances.items()})
-    print("Movie average distance to prototypes: ",
-          np.mean(list(map(lambda keyValue: len(keyValue[1]) * keyValue[0], itemDistances.items()))))
+    print("Number of users per distance", {key: value for (key, value) in userDistances.items()})
+    print("Number of items per distance", {key: value for (key, value) in itemDistances.items()})
+    #print("Number of users per distance", {key: len(value) for (key, value) in userDistances.items()})
+    #print("User average distance to prototypes: ",
+          #np.mean(list(map(lambda keyValue: len(keyValue[1]) * keyValue[0], userDistances.items()))))
+    #print("Number of items per distance: ", {key: len(value) for (key, value) in itemDistances.items()})
+    #print("Movie average distance to prototypes: ",
+          #np.mean(list(map(lambda keyValue: len(keyValue[1]) * keyValue[0], itemDistances.items()))))
+    '''
     if (test is not None):
         print("Printing performance for test:")
         test_indices = shuffle(list(zip(*test.nonzero())))[:5000]
         test_pred = get_predictions(params, train, indices=test_indices)
         test_rmse_result = rmse(gt=test, pred=test_pred)
         print("Test RMSE is ", test_rmse_result.item())
-
     if (iter % 20 == 0):
         is_best = False
         if (test_rmse_result.item() < BESTPREC):
@@ -355,6 +387,7 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
             'best_prec1': test_rmse_result,
             'optimizer': optimizer,
         }, is_best)
+    '''
 
     VOLATILE = False
     curtime = time.time()
@@ -385,8 +418,8 @@ def dataCallback(data, test=None):
                                                                         test=test,
                                                                         predictions=prediction,
                                                                         loss=loss,
-                                                                        userDistances=userDistances,
-                                                                        itemDistances=itemDistances,
+                                                                        userDistances=userProgenitorDistances,
+                                                                        itemDistances=itemProgenitorDistances,
                                                                         optimizer=optimizer)
 
 
@@ -397,7 +430,7 @@ def setup_caches(data, parameters):
     :param data: the dataset
     :param parameters: the dictionary of parameters of our model
     """
-    global NUM_USERS, NUM_MOVIES, numUserEmbeddings, numItemEmbeddings
+    global NUM_USERS, NUM_MOVIES, numUserEmbeddings, numItemEmbeddings, userProgenitorDistances, itemProgenitorDistances
     # NUM_USERS, NUM_MOVIES = list(map(lambda x: len(set(x)), data.nonzero()))
     NUM_USERS, NUM_MOVIES = data.shape
     numUserEmbeddings = parameters[keys_row_latents].size()[0]
@@ -409,13 +442,19 @@ def wipe_caches():
     """
     Initializes caches for user and item latents
     """
-    global userLatentCache, itemLatentCache, userDistanceCache, itemDistanceCache
+    global userLatentCache, itemLatentCache, userDistanceCache, itemDistanceCache, userProgenitorCache, itemProgenitorCache
     global hitcount
     hitcount = [0] * (MAX_RECURSION + 1)
     userLatentCache = [None] * NUM_USERS
     itemLatentCache = [None] * NUM_MOVIES
     userDistanceCache = [None] * NUM_USERS
     itemDistanceCache = [None] * NUM_MOVIES
+    userProgenitorCache = [None] * NUM_USERS
+    itemProgenitorCache = [None] * NUM_MOVIES
     for i in range(MAX_RECURSION + 1):
         userDistances[i] = set()
         itemDistances[i] = set()
+        userProgenitorDistances[i] = 0
+        itemProgenitorDistances[i] = 0
+    userProgenitorDistances['None'] = 0
+    itemProgenitorDistances['None'] = 0

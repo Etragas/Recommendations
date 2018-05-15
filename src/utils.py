@@ -154,7 +154,7 @@ def get_canonical_indices(data, latent_sizes):
         if val not in movie_indices:
             movie_indices.append(val)
     return np.array(user_indices), np.array(movie_indices)
-
+'''
 def shuffleNonPrototypeEntries(entries: SortedList, prototypeThreshold):
     breakIdx = 0
     for entry in entries:
@@ -164,6 +164,11 @@ def shuffleNonPrototypeEntries(entries: SortedList, prototypeThreshold):
             break
     return chain(random.sample(range(0, breakIdx), breakIdx),
                  (random.randint(breakIdx, len(entries) - 1) for x in range(breakIdx, len(entries))))
+'''
+def shuffleNonPrototypeEntries(entries, prototypeThreshold=0):
+    can_entries = [x for x in entries if x < prototypeThreshold]
+    uncan_entries = shuffle(list(set(entries) - set(can_entries)))
+    return can_entries + uncan_entries
 
 def removeZeroRows(M):
     M = scipy.sparse.csr_matrix(M)
@@ -199,7 +204,7 @@ class RowIter():
         self.idx = shuffleNonPrototypeEntries(entries=self.entries, prototypeThreshold=numEmbeddings)
 
     def __iter__(self):
-        for i in self.idx:
+        for i in range(len(self.idx)):
             yield self.entries[i]
 
 class ColIter():
@@ -209,7 +214,7 @@ class ColIter():
         self.idx = shuffleNonPrototypeEntries(entries=self.entries, prototypeThreshold=numEmbeddings)
 
     def __iter__(self):
-        for j in self.idx:
+        for j in range(len(self.idx)):
             yield self.entries[j]
 
 def clip_grads(params, clip=5):

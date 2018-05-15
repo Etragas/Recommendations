@@ -22,8 +22,8 @@ class non_zero_hero(dok_matrix):
 
     def get_random_indices(self, numIndices):
         #Sample withh replacement because it's faster
-        choices = np.random.randint(0, self.num_nonzero, numIndices)
-        # choices = np.random.choice(self.num_nonzero, numIndices, replace=False)
+        # choices = np.random.randint(0, self.num_nonzero, numIndices)
+        choices = np.random.choice(self.num_nonzero, numIndices, replace=False)
         return (self.nonzero_indices[choice] for choice in choices)
 
     def get_non_zero(self, row=None, col=None) -> MatrixIndices:
