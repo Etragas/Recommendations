@@ -1,21 +1,19 @@
-from collections import defaultdict, namedtuple
-
 import numpy as np
+
+from collections import defaultdict, namedtuple
 from scipy.sparse import dok_matrix
 from sortedcontainers import SortedList
 
 MatrixIndices = namedtuple('MatrixIndices', ['rows', 'cols'])
 
-
 class non_zero_hero(dok_matrix):
 
     def freeze_dataset(self):
-        print("Num items", len(dict.items(self)))
         self.non_zero_for_row = defaultdict(lambda: SortedList())
         self.non_zero_for_col = defaultdict(lambda: SortedList())
 
         self.__setitem__ = self.finalizeSet
-        for key in dict.keys(self):
+        for key in dict.keys(self):				
             row, col = key
             self.non_zero_for_row[row].add(val=col)
             self.non_zero_for_col[col].add(val=row)
@@ -23,12 +21,12 @@ class non_zero_hero(dok_matrix):
         self.num_nonzero = len(self.nonzero_indices)
 
     def get_random_indices(self, numIndices):
+        #Sample withh replacement because it's faster
         choices = np.random.randint(0, self.num_nonzero, numIndices)
         # choices = np.random.choice(self.num_nonzero, numIndices, replace=False)
         return (self.nonzero_indices[choice] for choice in choices)
 
     def get_non_zero(self, row=None, col=None) -> MatrixIndices:
-
         if not row and not col:
             return None
 
