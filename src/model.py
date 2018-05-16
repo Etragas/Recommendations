@@ -345,9 +345,6 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
         test_pred = get_predictions(params, train, indices=test_indices)
         test_rmse_result = rmse(gt=test, pred=test_pred)
         print("Test RMSE is ", test_rmse_result.item())
-        with open("LREC_2_256_RMSE.txt", "a+") as f:
-            f.write(str(test_rmse_result.item()))
-            f.write("\n")
 
     if (iter % 20 == 0):
         is_best = False
