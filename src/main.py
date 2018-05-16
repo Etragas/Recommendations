@@ -23,8 +23,8 @@ if __name__ == "__main__":
     args = parseArgs()
     numUserProto = 50
     numItemProto = 50
-    num_epochs = 100
-    batch_size = 1024
+    num_epochs = 1000
+    batch_size = 1000
     optimizer = None
     epoch = 0
 
@@ -32,8 +32,8 @@ if __name__ == "__main__":
     # full_data = dl().LoadData(file_path="Data/netflix/user_first.txt", data_type=dl.NETFLIX, size= (490000,18000))
     # full_data = dl().LoadData(file_path="Data/ml-10m/ratingsbetter.dat", data_type=dl.MOVIELENS, size= (72000,11000))
     # DataLoader().fixMovelens100m('../Data/ml-1m/ratings.dat')
-    # full_data = dl().LoadData(file_path="Data/ml-1m/ratingsbetter.dat", data_type=dl.MOVIELENS, size= (6100,4000))
-    full_data = dl().LoadData(file_path="../Data/ml-100k/u.data", data_type=dl.MOVIELENS,
+    # full_data = dl().LoadData(file_path="Data/ml-1m/ratingsbetter.dat", data_type=dl.MOVIELENS, size=(6100, 4000))
+    full_data = dl().LoadData(file_path="Data/ml-100k/u.data", data_type=dl.MOVIELENS,
                               size=(1200, 2000))
 
     # Reduce the matrix to toy size
@@ -45,6 +45,20 @@ if __name__ == "__main__":
 
     # Clean empty rows from the dataset
     full_data = removeZeroRows(full_data)
+    # Scalability experiments
+    decay = 0.0000001
+    scalability = False
+    if scalability:
+        percent_keep = .1
+        batch_size = int(batch_size * percent_keep)
+        drop_rows = np.random.randint(0, full_data.shape[0], int(percent_keep * full_data.shape[0]))
+        full_data = full_data[drop_rows, :]
+    pmf = False
+    if pmf:
+        numUserProto, numItemProto = full_data.shape
+        decay = .1
+    print(full_data.shape)
+
     # Determine number of latents for movie/user
     print("Cleaned Data Shape: ", full_data.shape)
     nrows, ncols = full_data.shape
@@ -93,7 +107,8 @@ if __name__ == "__main__":
         parameters = build_params(numUserProto, numItemProto)
 
     # Train the parameters.
-    parameters = train(train_data, test_data, parameters=parameters, optimizer=optimizer, initialIteration=epoch, num_epochs=num_epochs)
+    parameters = train(train_data, test_data, parameters=parameters, optimizer=optimizer, initialIteration=epoch,
+                       num_epochs=num_epochs, weight_decay=decay, batch_size=batch_size)
 
     # Store the trained parameters for future use.
     filename = "final_trained_parameters.pkl"
