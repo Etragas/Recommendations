@@ -1,11 +1,9 @@
 import argparse
-import pickle
 
-import numpy as np
 import torch
 
-from DataLoader import DataLoader
 from NonZeroHero import non_zero_hero
+from dl import *
 from train import train
 from utils import get_canonical_indices, splitDOK, removeZeroRows, build_params, dropDataFromRows
 
@@ -25,21 +23,21 @@ if __name__ == "__main__":
     args = parseArgs()
     numUserProto = 50
     numItemProto = 50
-    num_epochs = 100
+    num_epochs = 1000
     batch_size = 500
     optimizer = None
     epoch = 0
 
     # Load the data using DataLoader
-    # full_data = DataLoader().LoadData(file_path="Data/download/user_first.txt", data_type=DataLoader.NETFLIX, size= (490000,18000))
-    # full_data = DataLoader().LoadData(file_path="Data/ml-10m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (72000,11000))
+    # full_data = dl().LoadData(file_path="Data/netflix/user_first.txt", data_type=dl.NETFLIX, size= (490000,18000))
+    # full_data = dl().LoadData(file_path="Data/ml-10m/ratingsbetter.dat", data_type=dl.MOVIELENS, size= (72000,11000))
     # DataLoader().fixMovelens100m('../Data/ml-1m/ratings.dat')
-    # full_data = DataLoader().LoadData(file_path="Data/ml-1m/ratingsbetter.dat", data_type=DataLoader.MOVIELENS, size= (6100,4000))
-    full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS,
-                                      size=(1200, 2000))
+    # full_data = dl().LoadData(file_path="Data/ml-1m/ratingsbetter.dat", data_type=dl.MOVIELENS, size=(6100, 4000))
+    full_data = dl().LoadData(file_path="../Data/ml-100k/u.data", data_type=dl.MOVIELENS,
+                              size=(1200, 2000))
 
     # Reduce the matrix to toy size
-    # full_data = full_data[:100,:100]
+    # full_data = full_data[:100, :100]
     print("Data shape: ", full_data.shape)
 
     # Print some statistics
@@ -47,6 +45,20 @@ if __name__ == "__main__":
 
     # Clean empty rows from the dataset
     full_data = removeZeroRows(full_data)
+    # Scalability experiments
+    decay = 0.0000001
+    scalability = False
+    if scalability:
+        percent_keep = .1
+        batch_size = int(batch_size * percent_keep)
+        drop_rows = np.random.randint(0, full_data.shape[0], int(percent_keep * full_data.shape[0]))
+        full_data = full_data[drop_rows, :]
+    pmf = False
+    if pmf:
+        numUserProto, numItemProto = full_data.shape
+        decay = .1
+    print(full_data.shape)
+
     # Determine number of latents for movie/user
     print("Cleaned Data Shape: ", full_data.shape)
     nrows, ncols = full_data.shape
@@ -62,23 +74,23 @@ if __name__ == "__main__":
     full_data = full_data.todok()
     print("Mean of prototype block post sorting {}".format(np.mean(full_data[:numUserProto, :numItemProto])))
 
-    cold_start = True
-    drop_rows = None
-    if cold_start:
-        print("Pre drop matrix sum", np.sum(full_data))
-        num_drop_rows = 150
-        drop_rows = np.random.randint(0, full_data.shape[0], num_drop_rows)
-        dropDataFromRows(data=full_data, rows=drop_rows)
-        print("Post drop matrix sum", np.sum(full_data))
-    # plt.imshow(full_data.todense(), cmap='hot', interpolation='nearest')
-    # plt.show()
-
     # Split full dataset into train and test sets.
     train_data, test_data = splitDOK(full_data, trainPercentage=.8)
     train_data = non_zero_hero(train_data)
     test_data = non_zero_hero(test_data)
     train_data.freeze_dataset()
     test_data.freeze_dataset()
+
+    cold_start = True
+    drop_rows = None
+    if cold_start:
+        print("Pre drop matrix sum", np.sum(full_data))
+        num_drop_rows = 150
+        drop_rows = np.random.randint(0, train_data.shape[0], num_drop_rows)
+        dropDataFromRows(data=train_data, rows=drop_rows)
+        print("Post drop matrix sum", np.sum(full_data))
+    # plt.imshow(full_data.todense(), cmap='hot', interpolation='nearest')
+    # plt.show()
 
     print(
         "Mean of prototype block post sorting after split {}".format(np.mean(train_data[:numUserProto, :numItemProto])))
@@ -96,7 +108,8 @@ if __name__ == "__main__":
         parameters = build_params(numUserProto, numItemProto)
 
     # Train the parameters.
-    parameters = train(train_data, test_data, parameters=parameters, optimizer=optimizer, dropped_rows=drop_rows, initialIteration=epoch)
+    parameters = train(train_data, test_data, parameters=parameters, optimizer=optimizer, dropped_rows=drop_rows,
+                       initialIteration=epoch, num_epochs=num_epochs, weight_decay=decay, batch_size=batch_size)
 
     # Store the trained parameters for future use.
     filename = "final_trained_parameters.pkl"
