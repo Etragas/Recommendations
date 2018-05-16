@@ -9,8 +9,8 @@ from utils import *
 Initialize all non-mode-specific parameters
 """
 curtime = time.time()
-MAX_RECURSION = 2
-EVIDENCELIMIT = 256
+MAX_RECURSION = 4
+EVIDENCELIMIT = 80
 VOLATILE = False
 BESTPREC = 0
 

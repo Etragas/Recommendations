@@ -16,7 +16,10 @@ def train(train_data, test_data, parameters=None, optimizer=None, num_epochs=100
 
     # Prepare dictionary of parameters to optimize
     paramsToOptDict = getDictOfParams(parameters)
+
     print("These are the parameters to optimize:", paramsToOptDict.keys())
+    numUserProtos = parameters['RowLatents'].size()[0])
+    numItemProtos = parameters['ColLatents'].size()[1])
 
     # If optimizer is not specified, use the default Adam optimizer
     if optimizer is None:
@@ -39,7 +42,7 @@ def train(train_data, test_data, parameters=None, optimizer=None, num_epochs=100
     # Set callback function for reporting performance
     callback = dataCallback(train_data, test_data)
     for epoch in range(250):
-        protoIdx = train_data[:50, :50].nonzero()
+        protoIdx = train_data[:numUserProtos, :numItemProtos].nonzero()
         rows = protoIdx[0].tolist()
         cols = protoIdx[1].tolist()
         indices = list(zip(rows, cols))
