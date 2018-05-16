@@ -93,10 +93,10 @@ def get_predictions_tensor(parameters, data, indices=None):
                     dtype).view(1, 1)), dim=0)  # Assign an average rating
         else:
             # NNREC
-            full_predictions = torch.cat((full_predictions, parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).type(dtype).view(1,1)), dim=0)
+            # full_predictions = torch.cat((full_predictions, parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).type(dtype).view(1,1)), dim=0)
             # LREC
-            # full_predictions = torch.cat((full_predictions, torch.dot(userLatent, itemLatent).type(dtype).view(1, 1)),
-            #                             dim=0)
+            full_predictions = torch.cat((full_predictions, torch.dot(userLatent, itemLatent).type(dtype).view(1, 1)),
+                                        dim=0)
     return full_predictions
 
 
