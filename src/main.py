@@ -1,11 +1,9 @@
 import argparse
-import pickle
 
-import numpy as np
 import torch
 
-from dl import *
 from NonZeroHero import non_zero_hero
+from dl import *
 from train import train
 from utils import get_canonical_indices, splitDOK, removeZeroRows, build_params, dropDataFromRows
 
@@ -39,7 +37,7 @@ if __name__ == "__main__":
                               size=(1200, 2000))
 
     # Reduce the matrix to toy size
-    # full_data = full_data[:100,:100]
+    # full_data = full_data[:100, :100]
     print("Data shape: ", full_data.shape)
 
     # Print some statistics
@@ -95,7 +93,7 @@ if __name__ == "__main__":
         parameters = build_params(numUserProto, numItemProto)
 
     # Train the parameters.
-    parameters = train(train_data, test_data, parameters=parameters, optimizer=optimizer, initialIteration=epoch)
+    parameters = train(train_data, test_data, parameters=parameters, optimizer=optimizer, initialIteration=epoch, num_epochs=num_epochs)
 
     # Store the trained parameters for future use.
     filename = "final_trained_parameters.pkl"
