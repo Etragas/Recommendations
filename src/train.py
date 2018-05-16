@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 
 from losses import rmse
 from model import get_predictions_tensor, dataCallback, get_predictions
-from utils import keys_rating_net, getDictOfParams, clip_grads, mask_grad
+from utils import keys_rating_net, getDictOfParams, clip_grads, mask_grad, keys_col_latents, keys_row_latents
 
 
 def train(train_data, test_data, parameters=None, optimizer=None, num_epochs=100,
@@ -18,8 +18,8 @@ def train(train_data, test_data, parameters=None, optimizer=None, num_epochs=100
     paramsToOptDict = getDictOfParams(parameters)
 
     print("These are the parameters to optimize:", paramsToOptDict.keys())
-    numUserProtos = parameters['RowLatents'].size()[0])
-    numItemProtos = parameters['ColLatents'].size()[1])
+    numUserProtos = parameters['RowLatents'].size()[0]
+    numItemProtos = parameters['ColLatents'].size()[1]
 
     # If optimizer is not specified, use the default Adam optimizer
     if optimizer is None:
@@ -83,7 +83,8 @@ def train(train_data, test_data, parameters=None, optimizer=None, num_epochs=100
             optimizer.zero_grad()  # zero the gradient buffers
             loss.backward()
             if alternatingOptimization:
-                mask_grad(paramsToOptDict, maskParams[iter % 2])
+                paramsToOptDict[(keys_col_latents, keys_col_latents)].grad.zero_()
+                paramsToOptDict[(keys_row_latents, keys_row_latents)].grad.zero_()
             if gradientClipping:
                 clip_grads(paramsToOptDict, clip=1)
             optimizer.step()  # Does the update
