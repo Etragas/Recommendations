@@ -71,7 +71,7 @@ def train(train_data, test_data, parameters=None, optimizer=None, num_epochs=100
             predictions = get_predictions_tensor(parameters, data=train_data, indices=indices)
             data_loss = loss_function(predictions, val.view(len(indices), 1))
             loss = data_loss
-            callback(parameters, iter, predictions, loss=data_loss.item(), optimizer=optimizer)
+            callback(parameters, iter, predictions, loss=data_loss.item(), optimizer=optimizer, dropped_rows=dropped_rows)
             optimizer.zero_grad()  # zero the gradient buffers
             loss.backward()
             if alternatingOptimization:
