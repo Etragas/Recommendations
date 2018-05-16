@@ -33,7 +33,7 @@ if __name__ == "__main__":
     # full_data = dl().LoadData(file_path="Data/ml-10m/ratingsbetter.dat", data_type=dl.MOVIELENS, size= (72000,11000))
     # DataLoader().fixMovelens100m('../Data/ml-1m/ratings.dat')
     # full_data = dl().LoadData(file_path="Data/ml-1m/ratingsbetter.dat", data_type=dl.MOVIELENS, size=(6100, 4000))
-    full_data = dl().LoadData(file_path="Data/ml-100k/u.data", data_type=dl.MOVIELENS,
+    full_data = dl().LoadData(file_path="../Data/ml-100k/u.data", data_type=dl.MOVIELENS,
                               size=(1200, 2000))
 
     # Reduce the matrix to toy size
@@ -81,7 +81,8 @@ if __name__ == "__main__":
     train_data.freeze_dataset()
     test_data.freeze_dataset()
 
-    cold_start = False
+    cold_start = True
+    drop_rows = None
     if cold_start:
         print("Pre drop matrix sum", np.sum(full_data))
         num_drop_rows = 150
@@ -107,8 +108,8 @@ if __name__ == "__main__":
         parameters = build_params(numUserProto, numItemProto)
 
     # Train the parameters.
-    parameters = train(train_data, test_data, parameters=parameters, optimizer=optimizer, initialIteration=epoch,
-                       num_epochs=num_epochs, weight_decay=decay, batch_size=batch_size)
+    parameters = train(train_data, test_data, parameters=parameters, optimizer=optimizer, dropped_rows=drop_rows,
+                       initialIteration=epoch, num_epochs=num_epochs, weight_decay=decay, batch_size=batch_size)
 
     # Store the trained parameters for future use.
     filename = "final_trained_parameters.pkl"

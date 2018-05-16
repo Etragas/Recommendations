@@ -184,7 +184,7 @@ def splitDOK(data, trainPercentage):
 def dropDataFromRows(data, rows):
     for row in rows:
         columns = data[row, :].nonzero()[1]
-        randomColumns = shuffle(columns)[:5]
+        randomColumns = shuffle(columns)[:3]
         columns = np.array(list(set(columns) - set(randomColumns)))
         data[row, columns] = 0
 

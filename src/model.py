@@ -93,10 +93,10 @@ def get_predictions_tensor(parameters, data, indices=None):
                     dtype).view(1, 1)), dim=0)  # Assign an average rating
         else:
             # NNREC
-            # full_predictions = torch.cat((full_predictions, parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).type(dtype).view(1,1)), dim=0)
+            full_predictions = torch.cat((full_predictions, parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).type(dtype).view(1,1)), dim=0)
             # LREC
-            full_predictions = torch.cat((full_predictions, torch.dot(userLatent, itemLatent).type(dtype).view(1, 1)),
-                                         dim=0)
+            # full_predictions = torch.cat((full_predictions, torch.dot(userLatent, itemLatent).type(dtype).view(1, 1)),
+            #                             dim=0)
     return full_predictions
 
 
@@ -278,7 +278,7 @@ def save_checkpoint(state, is_best, filename='Weights/checkpoint{}.pth.tar'):
 
 
 def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=None,
-               userDistances={}, itemDistances={}, optimizer=None):
+               dropped_rows=None, userDistances={}, itemDistances={}, optimizer=None):
     """
     Prints the performance of the model every ten iterations, in terms of MAE, RMSE, and Loss.
     Also includes graphing functionalities.
@@ -308,6 +308,14 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
     # print("MAE is", mae_result.item())
     # print("RMSE is ", rmse_result.item())
     # print("Loss is ", loss_result.item())
+    if (test is not None):
+        print("Printing performance for test:")
+        test_indices = shuffle(list(zip(*test.nonzero())))#[:5000]
+        #split into hot and cold indices
+        test_pred = get_predictions(params, train, indices=test_indices)
+        test_rmse_result = rmse(gt=test, pred=test_pred)
+        print("Test Total RMSE is ", test_rmse_result.item())
+    '''
     for k, v in params.items():
         print("Key is: ", k)
         if type(v) == Tensor:
@@ -339,13 +347,7 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
     print("Number of items per distance: ", {key: len(value) for (key, value) in itemDistances.items()})
     print("Movie average distance to prototypes: ",
           np.mean(list(map(lambda keyValue: len(keyValue[1]) * keyValue[0], itemDistances.items()))))
-    if (test is not None):
-        print("Printing performance for test:")
-        test_indices = shuffle(list(zip(*test.nonzero())))[:5000]
-        test_pred = get_predictions(params, train, indices=test_indices)
-        test_rmse_result = rmse(gt=test, pred=test_pred)
-        print("Test RMSE is ", test_rmse_result.item())
-
+    '''
     if (iter % 20 == 0):
         is_best = False
         if (test_rmse_result.item() < BESTPREC):
@@ -357,7 +359,7 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
             'best_prec1': test_rmse_result,
             'optimizer': optimizer,
         }, is_best)
-
+    
     VOLATILE = False
     curtime = time.time()
     '''
@@ -383,10 +385,11 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
 
 
 def dataCallback(data, test=None):
-    return lambda params, iter, prediction, loss, optimizer: print_perf(params, iter, train=data,
+    return lambda params, iter, prediction, loss, dropped_rows, optimizer: print_perf(params, iter, train=data,
                                                                         test=test,
                                                                         predictions=prediction,
                                                                         loss=loss,
+                                                                        dropped_rows=dropped_rows,
                                                                         userDistances=userDistances,
                                                                         itemDistances=itemDistances,
                                                                         optimizer=optimizer)

@@ -12,7 +12,7 @@ from utils import keys_rating_net, getDictOfParams, clip_grads, mask_grad, keys_
 
 def train(train_data, test_data, parameters=None, optimizer=None, num_epochs=100,
           batch_size=1024, initialIteration=0, alternatingOptimization=False,
-          gradientClipping=False, weight_decay=0.0001):
+          gradientClipping=False, weight_decay=0.0001, dropped_rows=None):
     kwargs = {'num_workers': 1, 'pin_memory': True} if cuda else {}
 
     # Prepare dictionary of parameters to optimize
@@ -50,7 +50,6 @@ def train(train_data, test_data, parameters=None, optimizer=None, num_epochs=100
         data_loss = loss_function(predictions, values)
         loss = data_loss
         print("Pretraining iteration: ", pretraining)
-
         optimizer.zero_grad()  # zero the gradient buffers
         loss.backward()
         optimizer.step()  # Does the update
