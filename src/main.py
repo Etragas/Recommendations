@@ -53,7 +53,7 @@ if __name__ == "__main__":
         batch_size = int(batch_size * percent_keep)
         drop_rows = np.random.randint(0, full_data.shape[0], int(percent_keep * full_data.shape[0]))
         full_data = full_data[drop_rows, :]
-    pmf = True
+    pmf = False
     if pmf:
         numUserProto, numItemProto = full_data.shape
         decay = .1
