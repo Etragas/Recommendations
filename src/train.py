@@ -1,6 +1,7 @@
 import numpy as np
 import torch.nn as nn
 import torch.optim as optim
+import torch
 from torch import cuda
 from torch.utils.data import DataLoader
 
@@ -33,39 +34,29 @@ def train(train_data, test_data, parameters=None, optimizer=None, num_epochs=100
         maskParams = [paramSet1, paramSet2]
         print("Masked parameters are: ", maskParams)
 
-    # Get the indices of our training data ratings
-    idxData = np.array([(k[0], k[1], float(v)) for k, v in train_data.items()])
-
     # Define loss function
     loss_function = nn.MSELoss(size_average=False)
 
     # Set callback function for reporting performance
     callback = dataCallback(train_data, test_data)
-    for epoch in range(250):
+
+    for pretraining in range(250):
         protoIdx = train_data[:numUserProtos, :numItemProtos].nonzero()
-        print("proto IDX is: ", protoIdx)
-        input("asdf")
         rows = protoIdx[0].tolist()
         cols = protoIdx[1].tolist()
+        values = torch.FloatTensor(list(train_data[:numUserProtos, :numItemProtos].values())).unsqueeze(1)
         indices = list(zip(rows, cols))
-        predictions = get_predictions(parameters, data=train_data, indices=indices)
-        error = rmse(train_data, predictions)
-        print("Rmse is {}".format(error))
-        data_loss = len(rows) * error * error
+        predictions = get_predictions_tensor(parameters, data=train_data, indices=indices)
+        data_loss = loss_function(predictions, values)
         loss = data_loss
+        print("Pretraining iteration: ", pretraining)
 
         optimizer.zero_grad()  # zero the gradient buffers
         loss.backward()
         optimizer.step()  # Does the update
 
-    # Prepare dictionary of parameters to optimize
-    paramsToOptDict = getDictOfParams(parameters)
-    print("These are the parameters to optimize:", paramsToOptDict.keys())
-
-    # If optimizer is not specified, use the default Adam optimizer
-    optimizer = None
-    if optimizer is None:
-        optimizer = optim.Adam(paramsToOptDict.values(), lr=.001, weight_decay=weight_decay)
+    # Get the indices of our training data ratings
+    idxData = np.array([(k[0], k[1], float(v)) for k, v in train_data.items()])
 
     # Perform the optimization
     for epoch in range(num_epochs):
