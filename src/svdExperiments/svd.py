@@ -1,10 +1,10 @@
 import utils
 import numpy as np
-from DataLoader import *
+from dl import *
 from scipy import linalg
 from numpy import dot
 
-full_data = DataLoader().LoadData(file_path="../Data/ml-100k/u.data", data_type=DataLoader.MOVIELENS, size= (1200,2000))
+full_data = dl().LoadData(file_path="../Data/ml-100k/u.data", data_type=dl.MOVIELENS, size= (1200, 2000))
 # Reduce the matrix to toy size
 #full_data = full_data[:100,:100]
 rows = [x for x in range((full_data.shape[0])) if full_data[x,:].sum() > 0]

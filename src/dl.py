@@ -1,13 +1,47 @@
 # A collection of utility methods for loading data
 from os import listdir
 from os.path import join
+
+import gc
 import numpy as np
 from scipy.sparse import *
 import os
 import os.path
 import pickle
+import sys
 
-class DataLoader:
+
+def get_size(obj, seen=None):
+    """Recursively finds size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size
+
+def linesToDict(lines):
+    full_data = dok_matrix((490000,18000),
+                           dtype=int)
+    print("lines", lines)
+    for elem in lines:
+        print("elem", elem)
+        user, item, rating = elem.split(",")
+        full_data[int(user), int(item)] = int(rating)
+    return full_data
+
+class dl:
     MOVIELENS = "Movielens"
     NETFLIX = "Netflix"
     pklExtension = "pickled"
@@ -45,24 +79,33 @@ class DataLoader:
             fixed.write(out)
         return X
 
+
+
+
     def LoadNetflix(self,file_path,size):
         #We know how many users, we know how many movies
         #
-        row_size, col_size = size
-        row_count = [0]*row_size
-        col_count = [0]*col_size
-        row_first = [[list(),list()]]*row_size
-        col_first = [[list(),list()]]*col_size
+        pickledArray = self.loadCachedIfPossible(filePath=file_path)
+        fullDataDok = dok_matrix((size),
+                     dtype=np.byte)
+        if type(pickledArray) != type(None):
+            fullDataDok.update(pickledArray)
+            return fullDataDok
+
+        full_data = {}
         f = open(file_path,'r')
-        for elem in f.readlines():
-            user, item, rating = [x for x in elem.split(",")]
-            user,item = int(user), int(item)
-            row_count[user] += 1
-            col_count[item] += 1
-            row_first[0].append(item)
-            row_first[1].append(rating)
-            col_first[0].append(user)
-            col_first[1].append(rating)
+        iter = 0
+        for elem in f:
+            iter+=1
+            user, item, rating = [int(x) for x in elem.split(",")]
+            if iter%1000000==0:
+                gc.collect()
+            full_data[user, item] = rating
+
+        fullDataDok.update(full_data)
+        self.savePickledVersion(file_path, full_data, protocol=2)
+        full_data = None
+        return fullDataDok
 
     def loadCachedIfPossible(self,filePath):
         pickleFile = filePath+self.pklExtension
@@ -72,11 +115,11 @@ class DataLoader:
                 return pickle.load(f)
         return None
 
-    def savePickledVersion(self, filePath, array):
+    def savePickledVersion(self, filePath, array, protocol = 0):
         pickleFile = filePath+self.pklExtension
         print("Saving pickled version at {}".format(pickleFile))
         with open(pickleFile, 'wb') as f:
-            pickle.dump(array, f, protocol=0)
+            pickle.dump(array, f, protocol=protocol)
 
     def LoadMovieLens(self, file_path, size):
         encountered = {}
@@ -85,21 +128,20 @@ class DataLoader:
         if type(pickledArray) != type(None): return pickledArray
         f = open(file_path, 'r')
         # Determine length later
-        full_data = dok_matrix((size),#np.zeros((6050, 3910),
-                     dtype=int)  #                                   ##TODO: FIX THIS MAGIC
-
+        full_data_dok = dok_matrix(size,#np.zeros((6050, 3910),
+                     dtype=int)
+        full_data = dict()
         for elem in f.readlines():
-            user, item, rating = [x for x in elem.split()][:3]
+            user, item, rating = [int(float(x)) for x in elem.split()][:3]
             if item not in encountered:
                 encountered[item] = idx
                 idx += 1
 
-            user, item, rating = [int(user), int(item), float(rating)]
-            full_data[user - 1, item - 1] = rating
+            full_data[(user - 1, item - 1)] = rating
         f.close()
-        self.savePickledVersion(file_path,full_data)
-
-        return full_data
+        full_data_dok.update(full_data)
+        self.savePickledVersion(file_path,full_data_dok)
+        return full_data_dok
 
     def parseNetflixMovieData(self, file_path, user_arr, movie_arr, seen_id, counter):
         f = open(file_path, 'r')

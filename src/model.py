@@ -58,9 +58,9 @@ def get_predictions(parameters, data, indices=None):
                 dtype).view(1, 1)  # Assign an average rating
         else:
             # NNREC
-            full_predictions[key] = parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).type(dtype)
+            # full_predictions[key] = parameters[keys_rating_net].forward(torch.cat((userLatent, itemLatent), 0)).type(dtype)
             # LREC
-            # full_predictions[key] = torch.dot(userLatent, itemLatent).type(dtype)
+            full_predictions[key] = torch.dot(userLatent, itemLatent).type(dtype)
     ## torch.dot(userLatent, itemLatent)
 
     return full_predictions
@@ -121,6 +121,9 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     # If user is canonical, return their latent immediately and cache it.
     if userIdx < numUserEmbeddings:
         rowLatents = parameters[keys_row_latents]
+        if not userLatentCache[userIdx]:
+            userLatentCache[userIdx] = (None,recursionStepsRemaining)
+        hitcount[userLatentCache[userIdx][1]] += 1
         userDistances[0].add(userIdx)
         return rowLatents[userIdx, :]
 
@@ -173,6 +176,7 @@ def getUserEmbedding(parameters, data, userIdx, recursionStepsRemaining=MAX_RECU
     embeddingConversions = item_to_user_net.forward(torch.stack(itemEmbeddings, 0))
     row_latent = torch.mean(embeddingConversions, dim=0)  # Final user latent is calculated as the mean.
     userLatentCache[userIdx] = (row_latent, recursionStepsRemaining)
+    hitcount[userLatentCache[userIdx][1]] += 1
 
     return row_latent
 
@@ -198,6 +202,9 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
     # If item is canonical, return its latent immediately and cache it.
     if itemIdx < numItemEmbeddings:
         colLatents = parameters[keys_col_latents]
+        if not itemLatentCache[itemIdx]:
+            itemLatentCache[itemIdx] = (None,recursionStepsRemaining)
+        hitcount[itemLatentCache[itemIdx][1]] += 1
         itemDistances[0].add(itemIdx)
         return colLatents[:, itemIdx]
 
@@ -249,6 +256,7 @@ def getItemEmbedding(parameters, data, itemIdx, recursionStepsRemaining=MAX_RECU
     prediction = user_to_movie_net_parameters.forward(torch.stack(userEmbeddings, 0))  # Feed through NN
     targetItemEmbedding = torch.mean(prediction, dim=0)  # Final item latent is calculated as the mean
     itemLatentCache[itemIdx] = (targetItemEmbedding, recursionStepsRemaining)
+    hitcount[itemLatentCache[itemIdx][1]] += 1
 
     return targetItemEmbedding
 
@@ -327,6 +335,7 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
             f.write(str(test_hot_rmse_result.item()))
         else:
           print("Test Hot RMSE is N/A - All dropped users were selected for Test")
+          
     for k, v in params.items():
         print("Key is: ", k)
         if type(v) == Tensor:
