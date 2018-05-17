@@ -1,17 +1,18 @@
 import random
+from itertools import chain
+
+import matplotlib.pyplot as plt
+import numpy as np
 import scipy
 import torch
-import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
-
 from scipy.sparse import dok_matrix
 from sklearn.utils import shuffle
-from torch.autograd import Variable
-from torch import Tensor
-from itertools import chain
 from sortedcontainers import SortedList
+from torch import Tensor
+from torch.autograd import Variable
+
 from NonZeroHero import non_zero_hero
 
 movie_latent_size = 100
@@ -126,6 +127,7 @@ def build_params(num_user_latents=20, num_movie_latents=20):
     parameters[keys_rating_net] = RatingGeneratorNet().type(dtype)
     return parameters
 
+
 def getDictOfParams(parameters: dict):
     paramsToOptDict = {}
     for k, v in parameters.items():
@@ -136,10 +138,12 @@ def getDictOfParams(parameters: dict):
                 paramsToOptDict[(k, subkey)] = param
     return paramsToOptDict
 
+
 def initParams(net):
     for param in net.parameters():
         if (param.data.dim() > 1):
             param.data = torch.nn.init.xavier_uniform_(param.data)
+
 
 def get_canonical_indices(data, latent_sizes):
     indicators = data > 0
@@ -155,6 +159,7 @@ def get_canonical_indices(data, latent_sizes):
             movie_indices.append(val)
     return np.array(user_indices), np.array(movie_indices)
 
+
 def shuffleNonPrototypeEntries(entries: SortedList, prototypeThreshold):
     breakIdx = 0
     for entry in entries:
@@ -164,6 +169,7 @@ def shuffleNonPrototypeEntries(entries: SortedList, prototypeThreshold):
             break
     return chain(random.sample(range(0, breakIdx), breakIdx),
                  (random.randint(breakIdx, len(entries) - 1) for x in range(breakIdx, len(entries))))
+
 
 def removeZeroRows(M):
     M = scipy.sparse.csr_matrix(M)
@@ -181,19 +187,22 @@ def splitDOK(data, trainPercentage):
         del data[idx]
     return data, testData
 
-def dropDataFromRows(data, rows):
+
+def dropDataFromRows(data, rows, num_ratings_keep=3):
     for row in rows:
-        columns = data[row, :].nonzero()[1]
-        randomColumns = shuffle(columns)[:3]
-        columns = np.array(list(set(columns) - set(randomColumns)))
-        data[row, columns] = 0
+        zero_columns = data[row, :].nonzero()[1]
+        randomColumns = shuffle(zero_columns)[:num_ratings_keep]
+        zero_columns = np.array(list(set(zero_columns) - set(randomColumns)))
+        data[row, zero_columns] = 0
+
 
 def get_top_n(data, n):
     indices = np.ravel((data.astype(int)).flatten().argsort())[-n:]
     return indices
 
+
 class RowIter():
-    def __init__(self, itemIdx, data : non_zero_hero, numEmbeddings):
+    def __init__(self, itemIdx, data: non_zero_hero, numEmbeddings):
         self.itemIdx = itemIdx
         self.entries = data.get_non_zero(col=itemIdx).rows
         self.idx = shuffleNonPrototypeEntries(entries=self.entries, prototypeThreshold=numEmbeddings)
@@ -202,8 +211,9 @@ class RowIter():
         for i in self.idx:
             yield self.entries[i]
 
+
 class ColIter():
-    def __init__(self, rowIdx, data : non_zero_hero, numEmbeddings):
+    def __init__(self, rowIdx, data: non_zero_hero, numEmbeddings):
         self.rowIdx = rowIdx
         self.entries = data.get_non_zero(row=rowIdx).cols
         self.idx = shuffleNonPrototypeEntries(entries=self.entries, prototypeThreshold=numEmbeddings)
@@ -212,11 +222,13 @@ class ColIter():
         for j in self.idx:
             yield self.entries[j]
 
+
 def clip_grads(params, clip=5):
     for k, v in params.items():
         if (v.grad is None):
             continue
         v.grad.data.clamp_(-clip, clip)
+
 
 def mask_grad(params, keysToMask):
     for keys, value in params.items():
@@ -227,6 +239,7 @@ def mask_grad(params, keysToMask):
             value.grad.data.zero_()
     return
 
+
 # TODO: Following functions are currently unused, please review
 def getXinCanonical(data, len_can):
     num_here = 0
@@ -234,6 +247,7 @@ def getXinCanonical(data, len_can):
         if (data[x, :len_can] > 0).sum() > 0:
             num_here += 1
     return num_here
+
 
 def getNeighbours(full_data, percentiles=[.01, .01, .02, .03, .04, .05, .10, .20]):
     user_results = []
@@ -249,6 +263,7 @@ def getNeighbours(full_data, percentiles=[.01, .01, .02, .03, .04, .05, .10, .20
     plt.plot(percentiles, user_results)
     plt.show()
     return user_results
+
 
 # Credit to David Duvenaud for sleek init code
 def init_random_params(scale, layer_sizes, rs=np.random.RandomState(0)):

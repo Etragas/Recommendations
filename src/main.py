@@ -105,7 +105,7 @@ if __name__ == "__main__":
         print("Pre drop matrix sum", np.sum(full_data))
         num_drop_rows = 150
         drop_rows = np.random.randint(0, train_data.shape[0], num_drop_rows)
-        dropDataFromRows(data=train_data, rows=drop_rows)
+        dropDataFromRows(data=train_data, rows=drop_rows, num_ratings_keep=3)
         print("Post drop matrix sum", np.sum(full_data))
     # plt.imshow(full_data.todense(), cmap='hot', interpolation='nearest')
     # plt.show()
