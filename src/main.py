@@ -49,10 +49,10 @@ if __name__ == "__main__":
     decay = 0.0000001
     scalability = False
     if scalability:
-        percent_keep = .1
+        percent_keep = 1
         batch_size = int(batch_size * percent_keep)
-        drop_rows = np.random.randint(0, full_data.shape[0], int(percent_keep * full_data.shape[0]))
-        full_data = full_data[drop_rows, :]
+        keep_rows = np.random.randint(0, full_data.shape[0], int(percent_keep * full_data.shape[0]))
+        full_data = full_data[keep_rows, :]
     pmf = False
     if pmf:
         numUserProto, numItemProto = full_data.shape
@@ -74,6 +74,24 @@ if __name__ == "__main__":
     full_data = full_data.todok()
     print("Mean of prototype block post sorting {}".format(np.mean(full_data[:numUserProto, :numItemProto])))
 
+    density_drop = False
+    if density_drop:
+        percent_keep = .2
+        print("Densities pre drop")
+        print("Region 1 {}".format(np.mean(np.sum(full_data[numUserProto:, numItemProto:] > 0, axis=1))))
+        print("Region 2 {}".format(np.mean(np.sum(full_data[numUserProto:, :numItemProto] > 0, axis=1))))
+        print("Region 3 {}".format(np.mean(np.sum(full_data[:numUserProto, numItemProto:] > 0, axis=0))))
+        print("Region 4 {}".format(np.mean(np.sum(full_data[:numUserProto, :numItemProto] > 0, axis=1))))
+        full_data[:numUserProto, numItemProto:], _ = splitDOK(full_data[:numUserProto, numItemProto:],
+                                                              trainPercentage=percent_keep)
+        full_data[numUserProto:, :numItemProto], _ = splitDOK(full_data[numUserProto:, :numItemProto],
+                                                              trainPercentage=percent_keep)
+        print("Desnities post drop")
+        print("Region 1 {}".format(np.mean(np.sum(full_data[numUserProto:, numItemProto:] > 0, axis=1))))
+        print("Region 2 {}".format(np.mean(np.sum(full_data[numUserProto:, :numItemProto] > 0, axis=1))))
+        print("Region 3 {}".format(np.mean(np.sum(full_data[:numUserProto, numItemProto:] > 0, axis=0))))
+        print("Region 4 {}".format(np.mean(np.sum(full_data[:numUserProto, :numItemProto] > 0, axis=1))))
+
     # Split full dataset into train and test sets.
     train_data, test_data = splitDOK(full_data, trainPercentage=.8)
     train_data = non_zero_hero(train_data)
@@ -86,8 +104,8 @@ if __name__ == "__main__":
     if cold_start:
         print("Pre drop matrix sum", np.sum(full_data))
         num_drop_rows = 150
-        drop_rows = np.random.randint(0, train_data.shape[0], num_drop_rows)
-        dropDataFromRows(data=train_data, rows=drop_rows)
+        keep_rows = np.random.randint(0, train_data.shape[0], num_drop_rows)
+        dropDataFromRows(data=train_data, rows=keep_rows)
         print("Post drop matrix sum", np.sum(full_data))
     # plt.imshow(full_data.todense(), cmap='hot', interpolation='nearest')
     # plt.show()
@@ -109,7 +127,8 @@ if __name__ == "__main__":
 
     # Train the parameters.
     parameters = train(train_data, test_data, parameters=parameters, optimizer=optimizer, dropped_rows=drop_rows,
-                       initialIteration=epoch, num_epochs=num_epochs, weight_decay=decay, batch_size=batch_size)
+                       initialIteration=epoch, num_epochs=num_epochs, weight_decay=decay, batch_size=batch_size,
+                       pretrain=not pmf)
 
     # Store the trained parameters for future use.
     filename = "final_trained_parameters.pkl"

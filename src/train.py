@@ -7,12 +7,12 @@ from torch.utils.data import DataLoader
 
 from losses import rmse
 from model import get_predictions_tensor, dataCallback, get_predictions
-from utils import keys_rating_net, getDictOfParams, clip_grads, mask_grad, keys_col_latents, keys_row_latents
+from utils import keys_rating_net, getDictOfParams, clip_grads, keys_col_latents, keys_row_latents
 
 
 def train(train_data, test_data, parameters=None, optimizer=None, num_epochs=100,
           batch_size=1024, initialIteration=0, alternatingOptimization=False,
-          gradientClipping=False, weight_decay=0.0001, dropped_rows=None):
+          gradientClipping=False, weight_decay=0.0001, dropped_rows=None, pretrain = False):
     kwargs = {'num_workers': 1, 'pin_memory': True} if cuda else {}
 
     # Prepare dictionary of parameters to optimize
@@ -49,10 +49,11 @@ def train(train_data, test_data, parameters=None, optimizer=None, num_epochs=100
         predictions = get_predictions_tensor(parameters, data=train_data, indices=pretrain_indices)
         data_loss = loss_function(predictions, pretrain_values)
         loss = data_loss
-        print("Pretraining iteration: ", pretraining)
         optimizer.zero_grad()  # zero the gradient buffers
         loss.backward()
         optimizer.step()  # Does the update
+        print("RMSE {}".format(torch.sqrt(data_loss/len(pretrain_indices))))
+        print("Pretraining iteration: ", pretraining)
 
     # Get the indices of our training data ratings
     idxData = np.array([(k[0], k[1], float(v)) for k, v in train_data.items()])
