@@ -310,7 +310,7 @@ def print_perf(params, iter=0, train=None, test=None, predictions=None, loss=Non
     # print("Loss is ", loss_result.item())
     if (test is not None):
         print("Printing performance for test:")
-        test_indices = shuffle(list(zip(*test.nonzero())))#[:5000]
+        test_indices = shuffle(list(zip(*test.nonzero())))[:5000]
         #split into hot and cold indices
         test_pred = get_predictions(params, train, indices=test_indices)
         test_rmse_result = rmse(gt=test, pred=test_pred)
