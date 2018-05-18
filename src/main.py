@@ -1,12 +1,16 @@
 import argparse
+import sklearn.utils
+import math
 
 import torch
+import torch.nn as nn
 
 from NonZeroHero import non_zero_hero
 from dl import *
 from train import train
 from utils import get_canonical_indices, splitDOK, removeZeroRows, build_params, dropDataFromRows
-
+from losses import rmse
+from model import get_predictions_tensor, dataCallback, get_predictions
 
 def parseArgs():
     # Handle loading in previously trained weights.
@@ -23,7 +27,7 @@ if __name__ == "__main__":
     args = parseArgs()
     numUserProto = 50
     numItemProto = 50
-    num_epochs = 1000
+    num_epochs = 10
     batch_size = 1000
     optimizer = None
     epoch = 0
@@ -45,6 +49,11 @@ if __name__ == "__main__":
 
     # Clean empty rows from the dataset
     full_data = removeZeroRows(full_data)
+    randomRows = sklearn.utils.shuffle(range(full_data.shape[0]))
+    randomCols = sklearn.utils.shuffle(range(full_data.shape[1]))
+    full_data = full_data[randomRows, :]
+    full_data = full_data[:, randomCols]
+
     # Scalability experiments
     decay = 0.0000001
     scalability = False
@@ -99,6 +108,16 @@ if __name__ == "__main__":
     train_data.freeze_dataset()
     test_data.freeze_dataset()
 
+    num_rows = train_data.shape[0]
+    num_cols = train_data.shape[1]
+    train_data_online = non_zero_hero(train_data[:int(num_rows/5), :int(num_cols/5)])
+    test_data_online = non_zero_hero(test_data[:int(num_rows/5), :int(num_cols/5)])
+    train_data_online.freeze_dataset()
+    test_data_online.freeze_dataset()
+    #print("train data online: ", train_data_online, train_data_online.shape)
+    #print("test data online: ", test_data_online, test_data_online.shape)
+    #input()
+
     cold_start = False
     drop_rows = None
     if cold_start:
@@ -126,9 +145,26 @@ if __name__ == "__main__":
         parameters = build_params(numUserProto, numItemProto)
 
     # Train the parameters.
-    parameters = train(train_data, test_data, parameters=parameters, optimizer=optimizer, dropped_rows=drop_rows,
+    parameters = train(train_data_online, test_data_online, parameters=parameters, optimizer=optimizer, dropped_rows=drop_rows,
                        initialIteration=epoch, num_epochs=num_epochs, weight_decay=decay, batch_size=batch_size,
                        pretrain=not pmf)
+    
+    loss_function = nn.MSELoss(size_average=False)
+    for i in range(1,6):
+      num_online_rows = int(num_rows/5 * i)
+      num_online_cols = int(num_cols/5 * i)
+      test_data_online = test_data[:num_online_rows, :num_online_cols]
+      idxData = np.array([(k[0], k[1], float(v)) for k, v in test_data_online.items()])
+      online_rows = idxData[:, 0].astype(int)
+      online_cols = idxData[:, 1].astype(int)
+      online_values = torch.FloatTensor(idxData[:, 2]).unsqueeze(1)
+      online_indices = list(zip(online_rows, online_cols))
+
+      train_data_online = non_zero_hero(train_data[:num_online_rows, :num_online_cols])
+      train_data_online.freeze_dataset()
+      pred = get_predictions_tensor(parameters, data=train_data_online, indices=online_indices)
+      data_loss = loss_function(pred, online_values)
+      print("Data loss is: ", math.sqrt(data_loss/len(pred)), " for percent of data: ", len(test_data_online) / len(test_data))
 
     # Store the trained parameters for future use.
     filename = "final_trained_parameters.pkl"
